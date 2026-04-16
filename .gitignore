@@ -73,6 +73,8 @@ logs/
 # Database
 *.db
 *.sqlite3
+stock_cursor.sql
+
 
 # Jupyter Notebook
 .ipynb_checkpoints

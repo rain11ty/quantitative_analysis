@@ -1,51 +1,118 @@
 from datetime import datetime, timedelta
+import re
 from typing import List, Dict, Optional
-from sqlalchemy import and_, or_, desc, asc
+
+from sqlalchemy import and_, asc, desc, or_
+
 from app.extensions import db
 from app.models import (
-    StockBasic, StockDailyHistory, StockDailyBasic, 
+    StockBasic, StockDailyHistory, StockDailyBasic,
     StockFactor, StockMaData, StockMoneyflow, StockCyqPerf
 )
-from app.utils.cache import cached
 from loguru import logger
 import pandas as pd
 import numpy as np
+
 
 class StockService:
     """股票数据服务类"""
     
     @staticmethod
-    @cached(expire=1800, key_prefix='stock_basic')
-    def get_stock_list(industry=None, area=None, page=1, page_size=20):
-        """获取股票列表"""
+    def get_stock_list(industry=None, area=None, search=None, page=1, page_size=20):
+        """获取股票列表，支持代码、简称与拼音检索。"""
         try:
             query = StockBasic.query
-            
-            # 添加筛选条件
+
             if industry:
                 query = query.filter(StockBasic.industry == industry)
             if area:
                 query = query.filter(StockBasic.area == area)
-            
-            # 分页
-            offset = (page - 1) * page_size
-            stocks = query.offset(offset).limit(page_size).all()
+
+            offset = max(page - 1, 0) * page_size
+
+            if search:
+                keyword = (search or '').strip()
+                if StockService._needs_pinyin_match(keyword):
+                    stocks = query.order_by(asc(StockBasic.symbol)).all()
+                    matched_stocks = [stock for stock in stocks if StockService._matches_stock_search(stock, keyword)]
+                    total = len(matched_stocks)
+                    page_stocks = matched_stocks[offset: offset + page_size]
+                    return {
+                        'stocks': [stock.to_dict() for stock in page_stocks],
+                        'total': total,
+                        'page': page,
+                        'page_size': page_size,
+                        'total_pages': (total + page_size - 1) // page_size if total else 0,
+                    }
+
+                query = query.filter(
+                    or_(
+                        StockBasic.ts_code.ilike(f'%{keyword}%'),
+                        StockBasic.symbol.ilike(f'%{keyword}%'),
+                        StockBasic.name.ilike(f'%{keyword}%'),
+                    )
+                )
+
             total = query.count()
-            
+            stocks = query.order_by(asc(StockBasic.symbol)).offset(offset).limit(page_size).all()
+
             return {
                 'stocks': [stock.to_dict() for stock in stocks],
                 'total': total,
                 'page': page,
                 'page_size': page_size,
-                'total_pages': (total + page_size - 1) // page_size
+                'total_pages': (total + page_size - 1) // page_size if total else 0,
             }
         except Exception as e:
             logger.error(f"获取股票列表失败: {e}")
             return {'stocks': [], 'total': 0, 'page': page, 'page_size': page_size, 'total_pages': 0}
-    
+
     @staticmethod
-    @cached(expire=600, key_prefix='stock_info')
+    def _normalize_search_keyword(keyword: str) -> str:
+        return re.sub(r'[^0-9a-zA-Z\u4e00-\u9fa5]+', '', (keyword or '').strip()).lower()
+
+    @staticmethod
+    def _needs_pinyin_match(keyword: str) -> bool:
+        normalized = StockService._normalize_search_keyword(keyword)
+        return bool(normalized) and any('a' <= char <= 'z' for char in normalized)
+
+    @staticmethod
+    def _get_name_pinyin_candidates(name: str):
+        try:
+            from pypinyin import lazy_pinyin
+        except ImportError:
+            return []
+
+        syllables = lazy_pinyin(name or '', errors='ignore')
+        if not syllables:
+            return []
+
+        full_spell = ''.join(syllables)
+        initials = ''.join(item[0] for item in syllables if item)
+        return [full_spell, initials]
+
+    @staticmethod
+    def _matches_stock_search(stock: StockBasic, keyword: str) -> bool:
+        normalized_keyword = StockService._normalize_search_keyword(keyword)
+        if not normalized_keyword:
+            return True
+
+        candidates = [
+            stock.ts_code,
+            stock.symbol,
+            stock.name,
+            *StockService._get_name_pinyin_candidates(stock.name),
+        ]
+        normalized_candidates = [
+            StockService._normalize_search_keyword(candidate)
+            for candidate in candidates
+            if candidate
+        ]
+        return any(normalized_keyword in candidate for candidate in normalized_candidates)
+
+    @staticmethod
     def get_stock_info(ts_code: str):
+
         """获取股票基本信息"""
         try:
             stock = StockBasic.query.filter_by(ts_code=ts_code).first()
@@ -55,7 +122,6 @@ class StockService:
             return None
     
     @staticmethod
-    @cached(expire=300, key_prefix='daily_history')
     def get_daily_history(ts_code: str, start_date: str = None, end_date: str = None, limit: int = 60):
         """获取股票日线历史数据"""
         try:
@@ -75,7 +141,6 @@ class StockService:
             return []
     
     @staticmethod
-    @cached(expire=300, key_prefix='daily_basic')
     def get_daily_basic(ts_code: str, trade_date: str = None):
         """获取股票日线基本数据"""
         try:
@@ -94,7 +159,6 @@ class StockService:
             return None
     
     @staticmethod
-    @cached(expire=300, key_prefix='stock_factor')
     def get_stock_factors(ts_code: str, start_date: str = None, end_date: str = None, limit: int = 60):
         """获取股票技术因子数据"""
         try:
@@ -132,7 +196,6 @@ class StockService:
             return []
     
     @staticmethod
-    @cached(expire=600, key_prefix='ma_data')
     def get_ma_data(ts_code: str):
         """获取股票均线数据"""
         try:
@@ -143,7 +206,6 @@ class StockService:
             return None
     
     @staticmethod
-    @cached(expire=300, key_prefix='moneyflow')
     def get_moneyflow(ts_code: str, start_date: str = None, end_date: str = None, limit: int = 30):
         """获取股票资金流向数据"""
         try:
@@ -161,7 +223,6 @@ class StockService:
             return []
     
     @staticmethod
-    @cached(expire=300, key_prefix='cyq_perf')
     def get_cyq_perf(ts_code: str, start_date: str = None, end_date: str = None, limit: int = 30):
         """获取股票筹码分布数据"""
         try:
@@ -211,7 +272,6 @@ class StockService:
             return None
     
     @staticmethod
-    @cached(expire=1800, key_prefix='industry_list')
     def get_industry_list():
         """获取行业列表"""
         try:
@@ -224,7 +284,6 @@ class StockService:
             return []
     
     @staticmethod
-    @cached(expire=1800, key_prefix='area_list')
     def get_area_list():
         """获取地域列表"""
         try:
@@ -273,6 +332,9 @@ class StockService:
                     query = query.filter(StockBusiness.ts_code.like('%.SZ'))
                 elif market == 'SH':
                     query = query.filter(StockBusiness.ts_code.like('%.SH'))
+                elif market == 'BJ':
+                    query = query.filter(StockBusiness.ts_code.like('%.BJ'))
+
             
             # 估值指标筛选
             if criteria.get('pe_min'):

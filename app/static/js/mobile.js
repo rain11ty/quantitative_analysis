@@ -111,7 +111,8 @@ const MobileOptimizer = {
     addScrollIndicator: function(container) {
         const indicator = document.createElement('div');
         indicator.className = 'scroll-indicator';
-        indicator.innerHTML = '<i class="fas fa-arrows-alt-h"></i> 左右滑动查看更多';
+        indicator.textContent = '左右滑动查看更多';
+
         indicator.style.cssText = `
             position: absolute;
             top: 50%;

@@ -1,465 +1,382 @@
 {% extends "base.html" %}
 
-{% block title %}首页 - 股票分析系统{% endblock %}
+{% block title %}首页 - 股票量化分析系统{% endblock %}
 
 {% block extra_css %}
-<style>
-    /* 移动端首页优化 */
-    @media (max-width: 768px) {
-        /* 欢迎横幅移动端优化 */
-        .stock-info .card-body {
-            padding: 2rem 1rem;
-        }
-        
-        .stock-info .display-4 {
-            font-size: 2rem;
-        }
-        
-        .stock-info .lead {
-            font-size: 1rem;
-        }
-        
-        .stock-info p {
-            font-size: 0.9rem;
-        }
-        
-        .stock-info .btn {
-            margin-bottom: 0.5rem;
-            width: 100%;
-        }
-        
-        /* 功能卡片移动端优化 */
-        .metric-card .fa-3x {
-            font-size: 2rem;
-        }
-        
-        .metric-card .card-title {
-            font-size: 1rem;
-            margin-bottom: 0.5rem;
-        }
-        
-        .metric-card .card-text {
-            font-size: 0.85rem;
-            margin-bottom: 1rem;
-        }
-        
-        .metric-card .btn {
-            font-size: 0.85rem;
-            padding: 0.5rem 1rem;
-        }
-        
-        /* 数据概览卡片优化 */
-        .data-overview-card h3 {
-            font-size: 1.5rem;
-        }
-        
-        .data-overview-card .card-text {
-            font-size: 0.9rem;
-        }
-        
-        /* 系统特性卡片优化 */
-        .feature-card .card-title {
-            font-size: 1rem;
-        }
-        
-        .feature-card .card-text {
-            font-size: 0.85rem;
-        }
-        
-        /* 标题优化 */
-        h2 {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-        }
-        
-        /* 间距优化 */
-        .mb-4 {
-            margin-bottom: 1.5rem !important;
-        }
-        
-        .mb-5 {
-            margin-bottom: 2rem !important;
-        }
-    }
-    
-    @media (max-width: 576px) {
-        .stock-info .card-body {
-            padding: 1.5rem 0.75rem;
-        }
-        
-        .stock-info .display-4 {
-            font-size: 1.75rem;
-        }
-        
-        .metric-card .fa-3x {
-            font-size: 1.75rem;
-        }
-        
-        .metric-card .card-body {
-            padding: 1rem 0.75rem;
-        }
-        
-        .data-overview-card h3 {
-            font-size: 1.25rem;
-        }
-        
-        h2 {
-            font-size: 1.25rem;
-        }
-    }
-    
-    /* 触摸优化 */
-    @media (hover: none) and (pointer: coarse) {
-        .metric-card {
-            transition: none;
-        }
-        
-        .metric-card:active {
-            transform: scale(0.98);
-        }
-        
-        .btn:active {
-            transform: scale(0.95);
-        }
-    }
+<style> /* Hero Banner */
+ .hero-banner {
+ position: relative;
+ background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+ border-radius: 24px;
+ padding: 3.5rem 3rem;
+ overflow: hidden;
+ margin-bottom: 2.5rem;
+ box-shadow: 0 20px 40px rgba(15, 23, 42, 0.15);
+ }
+ .hero-glow {
+ position: absolute;
+ top: -50%;
+ left: -10%;
+ width: 600px;
+ height: 600px;
+ background: radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, rgba(59, 130, 246, 0) 70%);
+ border-radius: 50%;
+ pointer-events: none;
+ }
+ .hero-content {
+ position: relative;
+ z-index: 1;
+ }
+ .hero-title {
+ color: #ffffff;
+ font-weight: 700;
+ font-size: 2.5rem;
+ margin-bottom: 1rem;
+ letter-spacing: -0.02em;
+ }
+ .hero-subtitle {
+ color: rgba(255, 255, 255, 0.8);
+ font-size: 1.1rem;
+ max-width: 600px;
+ margin-bottom: 2rem;
+ line-height: 1.6;
+ }
+ .risk-disclaimer {
+ display: inline-flex;
+ align-items: center;
+ gap: 0.75rem;
+ margin-top: 1.25rem;
+ padding: 0.9rem 1.1rem;
+ border-radius: 14px;
+ background: rgba(248, 250, 252, 0.12);
+ border: 1px solid rgba(255, 255, 255, 0.18);
+ color: rgba(255, 255, 255, 0.92);
+ font-size: 0.95rem;
+ line-height: 1.6;
+ backdrop-filter: blur(10px);
+ }
+ .risk-disclaimer strong {
+ color: #fef3c7;
+ font-weight: 700;
+ }
+ /* Market Breadth & Stats */
+ .market-stats-container {
+ display: flex;
+ flex-wrap: wrap;
+ gap: 1.5rem;
+ margin-bottom: 2.5rem;
+ }
+ .stat-card {
+ flex: 1;
+ min-width: 250px;
+ background: var(--primary-bg);
+ border: 1px solid var(--card-border);
+ border-radius: 20px;
+ padding: 1.5rem;
+ display: flex;
+ align-items: center;
+ gap: 1.25rem;
+ box-shadow: 0 4px 15px rgba(15, 23, 42, 0.03);
+ transition: var(--transition-smooth);
+ }
+ .stat-card:hover {
+ transform: translateY(-2px);
+ box-shadow: 0 8px 25px rgba(15, 23, 42, 0.06);
+ }
+
+ .stat-info h3 {
+ font-size: 0.9rem;
+ color: var(--text-muted);
+ margin-bottom: 0.25rem;
+ font-weight: 500;
+ }
+ .stat-info .value {
+ font-size: 1.75rem;
+ font-weight: 700;
+ color: var(--text-main);
+ line-height: 1;
+ }
+ /* Index Charts */
+ .chart-box {
+ height: 320px;
+ width: 100%;
+ margin-top: 1rem;
+ }
+ /* Status Grid */
+ .status-grid {
+ display: grid;
+ grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+ gap: 1.5rem;
+ margin-bottom: 2rem;
+ }
+ .status-item {
+ display: flex;
+ justify-content: space-between;
+ align-items: center;
+ padding: 1rem 0;
+ border-bottom: 1px solid var(--card-border);
+ }
+ .status-item:last-child {
+ border-bottom: none;
+ }
+ .status-label {
+ color: var(--text-muted);
+ display: flex;
+ align-items: center;
+ gap: 0.75rem;
+ font-weight: 500;
+ }
+ .status-value {
+ font-weight: 600;
+ color: var(--text-main);
+ }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container">
-    <!-- 欢迎横幅 -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card stock-info-banner">
-                <div class="card-body text-center py-5">
-                    <h1 class="display-4 mb-3">📈 股票分析系统</h1>
-                    <p class="lead">基于Python Flask开发的专业股票分析平台</p>
-                    <p class="mb-4">提供股票基本面分析、技术面分析、资金流向分析、筹码分布分析等功能</p>
-                    <div class="d-grid gap-2 d-md-block">
-                        <a href="{{ url_for('main.stocks') }}" class="btn btn-light btn-lg me-md-3 btn-financial">开始分析</a>
-                        <a href="{{ url_for('main.screen') }}" class="btn btn-outline-light btn-lg btn-financial">选股筛选</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 功能模块 -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <h2 class="mb-4">🚀 核心功能</h2>
-        </div>
-    </div>
-
-    <div class="row g-3 g-md-4 mb-5">
-        <!-- 股票列表 -->
-        <div class="col-6 col-md-6 col-lg-3">
-            <div class="card metric-card-enhanced h-100 hover-lift">
-                <div class="card-body text-center">
-                    <div class="metric-icon">
-                        <i class="fas fa-list-ul text-primary"></i>
-                    </div>
-                    <h5 class="card-title">股票列表</h5>
-                    <p class="card-text">浏览所有股票信息，支持按行业、地域筛选</p>
-                    <a href="{{ url_for('main.stocks') }}" class="btn btn-primary-financial">查看股票</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- 技术分析 -->
-        <div class="col-6 col-md-6 col-lg-3">
-            <div class="card metric-card-enhanced h-100 hover-lift">
-                <div class="card-body text-center">
-                    <div class="metric-icon">
-                        <i class="fas fa-chart-line text-success"></i>
-                    </div>
-                    <h5 class="card-title">技术分析</h5>
-                    <p class="card-text">K线图、MACD、KDJ、RSI等技术指标分析</p>
-                    <a href="{{ url_for('main.analysis') }}" class="btn btn-success-financial">技术分析</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- 选股筛选 -->
-        <div class="col-6 col-md-6 col-lg-3">
-            <div class="card metric-card-enhanced h-100 hover-lift">
-                <div class="card-body text-center">
-                    <div class="metric-icon">
-                        <i class="fas fa-filter text-warning"></i>
-                    </div>
-                    <h5 class="card-title">选股筛选</h5>
-                    <p class="card-text">多维度条件筛选，发现投资机会</p>
-                    <a href="{{ url_for('main.screen') }}" class="btn btn-warning-financial">开始筛选</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- 策略回测 -->
-        <div class="col-6 col-md-6 col-lg-3">
-            <div class="card metric-card-enhanced h-100 hover-lift">
-                <div class="card-body text-center">
-                    <div class="metric-icon">
-                        <i class="fas fa-history text-info"></i>
-                    </div>
-                    <h5 class="card-title">策略回测</h5>
-                    <p class="card-text">验证投资策略的历史表现</p>
-                    <a href="{{ url_for('main.backtest') }}" class="btn btn-primary-financial">策略回测</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 多因子模型系统 -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <h2 class="mb-4">🧠 多因子模型系统</h2>
-        </div>
-    </div>
-
-    <div class="row g-3 g-md-4 mb-5">
-        <!-- 因子管理 -->
-        <div class="col-6 col-md-4 col-lg-2">
-            <div class="card metric-card-enhanced h-100 hover-lift">
-                <div class="card-body text-center">
-                    <div class="metric-icon">
-                        <i class="fas fa-cogs text-primary"></i>
-                    </div>
-                    <h5 class="card-title">因子管理</h5>
-                    <p class="card-text">管理技术面、基本面、资金面等各类因子</p>
-                    <a href="/ml-factor" class="btn btn-primary-financial">因子管理</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- 模型管理 -->
-        <div class="col-6 col-md-4 col-lg-2">
-            <div class="card metric-card-enhanced h-100 hover-lift">
-                <div class="card-body text-center">
-                    <div class="metric-icon">
-                        <i class="fas fa-brain text-success"></i>
-                    </div>
-                    <h5 class="card-title">模型管理</h5>
-                    <p class="card-text">创建和训练机器学习选股模型</p>
-                    <a href="/ml-factor/models" class="btn btn-success-financial">模型管理</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- 智能查询 -->
-        <div class="col-6 col-md-4 col-lg-2">
-            <div class="card metric-card-enhanced h-100 hover-lift">
-                <div class="card-body text-center">
-                    <div class="metric-icon">
-                        <i class="fas fa-robot text-info"></i>
-                    </div>
-                    <h5 class="card-title">智能查询</h5>
-                    <p class="card-text">用自然语言查询股票数据，AI助手</p>
-                    <a href="/api/text2sql/" class="btn btn-primary-financial">智能查询</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- 股票评分 -->
-        <div class="col-6 col-md-4 col-lg-2">
-            <div class="card metric-card-enhanced h-100 hover-lift">
-                <div class="card-body text-center">
-                    <div class="metric-icon">
-                        <i class="fas fa-star text-warning"></i>
-                    </div>
-                    <h5 class="card-title">股票评分</h5>
-                    <p class="card-text">基于因子和模型对股票进行评分排名</p>
-                    <a href="/ml-factor/scoring" class="btn btn-warning-financial">股票评分</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- 投资组合 -->
-        <div class="col-6 col-md-4 col-lg-2">
-            <div class="card metric-card-enhanced h-100 hover-lift">
-                <div class="card-body text-center">
-                    <div class="metric-icon">
-                        <i class="fas fa-briefcase text-info"></i>
-                    </div>
-                    <h5 class="card-title">投资组合</h5>
-                    <p class="card-text">智能构建和优化投资组合</p>
-                    <a href="/ml-factor/portfolio" class="btn btn-primary-financial">投资组合</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- 分析报告 -->
-        <div class="col-6 col-md-4 col-lg-2">
-            <div class="card metric-card-enhanced h-100 hover-lift">
-                <div class="card-body text-center">
-                    <div class="metric-icon">
-                        <i class="fas fa-chart-bar text-secondary"></i>
-                    </div>
-                    <h5 class="card-title">分析报告</h5>
-                    <p class="card-text">模型性能分析和因子有效性评估</p>
-                    <a href="/ml-factor/analysis" class="btn btn-primary-financial">分析报告</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 实时交易分析系统 -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <h2 class="mb-4">⚡ 实时交易分析系统</h2>
-        </div>
-    </div>
-
-    <div class="row g-3 g-md-4 mb-5">
-        <!-- 实时交易分析 -->
-        <div class="col-12 col-md-6 col-lg-4">
-            <div class="card metric-card-enhanced h-100 hover-lift">
-                <div class="card-body text-center">
-                    <div class="metric-icon">
-                        <i class="fas fa-chart-line text-danger"></i>
-                    </div>
-                    <h5 class="card-title">实时交易分析</h5>
-                    <p class="card-text">分钟级数据管理、技术指标分析、交易信号生成和风险监控</p>
-                    <a href="/realtime-analysis" class="btn btn-danger-financial">进入分析</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- 数据管理 -->
-        <div class="col-12 col-md-6 col-lg-4">
-            <div class="card metric-card-enhanced h-100 hover-lift">
-                <div class="card-body text-center">
-                    <div class="metric-icon">
-                        <i class="fas fa-database text-primary"></i>
-                    </div>
-                    <h5 class="card-title">实时数据管理</h5>
-                    <p class="card-text">分钟级K线数据同步、聚合和质量监控</p>
-                    <a href="/realtime-analysis" class="btn btn-primary-financial">数据管理</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- 技术指标 -->
-        <div class="col-12 col-md-6 col-lg-4">
-            <div class="card metric-card-enhanced h-100 hover-lift">
-                <div class="card-body text-center">
-                    <div class="metric-icon">
-                        <i class="fas fa-chart-bar text-success"></i>
-                    </div>
-                    <h5 class="card-title">实时技术指标</h5>
-                    <p class="card-text">多周期技术指标计算和预警系统</p>
-                    <a href="/realtime-analysis/indicators" class="btn btn-success-financial">技术指标</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 数据概览 -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <h2 class="mb-4">📊 数据概览</h2>
-        </div>
-    </div>
-
-    <div class="row g-3 g-md-4 mb-5">
-        <div class="col-6 col-md-3">
-            <div class="card card-financial text-center">
-                <div class="card-body">
-                    <h3 class="text-primary number-display" id="total-stocks">--</h3>
-                    <p class="card-text">股票总数</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card card-financial text-center">
-                <div class="card-body">
-                    <h3 class="text-success number-display" id="total-industries">--</h3>
-                    <p class="card-text">行业数量</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card card-financial text-center">
-                <div class="card-body">
-                    <h3 class="text-warning number-display" id="total-areas">--</h3>
-                    <p class="card-text">地域数量</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card card-financial text-center">
-                <div class="card-body">
-                    <h3 class="text-info number-display">7</h3>
-                    <p class="card-text">数据表</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 系统特性 -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <h2 class="mb-4">✨ 系统特性</h2>
-        </div>
-    </div>
-
-    <div class="row g-3 g-md-4">
-        <div class="col-12 col-md-4">
-            <div class="card card-financial h-100">
-                <div class="card-body">
-                    <h5 class="card-title">🔄 实时数据</h5>
-                    <p class="card-text">支持数据自动更新，确保分析结果的时效性</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-md-4">
-            <div class="card card-financial h-100">
-                <div class="card-body">
-                    <h5 class="card-title">📈 多维分析</h5>
-                    <p class="card-text">基本面、技术面、资金面、筹码面全方位分析</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-md-4">
-            <div class="card card-financial h-100">
-                <div class="card-body">
-                    <h5 class="card-title">🎯 智能筛选</h5>
-                    <p class="card-text">多条件组合筛选，快速发现投资机会</p>
-                </div>
-            </div>
-        </div>
-    </div>
+<!-- Hero Section -->
+<div class="hero-banner">
+<div class="hero-glow"></div>
+<div class="hero-content">
+<h1 class="hero-title">A股量化分析工作台</h1>
+<p class="hero-subtitle">专业的金融数据分析、策略回测与多因子选股系统。实时掌握全市场异动，构建属于您的量化投资体系。</p>
+<div class="d-flex gap-3">
+<a href="{{ url_for('main.analysis') }}" class="btn-modern btn-modern-primary">开始分析</a>
+<a href="{{ url_for('main.stocks') }}" class="btn-modern btn-modern-outline" style="border-color: rgba(255,255,255,0.3); color: white;">查找股票</a>
 </div>
-{% endblock %}
+<div class="risk-disclaimer">
+<span><strong>投资有风险，入市须谨慎。</strong> 仅供学习研究和辅助分析，不构成任何投资建议。</span>
+</div>
+</div>
+</div>
+<!-- Market Breadth Section -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+<h4 class="fw-bold mb-0 text-main">市场情绪</h4>
+<span class="badge bg-light text-muted border px-3 py-2" id="update-time">数据获取中...</span>
+</div>
+<div class="market-stats-container">
+<div class="stat-card">
+<div class="stat-info">
+<h3>上涨家数</h3>
+<div class="value text-danger" id="advancing-count">--</div>
+</div>
+</div>
+<div class="stat-card">
+<div class="stat-info">
+<h3>下跌家数</h3>
+<div class="value text-success" id="declining-count">--</div>
+</div>
+</div>
+<div class="stat-card">
+<div class="stat-info">
+<h3>平盘家数</h3>
+<div class="value" id="flat-count">--</div>
+</div>
+</div>
+</div>
+<!-- Index Charts Section -->
+<div class="row mb-4 g-4">
+<div class="col-lg-6">
+<div class="page-card h-100 p-4">
+<div class="d-flex justify-content-between align-items-center mb-2">
+<h5 class="fw-bold mb-0">上证指数 <span class="fs-6 text-muted fw-normal ms-1">(000001.SH)</span></h5>
+<div id="sh-change" class="fw-bold fs-5">--</div>
+</div>
+<div id="sh-chart" class="chart-box"></div>
+</div>
+</div>
+<div class="col-lg-6">
+<div class="page-card h-100 p-4">
+<div class="d-flex justify-content-between align-items-center mb-2">
+<h5 class="fw-bold mb-0">深证成指 <span class="fs-6 text-muted fw-normal ms-1">(399001.SZ)</span></h5>
+<div id="sz-change" class="fw-bold fs-5">--</div>
+</div>
+<div id="sz-chart" class="chart-box"></div>
+</div>
+</div>
+</div>
+<!-- System Status -->
+<div class="status-grid">
+<div class="page-card p-4">
+<h5 class="fw-bold mb-4">系统自检状态</h5>
+<div class="status-item">
+<span class="status-label">Tushare API接口</span>
+<span class="status-value" id="tushare-status">
+<span class="spinner-border spinner-border-sm text-primary" role="status"></span>
+</span>
+</div>
+<div class="status-item">
+<span class="status-label">API代理配置</span>
+<span class="status-value text-muted" id="proxy-url">--</span>
+</div>
+<div class="status-item">
+<span class="status-label">最新交易日</span>
+<span class="status-value text-primary" id="latest-trade-date">--</span>
+</div>
+</div>
+<div class="page-card p-4">
+<h5 class="fw-bold mb-4">快捷操作</h5>
+<div class="d-flex flex-column gap-3">
+<button class="btn-modern btn-modern-primary w-100" id="check-api-btn">重新测试API连通性</button>
+<a href="{{ url_for('main.screen') }}" class="btn-modern btn-modern-outline w-100">条件选股器</a>
+<a href="{{ url_for('main.backtest') }}" class="btn-modern btn-modern-outline w-100">策略回测面板</a>
+</div>
+</div>
+</div> {% endblock %}
 
 {% block extra_js %}
-<script>
-// 页面加载完成后获取统计数据
-document.addEventListener('DOMContentLoaded', async function() {
-    try {
-        // 获取股票总数
-        const stocksResponse = await apiRequest('/stocks?page_size=1');
-        if (stocksResponse.code === 200) {
-            document.getElementById('total-stocks').textContent = stocksResponse.data.total;
-        }
+<script>let shChart = null;
+let szChart = null;
 
-        // 获取行业数量
-        const industriesResponse = await apiRequest('/industries');
-        if (industriesResponse.code === 200) {
-            document.getElementById('total-industries').textContent = industriesResponse.data.length;
-        }
+document.addEventListener('DOMContentLoaded', function() {
+ initCharts();
+ checkTushareStatus();
+ loadMarketOverview();
+ document.getElementById('check-api-btn').addEventListener('click', function() {
+const btn = this;
+const originalText = btn.innerHTML;
 
-        // 获取地域数量
-        const areasResponse = await apiRequest('/areas');
-        if (areasResponse.code === 200) {
-            document.getElementById('total-areas').textContent = areasResponse.data.length;
-        }
-    } catch (error) {
-        console.error('获取统计数据失败:', error);
-        // 移动端友好的错误提示
-        if (typeof MobileUtils !== 'undefined') {
-            MobileUtils.showMobileToast('数据加载失败，请刷新页面重试', 'error');
-        }
-    }
+ btn.disabled = true;
+ btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>测试中...';
+ checkTushareStatus().finally(() => {
+ btn.disabled = false;
+ btn.innerHTML = originalText;
+ });
+ });
+ window.addEventListener('resize', function() {
+ if(shChart) shChart.resize();
+ if(szChart) szChart.resize();
+ });
 });
+
+function initCharts() {
+ const shDom = document.getElementById('sh-chart');
+ const szDom = document.getElementById('sz-chart');
+ if (typeof echarts !== 'undefined') {
+ shChart = echarts.init(shDom);
+ szChart = echarts.init(szDom);
+ const loadingOpt = {
+ text: '数据加载中...',
+ color: '#2563eb',
+ textColor: '#64748b',
+ maskColor: 'rgba(255, 255, 255, 0.8)'
+ };
+ shChart.showLoading('default', loadingOpt);
+ szChart.showLoading('default', loadingOpt);
+ }
+}
+
+async function checkTushareStatus() {
+ try {
+ const res = await apiRequest('/market/health');
+ const response = res.data;
+ const statusEl = document.getElementById('tushare-status');
+ if (response && response.success) {
+ statusEl.innerHTML = '<span class="badge bg-success bg-opacity-10 text-success px-3 py-2 rounded-pill">连接正常</span>';
+ document.getElementById('proxy-url').textContent = response.proxy_url || '未设置代理';
+ document.getElementById('latest-trade-date').textContent = response.latest_trade_date || '--';
+ } else {
+ statusEl.innerHTML = '<span class="badge bg-danger bg-opacity-10 text-danger px-3 py-2 rounded-pill">连接失败</span>';
+ }
+ } catch (error) {
+ document.getElementById('tushare-status').innerHTML = '<span class="badge bg-danger bg-opacity-10 text-danger px-3 py-2 rounded-pill">请求异常</span>';
+ }
+}
+
+async function loadMarketOverview() {
+ try {
+ const res = await apiRequest('/market/overview');
+ const response = res.data;
+ if (response && response.success && response.items) {
+ // 更新涨跌家数与时间
+ document.getElementById('advancing-count').textContent = response.advancing || 0;
+ document.getElementById('declining-count').textContent = response.declining || 0;
+ document.getElementById('flat-count').textContent = response.flat || 0;
+ if (response.update_time) {
+ document.getElementById('update-time').innerHTML = `更新于 ${response.update_time} (交易日: ${response.trade_date})`;
+ }
+ // 处理指数数据
+ const shData = response.items.find(item => item.ts_code === '000001.SH');
+ const szData = response.items.find(item => item.ts_code === '399001.SZ');
+ if (shData) {
+ updateIndexHeader('sh-change', shData);
+ if (shData.kline && shChart) renderKLineChart(shChart, shData.kline, '上证指数');
+ }
+ if (szData) {
+ updateIndexHeader('sz-change', szData);
+ if (szData.kline && szChart) renderKLineChart(szChart, szData.kline, '深证成指');
+ }
+ }
+ } catch (error) {
+ console.error('Failed to load market overview:', error);
+ if (shChart) shChart.hideLoading();
+ if (szChart) szChart.hideLoading();
+ }
+}
+
+function updateIndexHeader(elementId, data) {
+ const el = document.getElementById(elementId);
+ if (!el || !data.close) return;
+ const colorClass = data.pct_chg >= 0 ? 'text-danger' : 'text-success';
+ const sign = data.pct_chg >= 0 ? '+' : '';
+ el.innerHTML = `
+  <span class="${colorClass}">${data.close.toFixed(2)}</span>
+<span class="${colorClass} fs-6 ms-2">${sign}${data.change.toFixed(2)} (${sign}${data.pct_chg.toFixed(2)}%)</span> `;
+}
+
+function renderKLineChart(chartInstance, klineData, name) {
+ chartInstance.hideLoading();
+ if (!klineData || klineData.length === 0) return;
+ const dates = klineData.map(item => item.trade_date);
+ const data = klineData.map(item => [item.open, item.close, item.low, item.high]);
+ const upColor = '#ef232a';
+ const upBorderColor = '#ef232a';
+ const downColor = '#14b143';
+ const downBorderColor = '#14b143';
+ const option = {
+ tooltip: {
+ trigger: 'axis',
+ axisPointer: { type: 'cross' },
+ backgroundColor: 'rgba(255, 255, 255, 0.9)',
+ borderColor: '#e2e8f0',
+ textStyle: { color: '#0f172a' }
+ },
+ grid: {
+ left: '2%',
+ right: '2%',
+ bottom: '5%',
+ top: '5%',
+ containLabel: true
+ },
+ xAxis: {
+ type: 'category',
+ data: dates,
+ scale: true,
+ boundaryGap: false,
+ axisLine: { onZero: false, lineStyle: { color: '#cbd5e1' } },
+ axisLabel: { color: '#64748b' }
+ },
+ yAxis: {
+ scale: true,
+ splitArea: { show: false },
+ splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } },
+ axisLabel: { color: '#64748b' }
+ },
+ series: [
+ {
+ name: name,
+ type: 'candlestick',
+ data: data,
+ itemStyle: {
+ color: upColor,
+ color0: downColor,
+ borderColor: upBorderColor,
+ borderColor0: downBorderColor
+ }
+ }
+ ]
+ };
+ chartInstance.setOption(option);
+}
 </script>
-{% endblock %} 
+{% endblock %}

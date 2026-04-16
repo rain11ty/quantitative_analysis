@@ -1,0 +1,409 @@
+/* 个人中心 / 管理后台共用美化样式 */
+
+.workspace-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.workspace-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 28px;
+    padding: 2rem;
+    color: #fff;
+    background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 55%, #2563eb 100%);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+}
+
+.workspace-hero::before,
+.workspace-hero::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.workspace-hero::before {
+    width: 320px;
+    height: 320px;
+    top: -120px;
+    right: -80px;
+    background: radial-gradient(circle, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0) 72%);
+}
+
+.workspace-hero::after {
+    width: 240px;
+    height: 240px;
+    bottom: -110px;
+    left: -60px;
+    background: radial-gradient(circle, rgba(59,130,246,0.35) 0%, rgba(59,130,246,0) 75%);
+}
+
+.workspace-hero > * {
+    position: relative;
+    z-index: 1;
+}
+
+.workspace-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.85rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.18);
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+
+.workspace-title {
+    font-size: clamp(1.8rem, 3vw, 2.6rem);
+    font-weight: 700;
+    margin: 1rem 0 0.65rem;
+}
+
+.workspace-subtitle {
+    max-width: 760px;
+    color: rgba(255,255,255,0.82);
+    line-height: 1.75;
+    margin-bottom: 0;
+}
+
+.workspace-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+.workspace-hero .btn {
+    border-radius: 14px;
+    padding: 0.7rem 1.15rem;
+    font-weight: 600;
+    border-width: 1px;
+}
+
+.workspace-hero .btn-light {
+    color: #0f172a;
+}
+
+.workspace-hero .btn-outline-light {
+    background: rgba(255,255,255,0.06);
+}
+
+.workspace-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.workspace-stat-card,
+.workspace-panel,
+.workspace-soft-card {
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.06);
+}
+
+.workspace-stat-card {
+    padding: 1.15rem 1.2rem;
+}
+
+.workspace-stat-label {
+    color: #64748b;
+    font-size: 0.875rem;
+    margin-bottom: 0.35rem;
+}
+
+.workspace-stat-value {
+    font-size: clamp(1.5rem, 2vw, 2rem);
+    font-weight: 700;
+    line-height: 1.1;
+    color: #0f172a;
+}
+
+.workspace-stat-help {
+    color: #94a3b8;
+    font-size: 0.8rem;
+    margin-top: 0.45rem;
+}
+
+.workspace-panel {
+    padding: 1.5rem;
+}
+
+.workspace-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.workspace-panel-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.workspace-panel-desc {
+    margin: 0.35rem 0 0;
+    color: #64748b;
+    line-height: 1.7;
+}
+
+.workspace-soft-card {
+    padding: 1.15rem;
+    background: linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(248,250,252,0.96) 100%);
+}
+
+.workspace-avatar {
+    width: 76px;
+    height: 76px;
+    border-radius: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(37,99,235,0.16), rgba(99,102,241,0.24));
+    color: #1d4ed8;
+    font-size: 1.75rem;
+    font-weight: 700;
+    overflow: hidden;
+    border: 1px solid rgba(37,99,235,0.16);
+}
+
+.workspace-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.workspace-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.9rem;
+}
+
+.workspace-meta-item {
+    padding: 1rem 1.05rem;
+    border-radius: 18px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+.workspace-meta-label {
+    font-size: 0.8rem;
+    color: #64748b;
+    margin-bottom: 0.3rem;
+}
+
+.workspace-meta-value {
+    color: #0f172a;
+    font-weight: 600;
+    word-break: break-word;
+}
+
+.workspace-table {
+    --bs-table-bg: transparent;
+    --bs-table-striped-bg: rgba(148, 163, 184, 0.06);
+    --bs-table-hover-bg: rgba(59, 130, 246, 0.06);
+}
+
+.workspace-table thead th {
+    border-bottom: 1px solid #dbe4f0;
+    color: #475569;
+    font-size: 0.86rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding-top: 0;
+    padding-bottom: 0.85rem;
+    background: transparent;
+}
+
+.workspace-table tbody td {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    border-color: #eef2f7;
+    vertical-align: middle;
+}
+
+.workspace-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+}
+
+.workspace-chip.success {
+    background: #ecfdf3;
+    color: #15803d;
+    border-color: #bbf7d0;
+}
+
+.workspace-chip.warning {
+    background: #fff7ed;
+    color: #c2410c;
+    border-color: #fed7aa;
+}
+
+.workspace-chip.danger {
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #fecaca;
+}
+
+.workspace-empty {
+    border: 1px dashed #cbd5e1;
+    border-radius: 20px;
+    padding: 2rem 1.25rem;
+    text-align: center;
+    color: #64748b;
+    background: linear-gradient(180deg, rgba(248,250,252,0.85), rgba(255,255,255,0.9));
+}
+
+.workspace-list-item {
+    padding: 1rem 0;
+    border-bottom: 1px solid #eef2f7;
+}
+
+.workspace-list-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.workspace-list-item:first-child {
+    padding-top: 0;
+}
+
+.workspace-form .form-control,
+.workspace-form .form-select {
+    border-radius: 14px;
+    border: 1px solid #dbe4f0;
+    padding: 0.75rem 0.9rem;
+    min-height: 46px;
+    box-shadow: none;
+}
+
+.workspace-form .form-control:focus,
+.workspace-form .form-select:focus {
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 0.22rem rgba(59,130,246,0.14);
+}
+
+.workspace-form .form-label {
+    color: #334155;
+    font-weight: 600;
+    margin-bottom: 0.45rem;
+}
+
+.workspace-subgrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.admin-shortcut {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 1rem 1.05rem;
+    border-radius: 20px;
+    border: 1px solid #e2e8f0;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.admin-shortcut:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 28px rgba(15,23,42,0.08);
+    border-color: #bfdbfe;
+    color: inherit;
+}
+
+.admin-shortcut-title {
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.admin-shortcut-desc {
+    color: #64748b;
+    font-size: 0.92rem;
+    line-height: 1.6;
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 94px;
+    padding: 0.42rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.status-pill.success {
+    background: #ecfdf3;
+    color: #15803d;
+}
+
+.status-pill.failed,
+.status-pill.danger {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.status-pill.warning {
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.note-banner {
+    border-radius: 20px;
+    padding: 1rem 1.15rem;
+    border: 1px solid #fde68a;
+    background: linear-gradient(180deg, #fffbeb 0%, #fff7ed 100%);
+    color: #92400e;
+}
+
+@media (max-width: 991.98px) {
+    .workspace-hero {
+        padding: 1.5rem;
+        border-radius: 24px;
+    }
+
+    .workspace-panel,
+    .workspace-soft-card,
+    .workspace-stat-card {
+        border-radius: 20px;
+    }
+}
+
+@media (max-width: 576px) {
+    .workspace-actions {
+        flex-direction: column;
+    }
+
+    .workspace-actions .btn {
+        width: 100%;
+    }
+
+    .workspace-panel {
+        padding: 1.1rem;
+    }
+}

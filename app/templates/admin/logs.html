@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}系统日志 - 管理后台{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/account-admin.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="workspace-shell">
+        <section class="workspace-hero">
+            <span class="workspace-kicker">后台模块</span>
+            <h1 class="workspace-title">系统日志</h1>
+            <p class="workspace-subtitle">按动作类型和执行状态快速筛选日志，辅助定位登录、管理操作与运行异常问题。</p>
+            <div class="workspace-actions">
+                <a class="btn btn-light" href="{{ url_for('admin.dashboard') }}">返回后台首页</a>
+                <a class="btn btn-outline-light" href="{{ url_for('admin.users') }}">用户管理</a>
+                <a class="btn btn-outline-light" href="{{ url_for('admin.data_center') }}">数据中心</a>
+            </div>
+        </section>
+
+        <div class="workspace-panel workspace-form">
+            <div class="workspace-panel-header">
+                <div>
+                    <h2 class="workspace-panel-title">日志筛选</h2>
+                    <p class="workspace-panel-desc">你可以根据动作类型与执行状态快速缩小范围。</p>
+                </div>
+            </div>
+            <form method="get">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label">动作类型</label>
+                        <select class="form-select" name="action_type">
+                            <option value="">全部</option>
+                            {% for t in action_types %}
+                            <option value="{{ t }}" {% if selected_action == t %}selected{% endif %}>{{ t }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">状态</label>
+                        <select class="form-select" name="status">
+                            <option value="">全部</option>
+                            <option value="success" {% if selected_status == 'success' %}selected{% endif %}>成功</option>
+                            <option value="failed" {% if selected_status == 'failed' %}selected{% endif %}>失败</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-grid">
+                        <button class="btn btn-primary" type="submit">应用筛选</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="workspace-panel">
+            <div class="workspace-panel-header">
+                <div>
+                    <h2 class="workspace-panel-title">日志明细</h2>
+                    <p class="workspace-panel-desc">展示筛选后的系统日志，适合排查后台操作、用户登录与服务异常。</p>
+                </div>
+                <span class="workspace-chip">{{ logs|length }} 条记录</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table workspace-table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>时间</th>
+                            <th>动作</th>
+                            <th>用户</th>
+                            <th>IP</th>
+                            <th>状态</th>
+                            <th>描述</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in logs %}
+                        <tr>
+                            <td>{{ item.created_at.strftime('%Y-%m-%d %H:%M:%S') if item.created_at else '-' }}</td>
+                            <td><span class="workspace-chip">{{ item.action_type }}</span></td>
+                            <td>{{ item.username or '-' }}</td>
+                            <td>{{ item.ip or '-' }}</td>
+                            <td>
+                                {% if item.status == 'success' %}
+                                <span class="status-pill success">成功</span>
+                                {% else %}
+                                <span class="status-pill danger">失败</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-muted">{{ item.message }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6"><div class="workspace-empty">暂无日志。</div></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

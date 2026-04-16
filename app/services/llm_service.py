@@ -6,7 +6,7 @@
 import json
 import requests
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, Iterator, List
 from flask import current_app
 
 logger = logging.getLogger(__name__)
@@ -18,17 +18,25 @@ class LLMService:
     def __init__(self):
         self.config = current_app.config.get('LLM_CONFIG', {})
         self.provider = self.config.get('provider', 'ollama')
-    
+
+    def _get_compatible_provider(self):
+        provider = self.provider if self.provider in ('openai', 'deepseek') else 'openai'
+        provider_config = self.config.get(provider, {})
+        provider_label = 'DeepSeek' if provider == 'deepseek' else 'OpenAI'
+        return provider, provider_label, provider_config
+
     def chat_completion(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
         """聊天完成接口"""
         try:
+            request_kwargs = dict(kwargs)
+            request_kwargs.pop('stream', None)
+
             if self.provider == 'ollama':
-                return self._ollama_chat(messages, **kwargs)
-            elif self.provider == 'openai':
-                return self._openai_chat(messages, **kwargs)
-            else:
-                raise ValueError(f"不支持的大模型提供商: {self.provider}")
-        
+                return self._ollama_chat(messages, **request_kwargs)
+            if self.provider in ('openai', 'deepseek'):
+                return self._openai_chat(messages, **request_kwargs)
+
+            raise ValueError(f"不支持的大模型提供商: {self.provider}")
         except Exception as e:
             logger.error(f"大模型调用失败: {e}")
             return {
@@ -36,7 +44,25 @@ class LLMService:
                 'error': str(e),
                 'content': None
             }
-    
+
+    def stream_chat_completion(self, messages: List[Dict[str, str]], **kwargs) -> Iterator[str]:
+        """流式聊天完成接口"""
+        request_kwargs = dict(kwargs)
+        request_kwargs.pop('stream', None)
+
+        try:
+            if self.provider == 'ollama':
+                yield from self._ollama_stream_chat(messages, **request_kwargs)
+                return
+            if self.provider in ('openai', 'deepseek'):
+                yield from self._openai_stream_chat(messages, **request_kwargs)
+                return
+
+            raise ValueError(f"不支持的大模型提供商: {self.provider}")
+        except Exception as e:
+            logger.error(f"大模型流式调用失败: {e}")
+            raise
+
     def _ollama_chat(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
         """Ollama聊天接口"""
         ollama_config = self.config.get('ollama', {})
@@ -94,63 +120,175 @@ class LLMService:
                 'error': f"Ollama调用异常: {str(e)}",
                 'content': None
             }
+
+    def _ollama_stream_chat(self, messages: List[Dict[str, str]], **kwargs) -> Iterator[str]:
+        """Ollama 流式聊天接口"""
+        ollama_config = self.config.get('ollama', {})
+        base_url = ollama_config.get('base_url', 'http://localhost:11434')
+        model = ollama_config.get('model', 'qwen2.5-coder:latest')
+
+        data = {
+            'model': model,
+            'messages': messages,
+            'stream': True,
+            'options': {
+                'temperature': kwargs.get('temperature', ollama_config.get('temperature', 0.1)),
+                'num_predict': kwargs.get('max_tokens', ollama_config.get('max_tokens', 2048))
+            }
+        }
+
+        try:
+            with requests.post(
+                f"{base_url}/api/chat",
+                json=data,
+                timeout=ollama_config.get('timeout', 60),
+                stream=True
+            ) as response:
+                if response.status_code != 200:
+                    raise RuntimeError(f"Ollama API错误: {response.status_code} - {response.text}")
+
+                for line in response.iter_lines(decode_unicode=True):
+                    if not line:
+                        continue
+                    try:
+                        payload = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    content = payload.get('message', {}).get('content', '')
+                    if content:
+                        yield content
+        except requests.exceptions.ConnectionError as exc:
+            raise RuntimeError("无法连接到Ollama服务，请确保Ollama正在运行") from exc
+        except requests.exceptions.Timeout as exc:
+            raise RuntimeError("Ollama请求超时") from exc
+        except Exception as exc:
+            raise RuntimeError(f"Ollama调用异常: {str(exc)}") from exc
     
     def _openai_chat(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
-        """OpenAI聊天接口"""
-        openai_config = self.config.get('openai', {})
-        api_key = openai_config.get('api_key')
-        
+        """OpenAI兼容聊天接口（支持 DeepSeek）"""
+        _, provider_label, provider_config = self._get_compatible_provider()
+        api_key = provider_config.get('api_key')
+
         if not api_key:
             return {
                 'success': False,
-                'error': "OpenAI API密钥未配置",
+                'error': f"{provider_label} API密钥未配置",
                 'content': None
             }
-        
-        base_url = openai_config.get('base_url', 'https://api.openai.com/v1')
-        model = openai_config.get('model', 'gpt-3.5-turbo')
-        
+
+        base_url = (provider_config.get('base_url') or 'https://api.openai.com/v1').rstrip('/')
+        model = provider_config.get('model', 'gpt-3.5-turbo')
+
         headers = {
             'Authorization': f'Bearer {api_key}',
             'Content-Type': 'application/json'
         }
-        
+
         data = {
             'model': model,
             'messages': messages,
-            'temperature': kwargs.get('temperature', openai_config.get('temperature', 0.1)),
-            'max_tokens': kwargs.get('max_tokens', openai_config.get('max_tokens', 2048))
+            'temperature': kwargs.get('temperature', provider_config.get('temperature', 0.1)),
+            'max_tokens': kwargs.get('max_tokens', provider_config.get('max_tokens', 2048))
         }
-        
+
         try:
             response = requests.post(
                 f"{base_url}/chat/completions",
                 headers=headers,
                 json=data,
-                timeout=openai_config.get('timeout', 60)
+                timeout=provider_config.get('timeout', 60)
             )
-            
+
             if response.status_code == 200:
                 result = response.json()
                 return {
                     'success': True,
                     'content': result['choices'][0]['message']['content'],
                     'model': model,
-                    'usage': result.get('usage', {})
+                    'usage': result.get('usage', {}),
+                    'provider': provider_label.lower()
                 }
             else:
                 return {
                     'success': False,
-                    'error': f"OpenAI API错误: {response.status_code} - {response.text}",
+                    'error': f"{provider_label} API错误: {response.status_code} - {response.text}",
                     'content': None
                 }
-        
+
         except Exception as e:
             return {
                 'success': False,
-                'error': f"OpenAI调用异常: {str(e)}",
+                'error': f"{provider_label}调用异常: {str(e)}",
                 'content': None
             }
+
+    def _openai_stream_chat(self, messages: List[Dict[str, str]], **kwargs) -> Iterator[str]:
+        """OpenAI 兼容流式聊天接口（支持 DeepSeek）"""
+        _, provider_label, provider_config = self._get_compatible_provider()
+        api_key = provider_config.get('api_key')
+
+        if not api_key:
+            raise RuntimeError(f"{provider_label} API密钥未配置")
+
+        base_url = (provider_config.get('base_url') or 'https://api.openai.com/v1').rstrip('/')
+        model = provider_config.get('model', 'gpt-3.5-turbo')
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json'
+        }
+        data = {
+            'model': model,
+            'messages': messages,
+            'temperature': kwargs.get('temperature', provider_config.get('temperature', 0.1)),
+            'max_tokens': kwargs.get('max_tokens', provider_config.get('max_tokens', 2048)),
+            'stream': True
+        }
+
+        try:
+            with requests.post(
+                f"{base_url}/chat/completions",
+                headers=headers,
+                json=data,
+                timeout=provider_config.get('timeout', 60),
+                stream=True
+            ) as response:
+                if response.status_code != 200:
+                    raise RuntimeError(f"{provider_label} API错误: {response.status_code} - {response.text}")
+
+                for raw_line in response.iter_lines(decode_unicode=True):
+                    if not raw_line:
+                        continue
+
+                    line = raw_line.strip()
+                    if not line.startswith('data:'):
+                        continue
+
+                    payload = line[5:].strip()
+                    if payload == '[DONE]':
+                        break
+
+                    try:
+                        chunk = json.loads(payload)
+                    except json.JSONDecodeError:
+                        continue
+
+                    choice = (chunk.get('choices') or [{}])[0]
+                    delta = choice.get('delta') or {}
+                    content = delta.get('content')
+
+                    if content is None:
+                        content = (choice.get('message') or {}).get('content', '')
+
+                    if content:
+                        yield content
+        except requests.exceptions.ConnectionError as exc:
+            raise RuntimeError(f"{provider_label}服务无法连接") from exc
+        except requests.exceptions.Timeout as exc:
+            raise RuntimeError(f"{provider_label}请求超时") from exc
+        except Exception as exc:
+            raise RuntimeError(f"{provider_label}调用异常: {str(exc)}") from exc
+
     
     def enhance_sql_generation(self, user_query: str, context: Dict[str, Any]) -> str:
         """使用大模型增强SQL生成"""
@@ -270,13 +408,14 @@ stock_moneyflow表 (资金流向):
         """检查大模型服务状态"""
         if self.provider == 'ollama':
             return self._check_ollama_status()
-        elif self.provider == 'openai':
+        elif self.provider in ('openai', 'deepseek'):
             return self._check_openai_status()
         else:
             return {
                 'status': 'error',
                 'message': f'不支持的提供商: {self.provider}'
             }
+
     
     def _check_ollama_status(self) -> Dict[str, Any]:
         """检查Ollama服务状态"""
@@ -316,20 +455,63 @@ stock_moneyflow表 (资金流向):
             }
     
     def _check_openai_status(self) -> Dict[str, Any]:
-        """检查OpenAI服务状态"""
-        openai_config = self.config.get('openai', {})
-        api_key = openai_config.get('api_key')
-        
+        """检查 OpenAI 兼容服务状态（支持 DeepSeek）"""
+        _, provider_label, provider_config = self._get_compatible_provider()
+        api_key = provider_config.get('api_key')
+
         if not api_key:
             return {
                 'status': 'error',
-                'message': 'OpenAI API密钥未配置'
+                'message': f'{provider_label} API密钥未配置'
             }
-        
-        return {
-            'status': 'configured',
-            'message': 'OpenAI API已配置'
+
+        base_url = (provider_config.get('base_url') or 'https://api.openai.com/v1').rstrip('/')
+        target_model = provider_config.get('model', 'gpt-3.5-turbo')
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json'
         }
+
+        try:
+            response = requests.get(
+                f"{base_url}/models",
+                headers=headers,
+                timeout=provider_config.get('timeout', 60)
+            )
+
+            if response.status_code == 200:
+                payload = response.json()
+                models = [item.get('id') for item in payload.get('data', []) if item.get('id')]
+                model_available = target_model in models if models else True
+                return {
+                    'status': 'online' if model_available else 'model_not_found',
+                    'message': f'{provider_label}服务正常，模型{"可用" if model_available else "不可用"}',
+                    'models': models,
+                    'target_model': target_model,
+                    'provider': provider_label.lower()
+                }
+
+            return {
+                'status': 'error',
+                'message': f'{provider_label}服务响应异常: {response.status_code}',
+                'target_model': target_model,
+                'provider': provider_label.lower()
+            }
+        except requests.exceptions.ConnectionError:
+            return {
+                'status': 'offline',
+                'message': f'{provider_label}服务无法连接',
+                'target_model': target_model,
+                'provider': provider_label.lower()
+            }
+        except Exception as e:
+            return {
+                'status': 'error',
+                'message': f'检查{provider_label}状态失败: {str(e)}',
+                'target_model': target_model,
+                'provider': provider_label.lower()
+            }
+
 
 
 # 全局LLM服务实例

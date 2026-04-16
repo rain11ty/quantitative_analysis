@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}用户管理 - 管理后台{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/account-admin.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="workspace-shell">
+        <section class="workspace-hero">
+            <span class="workspace-kicker">后台模块</span>
+            <h1 class="workspace-title">用户管理</h1>
+            <p class="workspace-subtitle">按用户名或邮箱快速检索账户，统一调整角色与状态，并跳转查看用户的详细行为数据。</p>
+            <div class="workspace-actions">
+                <a class="btn btn-light" href="{{ url_for('admin.dashboard') }}">返回后台首页</a>
+                <a class="btn btn-outline-light" href="{{ url_for('admin.logs') }}">查看日志</a>
+                <a class="btn btn-outline-light" href="{{ url_for('admin.data_center') }}">数据中心</a>
+            </div>
+        </section>
+
+        <div class="workspace-panel workspace-form">
+            <div class="workspace-panel-header">
+                <div>
+                    <h2 class="workspace-panel-title">筛选账户</h2>
+                    <p class="workspace-panel-desc">支持按用户名或邮箱模糊搜索，快速定位目标账号。</p>
+                </div>
+            </div>
+            <form method="get">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-9">
+                        <label class="form-label">用户名 / 邮箱关键词</label>
+                        <input class="form-control" name="keyword" value="{{ keyword }}" placeholder="请输入用户名或邮箱关键词">
+                    </div>
+                    <div class="col-md-3 d-grid">
+                        <button class="btn btn-primary" type="submit">开始搜索</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="workspace-panel">
+            <div class="workspace-panel-header">
+                <div>
+                    <h2 class="workspace-panel-title">账户列表</h2>
+                    <p class="workspace-panel-desc">可直接修改角色与状态，也可以进入详情页查看该用户的自选股、分析历史与 AI 问答。</p>
+                </div>
+                <span class="workspace-chip">共 {{ users|length }} 条</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table workspace-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>用户 / 邮箱</th>
+                            <th>角色</th>
+                            <th>状态</th>
+                            <th>最近登录</th>
+                            <th class="text-end">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in users %}
+                        <tr>
+                            <td>{{ item.id }}</td>
+                            <td>
+                                <div class="fw-semibold">{{ item.username }}</div>
+                                <div class="small text-muted">{{ item.email }}</div>
+                            </td>
+                            <td>
+                                <form method="post" action="{{ url_for('admin.set_user_role', user_id=item.id) }}" class="d-flex gap-2 align-items-center flex-wrap">
+                                    <select name="role" class="form-select form-select-sm" style="min-width: 120px;">
+                                        <option value="user" {% if item.role == 'user' %}selected{% endif %}>普通用户</option>
+                                        <option value="admin" {% if item.role == 'admin' %}selected{% endif %}>管理员</option>
+                                    </select>
+                                    <button class="btn btn-sm btn-outline-primary" type="submit">保存</button>
+                                </form>
+                            </td>
+                            <td>
+                                <form method="post" action="{{ url_for('admin.set_user_status', user_id=item.id) }}" class="d-flex gap-2 align-items-center flex-wrap">
+                                    <select name="status" class="form-select form-select-sm" style="min-width: 130px;">
+                                        <option value="active" {% if item.status == 'active' %}selected{% endif %}>正常</option>
+                                        <option value="disabled" {% if item.status == 'disabled' %}selected{% endif %}>禁用</option>
+                                        <option value="banned" {% if item.status == 'banned' %}selected{% endif %}>封禁</option>
+                                    </select>
+                                    <button class="btn btn-sm btn-outline-warning" type="submit">更新</button>
+                                </form>
+                            </td>
+                            <td class="small text-muted">
+                                {{ item.last_login_at.strftime('%Y-%m-%d %H:%M') if item.last_login_at else '-' }}
+                                <div>{{ item.last_login_ip or '' }}</div>
+                            </td>
+                            <td class="text-end">
+                                <div class="d-inline-flex gap-2 flex-wrap justify-content-end">
+                                    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.user_detail', user_id=item.id) }}">详情</a>
+                                    <form method="post" action="{{ url_for('admin.delete_user', user_id=item.id) }}" onsubmit="return confirm('确认删除这个用户吗？');">
+                                        <button class="btn btn-sm btn-outline-danger" type="submit">删除</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6"><div class="workspace-empty">当前没有匹配到用户数据。</div></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

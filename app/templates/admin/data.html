@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}数据管理 - 管理后台{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/account-admin.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="workspace-shell">
+        <section class="workspace-hero">
+            <span class="workspace-kicker">后台模块</span>
+            <h1 class="workspace-title">数据管理中心</h1>
+            <p class="workspace-subtitle">查看当前基础股票数据与分钟数据规模，并手动尝试同步单只股票的分钟级数据。</p>
+            <div class="workspace-actions">
+                <a class="btn btn-light" href="{{ url_for('admin.dashboard') }}">返回后台首页</a>
+                <a class="btn btn-outline-light" href="{{ url_for('admin.logs') }}">查看日志</a>
+                <a class="btn btn-outline-light" href="{{ url_for('admin.users') }}">用户管理</a>
+            </div>
+        </section>
+
+        <div class="note-banner">
+            <strong>当前为稳定演示模式：</strong>
+            分钟级接口暂不可用时，系统会自动退回到最近交易日的日线数据用于演示，但后台仍保留同步入口，方便你验证链路和权限状态。
+        </div>
+
+        <div class="workspace-summary-grid">
+            <div class="workspace-stat-card">
+                <div class="workspace-stat-label">股票基础数据数量</div>
+                <div class="workspace-stat-value text-primary">{{ data_stats.stock_basic_count }}</div>
+                <div class="workspace-stat-help">用于股票列表与详情页展示</div>
+            </div>
+            <div class="workspace-stat-card">
+                <div class="workspace-stat-label">分钟级数据行数</div>
+                <div class="workspace-stat-value text-warning">{{ data_stats.minute_data_count }}</div>
+                <div class="workspace-stat-help">用于实时监控与分钟走势演示</div>
+            </div>
+        </div>
+
+        <div class="workspace-panel workspace-form">
+            <div class="workspace-panel-header">
+                <div>
+                    <h2 class="workspace-panel-title">手动同步单只股票分钟数据</h2>
+                    <p class="workspace-panel-desc">适合临时验证单只股票分钟数据接口是否可用，也便于检查数据库入库链路。</p>
+                </div>
+            </div>
+            <form method="post" action="{{ url_for('admin.sync_one_stock') }}">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-5">
+                        <label class="form-label">股票代码</label>
+                        <input class="form-control" name="ts_code" placeholder="例如 000001.SZ" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">周期</label>
+                        <select name="period_type" class="form-select">
+                            <option value="1min">1min</option>
+                            <option value="5min">5min</option>
+                            <option value="15min">15min</option>
+                            <option value="30min">30min</option>
+                            <option value="60min">60min</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-grid">
+                        <button class="btn btn-primary" type="submit">立即同步</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

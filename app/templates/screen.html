@@ -1,1072 +1,645 @@
 {% extends "base.html" %}
 
-{% block title %}选股筛选 - 股票分析系统{% endblock %}
+{% block title %}条件选股 - 股票量化分析系统{% endblock %}
+
+{% block extra_css %}
+<style>
+ .filter-board {
+ background: var(--primary-bg);
+ border: 1px solid var(--card-border);
+ border-radius: 20px;
+ }
+ .filter-board-header {
+ display: flex;
+ justify-content: space-between;
+ align-items: flex-start;
+ gap: 1rem;
+ margin-bottom: 1.25rem;
+ }
+ .filter-grid {
+ display: grid;
+ grid-template-columns: repeat(3, minmax(0, 1fr));
+ gap: 1rem;
+ align-items: start;
+ }
+ .filter-group {
+ background: var(--primary-bg);
+ border: 1px solid var(--card-border);
+ border-radius: 16px;
+ padding: 1.1rem;
+ margin-bottom: 0;
+ height: 100%;
+ }
+ .filter-group-wide {
+ grid-column: 1 / -1;
+ }
+ .filter-group .mb-3:last-child {
+ margin-bottom: 0 !important;
+ }
+ .filter-title {
+ font-weight: 600;
+ margin-bottom: 0.9rem;
+ color: var(--text-main);
+ display: flex;
+ align-items: center;
+ gap: 0.5rem;
+ }
+ .screen-action-bar {
+ display: flex;
+ gap: 0.75rem;
+ flex-wrap: wrap;
+ justify-content: flex-end;
+ }
+ .screen-action-bar .btn,
+ .screen-action-bar .btn-modern {
+ min-width: 132px;
+ }
+ .result-panel {
+ margin-top: 0;
+ }
+ .result-table th {
+ background-color: #f8fafc;
+ color: #475569;
+ font-weight: 500;
+ white-space: nowrap;
+ }
+ .range-grid {
+ display: grid;
+ grid-template-columns: repeat(2, minmax(0, 1fr));
+ gap: 0.625rem;
+ }
+ .range-grid .form-label {
+ grid-column: 1 / -1;
+ margin-bottom: 0;
+ }
+ .dynamic-condition-row {
+ border: 1px dashed var(--card-border);
+ border-radius: 14px;
+ padding: 1rem;
+ background: #fafcff;
+ margin-bottom: 0.875rem;
+ }
+ .dynamic-condition-grid {
+ display: grid;
+ grid-template-columns: 1.4fr 0.8fr 1fr 1.4fr auto;
+ gap: 0.75rem;
+ align-items: end;
+ }
+ .dynamic-condition-row .form-label {
+ margin-bottom: 0.4rem;
+ font-size: 0.85rem;
+ color: #64748b;
+ }
+ .dynamic-empty {
+ border: 1px dashed var(--card-border);
+ border-radius: 14px;
+ padding: 1rem;
+ color: #64748b;
+ background: #fcfdff;
+ }
+ .screen-summary {
+ font-size: 0.92rem;
+ color: #64748b;
+ }
+ @media (max-width: 1200px) {
+ .filter-grid {
+ grid-template-columns: repeat(2, minmax(0, 1fr));
+ }
+ }
+ @media (max-width: 992px) {
+ .filter-board-header {
+ flex-direction: column;
+ }
+ .screen-action-bar {
+ width: 100%;
+ justify-content: stretch;
+ }
+ .screen-action-bar .btn,
+ .screen-action-bar .btn-modern {
+ flex: 1 1 220px;
+ }
+ .dynamic-condition-grid {
+ grid-template-columns: 1fr 1fr;
+ }
+ .dynamic-condition-grid .dynamic-remove-wrap {
+ grid-column: 1 / -1;
+ }
+ }
+ @media (max-width: 768px) {
+ .filter-grid,
+ .range-grid,
+ .dynamic-condition-grid {
+ grid-template-columns: 1fr;
+ }
+ .dynamic-condition-grid .dynamic-remove-wrap {
+ grid-column: auto;
+ }
+ }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
-    <!-- 页面标题 -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <h1 class="h2">🎯 选股筛选</h1>
-            <p class="text-muted">基于股票业务大宽表的多维度条件筛选，发现投资机会</p>
-        </div>
-    </div>
-
-    <!-- 筛选条件 -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">筛选条件</h5>
-                </div>
-                <div class="card-body">
-                    <form id="screen-form">
-                        <!-- 基本条件 -->
-                        <div class="row g-3 mb-4">
-                            <div class="col-12">
-                                <h6 class="text-primary">📊 基本条件</h6>
-                            </div>
-                            <div class="col-md-3">
-                                <label for="industry-filter" class="form-label">行业</label>
-                                <select class="form-select" id="industry-filter">
-                                    <option value="">全部行业</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label for="area-filter" class="form-label">地域</label>
-                                <select class="form-select" id="area-filter">
-                                    <option value="">全部地域</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label for="market-filter" class="form-label">市场</label>
-                                <select class="form-select" id="market-filter">
-                                    <option value="">全部市场</option>
-                                    <option value="SZ">深圳</option>
-                                    <option value="SH">上海</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label for="date-filter" class="form-label">数据日期</label>
-                                <input type="date" class="form-control" id="date-filter" title="选择特定日期的数据，留空则使用最新数据">
-                            </div>
-                        </div>
-
-                        <!-- 估值指标 -->
-                        <div class="row g-3 mb-4">
-                            <div class="col-12">
-                                <h6 class="text-primary">💰 估值指标</h6>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">市盈率(PE)</label>
-                                <div class="row g-2">
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="pe-min" placeholder="最小值" step="0.1">
-                                    </div>
-                                    <div class="col-auto">-</div>
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="pe-max" placeholder="最大值" step="0.1">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">市净率(PB)</label>
-                                <div class="row g-2">
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="pb-min" placeholder="最小值" step="0.1">
-                                    </div>
-                                    <div class="col-auto">-</div>
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="pb-max" placeholder="最大值" step="0.1">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">市销率(PS)</label>
-                                <div class="row g-2">
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="ps-min" placeholder="最小值" step="0.1">
-                                    </div>
-                                    <div class="col-auto">-</div>
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="ps-max" placeholder="最大值" step="0.1">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">股息率(%)</label>
-                                <div class="row g-2">
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="dv-min" placeholder="最小值" step="0.1">
-                                    </div>
-                                    <div class="col-auto">-</div>
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="dv-max" placeholder="最大值" step="0.1">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 市值和交易指标 -->
-                        <div class="row g-3 mb-4">
-                            <div class="col-12">
-                                <h6 class="text-primary">📈 市值与交易</h6>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">总市值(万元)</label>
-                                <div class="row g-2">
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="mv-min" placeholder="最小值">
-                                    </div>
-                                    <div class="col-auto">-</div>
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="mv-max" placeholder="最大值">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">流通市值(万元)</label>
-                                <div class="row g-2">
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="circ-mv-min" placeholder="最小值">
-                                    </div>
-                                    <div class="col-auto">-</div>
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="circ-mv-max" placeholder="最大值">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">换手率(%)</label>
-                                <div class="row g-2">
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="turnover-min" placeholder="最小值" step="0.1">
-                                    </div>
-                                    <div class="col-auto">-</div>
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="turnover-max" placeholder="最大值" step="0.1">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">量比</label>
-                                <div class="row g-2">
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="volume-ratio-min" placeholder="最小值" step="0.1">
-                                    </div>
-                                    <div class="col-auto">-</div>
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="volume-ratio-max" placeholder="最大值" step="0.1">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 技术指标 -->
-                        <div class="row g-3 mb-4">
-                            <div class="col-12">
-                                <h6 class="text-primary">📊 技术指标</h6>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">RSI(6日)</label>
-                                <div class="row g-2">
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="rsi6-min" placeholder="最小值" step="0.1">
-                                    </div>
-                                    <div class="col-auto">-</div>
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="rsi6-max" placeholder="最大值" step="0.1">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">KDJ-K值</label>
-                                <div class="row g-2">
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="kdj-k-min" placeholder="最小值" step="0.1">
-                                    </div>
-                                    <div class="col-auto">-</div>
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="kdj-k-max" placeholder="最大值" step="0.1">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">MACD</label>
-                                <div class="row g-2">
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="macd-min" placeholder="最小值" step="0.01">
-                                    </div>
-                                    <div class="col-auto">-</div>
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="macd-max" placeholder="最大值" step="0.01">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">CCI指标</label>
-                                <div class="row g-2">
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="cci-min" placeholder="最小值" step="0.1">
-                                    </div>
-                                    <div class="col-auto">-</div>
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="cci-max" placeholder="最大值" step="0.1">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 资金流向 -->
-                        <div class="row g-3 mb-4">
-                            <div class="col-12">
-                                <h6 class="text-primary">💸 资金流向</h6>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">净流入额(万元)</label>
-                                <div class="row g-2">
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="net-amount-min" placeholder="最小值">
-                                    </div>
-                                    <div class="col-auto">-</div>
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="net-amount-max" placeholder="最大值">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">大单买入占比(%)</label>
-                                <div class="row g-2">
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="lg-buy-rate-min" placeholder="最小值" step="0.1">
-                                    </div>
-                                    <div class="col-auto">-</div>
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="lg-buy-rate-max" placeholder="最大值" step="0.1">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">5日净流入额(万元)</label>
-                                <div class="row g-2">
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="net-d5-amount-min" placeholder="最小值">
-                                    </div>
-                                    <div class="col-auto">-</div>
-                                    <div class="col">
-                                        <input type="number" class="form-control" id="net-d5-amount-max" placeholder="最大值">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 动态查询条件 -->
-                        <div class="row g-3 mb-4">
-                            <div class="col-12">
-                                <h6 class="text-primary">🔧 动态查询条件</h6>
-                                <p class="text-muted small">支持字段间比较，如：MA5 > MA10，PE < PB等</p>
-                            </div>
-                            <div id="dynamic-conditions">
-                                <!-- 动态条件将在这里添加 -->
-                            </div>
-                            <div class="col-12">
-                                <button type="button" class="btn btn-outline-primary btn-sm" id="add-condition">
-                                    <i class="fas fa-plus"></i> 添加条件
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- 操作按钮 -->
-                        <div class="row">
-                            <div class="col-12">
-                                <button type="submit" class="btn btn-primary me-2">
-                                    <i class="fas fa-search"></i> 开始筛选
-                                </button>
-                                <button type="button" class="btn btn-secondary me-2" id="reset-screen">
-                                    <i class="fas fa-undo"></i> 重置条件
-                                </button>
-                                <button type="button" class="btn btn-info me-2" id="save-template">
-                                    <i class="fas fa-save"></i> 保存模板
-                                </button>
-                                <button type="button" class="btn btn-outline-info" id="load-template">
-                                    <i class="fas fa-folder-open"></i> 加载模板
-                                </button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 筛选结果 -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">筛选结果</h5>
-                    <div>
-                        <span class="badge bg-primary me-2" id="result-count">0</span>
-                        <button class="btn btn-sm btn-outline-success" id="export-results" style="display: none;">
-                            <i class="fas fa-download"></i> 导出
-                        </button>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div id="screen-results">
-                        <div class="text-center py-5">
-                            <p class="text-muted">请设置筛选条件并点击"开始筛选"</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+<div class="container py-4">
+<div class="row mb-4">
+<div class="col-12">
+<h1 class="h2">条件选股</h1>
+<p class="text-muted mb-2">通过多维度财务、行情、技术指标筛选符合策略的股票组合。</p>
+<p class="screen-summary mb-0">当前支持基础条件、估值指标、市值与交易、技术指标、资金流向，以及多条动态字段比较条件。</p>
+</div>
+</div>
+<div class="row g-4">
+<div class="col-12">
+<form id="screen-form">
+<div class="filter-board page-card p-4">
+<div class="filter-board-header">
+<div>
+<h5 class="mb-2 fw-bold">筛选条件</h5>
+<p class="text-muted mb-0">搜索条件已调整为从上到下、从左到右的紧凑排列，录入完成后再统一查看下方结果即可。</p>
+</div>
+<div class="screen-action-bar">
+<button type="submit" class="btn-modern btn-modern-primary btn-lg" id="screen-btn">开始筛选</button>
+<button type="reset" class="btn btn-light btn-lg" id="reset-btn">清空条件</button>
+</div>
+</div>
+<div class="filter-grid">
+<div class="filter-group shadow-sm">
+<h5 class="filter-title">基础条件</h5>
+<div class="mb-3">
+<label class="form-label text-muted small">行业</label>
+<select class="form-select" id="industry" name="industry">
+<option value="">不限</option>
+</select>
+</div>
+<div class="mb-3">
+<label class="form-label text-muted small">地域</label>
+<select class="form-select" id="area" name="area">
+<option value="">不限</option>
+</select>
+</div>
+<div class="mb-3">
+<label class="form-label text-muted small">市场</label>
+<select class="form-select" id="market" name="market">
+<option value="">不限</option>
+<option value="SH">上交所 (SH)</option>
+<option value="SZ">深交所 (SZ)</option>
+<option value="BJ">北交所 (BJ)</option>
+</select>
+</div>
+<div>
+<label class="form-label text-muted small">数据日期</label>
+<input type="date" class="form-control" id="trade_date" name="trade_date">
+<div class="form-text">不填写时默认使用最新交易日数据。</div>
+</div>
+</div>
+<div class="filter-group shadow-sm">
+<h5 class="filter-title">估值指标</h5>
+<div class="range-grid mb-3">
+<label class="form-label text-muted small">市盈率 (PE)</label>
+<input type="number" step="0.1" class="form-control" id="pe_min" name="pe_min" placeholder="最小值">
+<input type="number" step="0.1" class="form-control" id="pe_max" name="pe_max" placeholder="最大值">
+</div>
+<div class="range-grid mb-3">
+<label class="form-label text-muted small">市净率 (PB)</label>
+<input type="number" step="0.1" class="form-control" id="pb_min" name="pb_min" placeholder="最小值">
+<input type="number" step="0.1" class="form-control" id="pb_max" name="pb_max" placeholder="最大值">
+</div>
+<div class="range-grid mb-3">
+<label class="form-label text-muted small">市销率 (PS)</label>
+<input type="number" step="0.1" class="form-control" id="ps_min" name="ps_min" placeholder="最小值">
+<input type="number" step="0.1" class="form-control" id="ps_max" name="ps_max" placeholder="最大值">
+</div>
+<div class="range-grid">
+<label class="form-label text-muted small">股息率 (%)</label>
+<input type="number" step="0.1" class="form-control" id="dv_min" name="dv_min" placeholder="最小值">
+<input type="number" step="0.1" class="form-control" id="dv_max" name="dv_max" placeholder="最大值">
+</div>
+</div>
+<div class="filter-group shadow-sm">
+<h5 class="filter-title">市值与交易</h5>
+<div class="range-grid mb-3">
+<label class="form-label text-muted small">总市值 (万元)</label>
+<input type="number" step="100" class="form-control" id="mv_min" name="mv_min" placeholder="最小值">
+<input type="number" step="100" class="form-control" id="mv_max" name="mv_max" placeholder="最大值">
+</div>
+<div class="range-grid mb-3">
+<label class="form-label text-muted small">流通市值 (万元)</label>
+<input type="number" step="100" class="form-control" id="circ_mv_min" name="circ_mv_min" placeholder="最小值">
+<input type="number" step="100" class="form-control" id="circ_mv_max" name="circ_mv_max" placeholder="最大值">
+</div>
+<div class="range-grid mb-3">
+<label class="form-label text-muted small">换手率 (%)</label>
+<input type="number" step="0.1" class="form-control" id="turnover_min" name="turnover_min" placeholder="最小值">
+<input type="number" step="0.1" class="form-control" id="turnover_max" name="turnover_max" placeholder="最大值">
+</div>
+<div class="range-grid">
+<label class="form-label text-muted small">量比</label>
+<input type="number" step="0.1" class="form-control" id="volume_ratio_min" name="volume_ratio_min" placeholder="最小值">
+<input type="number" step="0.1" class="form-control" id="volume_ratio_max" name="volume_ratio_max" placeholder="最大值">
+</div>
+</div>
+<div class="filter-group shadow-sm">
+<h5 class="filter-title">技术指标</h5>
+<div class="range-grid mb-3">
+<label class="form-label text-muted small">RSI (6日)</label>
+<input type="number" step="0.1" class="form-control" id="rsi6_min" name="rsi6_min" placeholder="最小值">
+<input type="number" step="0.1" class="form-control" id="rsi6_max" name="rsi6_max" placeholder="最大值">
+</div>
+<div class="range-grid mb-3">
+<label class="form-label text-muted small">KDJ-K值</label>
+<input type="number" step="0.1" class="form-control" id="kdj_k_min" name="kdj_k_min" placeholder="最小值">
+<input type="number" step="0.1" class="form-control" id="kdj_k_max" name="kdj_k_max" placeholder="最大值">
+</div>
+<div class="range-grid mb-3">
+<label class="form-label text-muted small">MACD</label>
+<input type="number" step="0.01" class="form-control" id="macd_min" name="macd_min" placeholder="最小值">
+<input type="number" step="0.01" class="form-control" id="macd_max" name="macd_max" placeholder="最大值">
+</div>
+<div class="range-grid">
+<label class="form-label text-muted small">CCI指标</label>
+<input type="number" step="0.1" class="form-control" id="cci_min" name="cci_min" placeholder="最小值">
+<input type="number" step="0.1" class="form-control" id="cci_max" name="cci_max" placeholder="最大值">
+</div>
+</div>
+<div class="filter-group shadow-sm">
+<h5 class="filter-title">资金流向</h5>
+<div class="range-grid mb-3">
+<label class="form-label text-muted small">净流入额 (万元)</label>
+<input type="number" step="1" class="form-control" id="net_amount_min" name="net_amount_min" placeholder="最小值">
+<input type="number" step="1" class="form-control" id="net_amount_max" name="net_amount_max" placeholder="最大值">
+</div>
+<div class="range-grid mb-3">
+<label class="form-label text-muted small">大单买入占比 (%)</label>
+<input type="number" step="0.1" class="form-control" id="lg_buy_rate_min" name="lg_buy_rate_min" placeholder="最小值">
+<input type="number" step="0.1" class="form-control" id="lg_buy_rate_max" name="lg_buy_rate_max" placeholder="最大值">
+</div>
+<div class="range-grid">
+<label class="form-label text-muted small">5日净流入额 (万元)</label>
+<input type="number" step="1" class="form-control" id="net_d5_amount_min" name="net_d5_amount_min" placeholder="最小值">
+<input type="number" step="1" class="form-control" id="net_d5_amount_max" name="net_d5_amount_max" placeholder="最大值">
+</div>
+</div>
+<div class="filter-group filter-group-wide shadow-sm">
+<div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+<h5 class="filter-title mb-0">动态查询条件</h5>
+<button type="button" class="btn btn-sm btn-outline-primary" id="add-dynamic-condition">添加条件</button>
+</div>
+<p class="text-muted small mb-3">支持字段与字段比较，也支持字段与固定值比较，例如 <code>MA5 &gt; MA10</code>、<code>PE &lt; PB</code>。</p>
+<div id="dynamic-conditions-container">
+<div class="dynamic-empty" id="dynamic-empty-state">暂未添加动态条件，点击右上角“添加条件”开始配置。</div>
+</div>
+</div>
+</div>
+</div>
+</form>
+</div>
+<div class="col-12">
+<div class="page-card p-4 result-panel">
+<div class="d-flex justify-content-between align-items-center mb-2">
+<h5 class="mb-0 fw-bold">筛选结果</h5>
+<span class="badge bg-primary px-3 py-2" id="result-count">共找到 0 只股票</span>
+</div>
+<div class="text-muted small mb-4" id="result-tip">支持多条件组合筛选，结果默认按命中数量返回，最多展示前 200 条。</div>
+<div id="results-container">
+<div class="text-center text-muted py-5">
+<p class="mb-0">请在上方设置条件并点击“开始筛选”</p>
+</div>
+</div>
+</div>
+</div>
+</div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
-<script>
-// 全局变量
-let dynamicConditionCount = 0;
-let currentResults = [];
+<script>const DYNAMIC_FIELD_OPTIONS = [
+ { value: 'pe', label: 'PE' },
+ { value: 'pb', label: 'PB' },
+ { value: 'ps', label: 'PS' },
+ { value: 'dv_ratio', label: '股息率' },
+ { value: 'total_mv', label: '总市值' },
+ { value: 'circ_mv', label: '流通市值' },
+ { value: 'turnover_rate', label: '换手率' },
+ { value: 'volume_ratio', label: '量比' },
+ { value: 'factor_rsi_6', label: 'RSI(6日)' },
+ { value: 'factor_kdj_k', label: 'KDJ-K' },
+ { value: 'factor_macd', label: 'MACD' },
+ { value: 'factor_cci', label: 'CCI' },
+ { value: 'moneyflow_net_amount', label: '净流入额' },
+ { value: 'moneyflow_buy_lg_amount_rate', label: '大单买入占比' },
+ { value: 'moneyflow_net_d5_amount', label: '5日净流入额' },
+ { value: 'daily_close', label: '收盘价' },
+ { value: 'factor_pct_change', label: '涨跌幅' },
+ { value: 'ma5', label: 'MA5' },
+ { value: 'ma10', label: 'MA10' },
+ { value: 'ma20', label: 'MA20' },
+ { value: 'ma30', label: 'MA30' },
+ { value: 'ma60', label: 'MA60' },
+ { value: 'ma120', label: 'MA120' }
+];
 
-// 可用字段定义
-const AVAILABLE_FIELDS = {
-    '基本信息': {
-        'daily_close': '收盘价',
-        'factor_change': '涨跌额',
-        'factor_pct_change': '涨跌幅(%)'
-    },
-    '估值指标': {
-        'pe': '市盈率(PE)',
-        'pe_ttm': '市盈率(TTM)',
-        'pb': '市净率(PB)',
-        'ps': '市销率(PS)',
-        'ps_ttm': '市销率(TTM)',
-        'dv_ratio': '股息率(%)',
-        'dv_ttm': '股息率(TTM)(%)'
-    },
-    '市值交易': {
-        'total_mv': '总市值(万)',
-        'circ_mv': '流通市值(万)',
-        'turnover_rate': '换手率(%)',
-        'turnover_rate_f': '换手率(自由流通)',
-        'volume_ratio': '量比',
-        'factor_vol': '成交量',
-        'factor_amount': '成交额'
-    },
-    '技术指标': {
-        'factor_macd_dif': 'MACD DIF',
-        'factor_macd_dea': 'MACD DEA',
-        'factor_macd': 'MACD',
-        'factor_kdj_k': 'KDJ K值',
-        'factor_kdj_d': 'KDJ D值',
-        'factor_kdj_j': 'KDJ J值',
-        'factor_rsi_6': 'RSI(6日)',
-        'factor_rsi_12': 'RSI(12日)',
-        'factor_rsi_24': 'RSI(24日)',
-        'factor_boll_upper': '布林上轨',
-        'factor_boll_mid': '布林中轨',
-        'factor_boll_lower': '布林下轨',
-        'factor_cci': 'CCI指标'
-    },
-    '均线指标': {
-        'ma5': 'MA5',
-        'ma10': 'MA10',
-        'ma20': 'MA20',
-        'ma30': 'MA30',
-        'ma60': 'MA60',
-        'ma120': 'MA120'
-    },
-    '资金流向': {
-        'moneyflow_net_amount': '净流入额',
-        'moneyflow_net_d5_amount': '5日净流入额',
-        'moneyflow_buy_lg_amount': '大单买入额',
-        'moneyflow_buy_lg_amount_rate': '大单买入占比(%)',
-        'moneyflow_buy_md_amount': '中单买入额',
-        'moneyflow_buy_md_amount_rate': '中单买入占比(%)',
-        'moneyflow_buy_sm_amount': '小单买入额',
-        'moneyflow_buy_sm_amount_rate': '小单买入占比(%)'
-    }
-};
+const OPERATOR_OPTIONS = ['>', '>=', '<', '<=', '=', '!='];
 
-// 操作符定义
-const OPERATORS = {
-    '>': '大于',
-    '>=': '大于等于',
-    '<': '小于',
-    '<=': '小于等于',
-    '=': '等于',
-    '!=': '不等于'
-};
-
-// 页面加载完成后初始化
-document.addEventListener('DOMContentLoaded', function() {
-    loadFilterOptions();
-    
-    // 绑定事件
-    document.getElementById('screen-form').addEventListener('submit', handleScreen);
-    document.getElementById('reset-screen').addEventListener('click', resetScreen);
-    document.getElementById('add-condition').addEventListener('click', addDynamicCondition);
-    document.getElementById('save-template').addEventListener('click', saveTemplate);
-    document.getElementById('load-template').addEventListener('click', loadTemplate);
-    document.getElementById('export-results').addEventListener('click', exportResults);
+document.addEventListener('DOMContentLoaded', async function() {
+ await Promise.all([loadIndustries(), loadAreas(), preloadLatestTradeDate()]);
+ document.getElementById('add-dynamic-condition').addEventListener('click', addDynamicConditionRow);
+ document.getElementById('screen-form').addEventListener('submit', async function(e) {
+ e.preventDefault();
+ const btn = document.getElementById('screen-btn');
+ const originalHtml = btn.innerHTML;
+ btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>筛选中...';
+ btn.disabled = true;
+ showLoading('results-container');
+ try {
+ const payload = buildScreenPayload(this);
+ const res = await apiRequest('/analysis/screen', {
+ method: 'POST',
+ data: payload
+ });
+ if (res && res.code === 200) {
+ renderResults(res.data);
+ } else {
+ showError('results-container', res?.message || '筛选失败');
+ }
+ } catch (err) {
+ console.error(err);
+ showError('results-container', '请求异常，请稍后重试');
+ } finally {
+ btn.innerHTML = originalHtml;
+ btn.disabled = false;
+ }
+ });
+ document.getElementById('screen-form').addEventListener('reset', function() {
+ window.setTimeout(() => {
+ resetDynamicConditions();
+ document.getElementById('result-count').textContent = '共找到 0 只股票';
+ document.getElementById('result-tip').textContent = '支持多条件组合筛选，结果默认按命中数量返回，最多展示前 200 条。';
+ document.getElementById('results-container').innerHTML = `
+  <div class="text-center text-muted py-5">
+<p class="mb-0">请在上方设置条件并点击“开始筛选”</p>
+</div> `;
+ preloadLatestTradeDate();
+ }, 0);
+ });
 });
 
-// 加载筛选选项
-async function loadFilterOptions() {
-    try {
-        // 加载行业列表
-        const industriesResponse = await apiRequest('/industries');
-        if (industriesResponse.code === 200) {
-            const select = document.getElementById('industry-filter');
-            industriesResponse.data.forEach(industry => {
-                const option = document.createElement('option');
-                option.value = industry;
-                option.textContent = industry;
-                select.appendChild(option);
-            });
-        }
-
-        // 加载地域列表
-        const areasResponse = await apiRequest('/areas');
-        if (areasResponse.code === 200) {
-            const select = document.getElementById('area-filter');
-            areasResponse.data.forEach(area => {
-                const option = document.createElement('option');
-                option.value = area;
-                option.textContent = area;
-                select.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('加载筛选选项失败:', error);
-    }
+function buildScreenPayload(form) {
+ const formData = new FormData(form);
+ const payload = {};
+ for (const [key, value] of formData.entries()) {
+ if (typeof value === 'string' && value.trim() !== '') {
+ payload[key] = value.trim();
+ }
+ }
+ const dynamicConditions = collectDynamicConditions();
+ if (dynamicConditions.length > 0) {
+ payload.dynamic_conditions = dynamicConditions;
+ }
+ return payload;
 }
 
-// 添加动态查询条件
-function addDynamicCondition() {
-    dynamicConditionCount++;
-    const container = document.getElementById('dynamic-conditions');
-    
-    const conditionDiv = document.createElement('div');
-    conditionDiv.className = 'col-12 mb-3';
-    conditionDiv.id = `condition-${dynamicConditionCount}`;
-    
-    conditionDiv.innerHTML = `
-        <div class="card border-light">
-            <div class="card-body py-2">
-                <div class="row g-2 align-items-center">
-                    <div class="col-md-3">
-                        <select class="form-select form-select-sm" id="field-a-${dynamicConditionCount}">
-                            <option value="">选择字段A</option>
-                            ${generateFieldOptions()}
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <select class="form-select form-select-sm" id="operator-${dynamicConditionCount}">
-                            ${Object.entries(OPERATORS).map(([key, value]) => 
-                                `<option value="${key}">${value}</option>`
-                            ).join('')}
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <select class="form-select form-select-sm" id="field-b-${dynamicConditionCount}">
-                            <option value="">选择字段B</option>
-                            <option value="__value__">固定数值</option>
-                            ${generateFieldOptions()}
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <input type="number" class="form-control form-control-sm" id="value-${dynamicConditionCount}" 
-                               placeholder="数值" step="0.01" style="display: none;">
-                    </div>
-                    <div class="col-md-2">
-                        <button type="button" class="btn btn-outline-danger btn-sm" 
-                                onclick="removeDynamicCondition(${dynamicConditionCount})">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    container.appendChild(conditionDiv);
-    
-    // 绑定字段B变化事件
-    document.getElementById(`field-b-${dynamicConditionCount}`).addEventListener('change', function() {
-        const valueInput = document.getElementById(`value-${dynamicConditionCount}`);
-        if (this.value === '__value__') {
-            valueInput.style.display = 'block';
-            valueInput.required = true;
-        } else {
-            valueInput.style.display = 'none';
-            valueInput.required = false;
-            valueInput.value = '';
-        }
-    });
+function collectDynamicConditions() {
+ const rows = document.querySelectorAll('.dynamic-condition-row');
+ const conditions = [];
+ rows.forEach(row => {
+ const fieldA = row.querySelector('[data-role="field-a"]').value;
+ const operator = row.querySelector('[data-role="operator"]').value;
+ const compareMode = row.querySelector('[data-role="compare-mode"]').value;
+ const fieldB = row.querySelector('[data-role="field-b"]').value;
+ const value = row.querySelector('[data-role="value"]').value.trim();
+ if (!fieldA || !operator) {
+ return;
+ }
+ if (compareMode === 'field') {
+ if (!fieldB) {
+ return;
+ }
+ conditions.push({ field_a: fieldA, operator, field_b: fieldB });
+ return;
+ }
+ if (value === '') {
+ return;
+ }
+ conditions.push({ field_a: fieldA, operator, value });
+ });
+ return conditions;
 }
 
-// 生成字段选项HTML
-function generateFieldOptions() {
-    let html = '';
-    for (const [category, fields] of Object.entries(AVAILABLE_FIELDS)) {
-        html += `<optgroup label="${category}">`;
-        for (const [key, label] of Object.entries(fields)) {
-            html += `<option value="${key}">${label}</option>`;
-        }
-        html += '</optgroup>';
-    }
-    return html;
+function addDynamicConditionRow() {
+ const container = document.getElementById('dynamic-conditions-container');
+ const emptyState = document.getElementById('dynamic-empty-state');
+ if (emptyState) {
+ emptyState.remove();
+ }
+ const row = document.createElement('div');
+ row.className = 'dynamic-condition-row';
+ row.innerHTML = `
+  <div class="dynamic-condition-grid">
+<div>
+<label class="form-label">字段 A</label>
+<select class="form-select" data-role="field-a">${buildFieldOptions()}</select>
+</div>
+<div>
+<label class="form-label">运算符</label>
+<select class="form-select" data-role="operator">${buildOperatorOptions()}</select>
+</div>
+<div>
+<label class="form-label">比较方式</label>
+<select class="form-select" data-role="compare-mode">
+<option value="field">字段比较</option>
+<option value="value">固定值</option>
+</select>
+</div>
+<div>
+<label class="form-label" data-role="compare-label">字段 B</label>
+<select class="form-select" data-role="field-b">${buildFieldOptions()}</select>
+<input type="number" step="0.01" class="form-control d-none" data-role="value" placeholder="请输入比较值">
+</div>
+<div class="dynamic-remove-wrap">
+<button type="button" class="btn btn-outline-danger w-100" data-role="remove-row">
+</button>
+</div>
+</div> `;
+ row.querySelector('[data-role="compare-mode"]').addEventListener('change', () => updateDynamicConditionRow(row));
+ row.querySelector('[data-role="remove-row"]').addEventListener('click', () => {
+ row.remove();
+ ensureDynamicEmptyState();
+ });
+ container.appendChild(row);
+ updateDynamicConditionRow(row);
 }
 
-// 移除动态查询条件
-function removeDynamicCondition(id) {
-    const element = document.getElementById(`condition-${id}`);
-    if (element) {
-        element.remove();
-    }
+function updateDynamicConditionRow(row) {
+ const compareMode = row.querySelector('[data-role="compare-mode"]').value;
+ const fieldSelect = row.querySelector('[data-role="field-b"]');
+ const valueInput = row.querySelector('[data-role="value"]');
+ const compareLabel = row.querySelector('[data-role="compare-label"]');
+ if (compareMode === 'field') {
+ fieldSelect.classList.remove('d-none');
+ valueInput.classList.add('d-none');
+ valueInput.value = '';
+ compareLabel.textContent = '字段 B';
+ } else {
+ fieldSelect.classList.add('d-none');
+ valueInput.classList.remove('d-none');
+ fieldSelect.value = '';
+ compareLabel.textContent = '固定值';
+ }
 }
 
-// 处理筛选
-function handleScreen(event) {
-    event.preventDefault();
-    
-    // 收集基础筛选条件
-    const criteria = {
-        // 基本条件
-        industry: document.getElementById('industry-filter').value,
-        area: document.getElementById('area-filter').value,
-        market: document.getElementById('market-filter').value,
-        trade_date: document.getElementById('date-filter').value,
-        
-        // 估值指标
-        pe_min: document.getElementById('pe-min').value,
-        pe_max: document.getElementById('pe-max').value,
-        pb_min: document.getElementById('pb-min').value,
-        pb_max: document.getElementById('pb-max').value,
-        ps_min: document.getElementById('ps-min').value,
-        ps_max: document.getElementById('ps-max').value,
-        dv_min: document.getElementById('dv-min').value,
-        dv_max: document.getElementById('dv-max').value,
-        
-        // 市值和交易
-        mv_min: document.getElementById('mv-min').value,
-        mv_max: document.getElementById('mv-max').value,
-        circ_mv_min: document.getElementById('circ-mv-min').value,
-        circ_mv_max: document.getElementById('circ-mv-max').value,
-        turnover_min: document.getElementById('turnover-min').value,
-        turnover_max: document.getElementById('turnover-max').value,
-        volume_ratio_min: document.getElementById('volume-ratio-min').value,
-        volume_ratio_max: document.getElementById('volume-ratio-max').value,
-        
-        // 技术指标
-        rsi6_min: document.getElementById('rsi6-min').value,
-        rsi6_max: document.getElementById('rsi6-max').value,
-        kdj_k_min: document.getElementById('kdj-k-min').value,
-        kdj_k_max: document.getElementById('kdj-k-max').value,
-        macd_min: document.getElementById('macd-min').value,
-        macd_max: document.getElementById('macd-max').value,
-        cci_min: document.getElementById('cci-min').value,
-        cci_max: document.getElementById('cci-max').value,
-        
-        // 资金流向
-        net_amount_min: document.getElementById('net-amount-min').value,
-        net_amount_max: document.getElementById('net-amount-max').value,
-        lg_buy_rate_min: document.getElementById('lg-buy-rate-min').value,
-        lg_buy_rate_max: document.getElementById('lg-buy-rate-max').value,
-        net_d5_amount_min: document.getElementById('net-d5-amount-min').value,
-        net_d5_amount_max: document.getElementById('net-d5-amount-max').value
-    };
-    
-    // 收集动态查询条件
-    const dynamicConditions = [];
-    for (let i = 1; i <= dynamicConditionCount; i++) {
-        const fieldA = document.getElementById(`field-a-${i}`);
-        const operator = document.getElementById(`operator-${i}`);
-        const fieldB = document.getElementById(`field-b-${i}`);
-        const value = document.getElementById(`value-${i}`);
-        
-        if (fieldA && fieldA.value && operator && operator.value && fieldB && fieldB.value) {
-            const condition = {
-                field_a: fieldA.value,
-                operator: operator.value,
-                field_b: fieldB.value === '__value__' ? null : fieldB.value,
-                value: fieldB.value === '__value__' ? value.value : null
-            };
-            
-            // 验证条件完整性
-            if (condition.field_b || condition.value) {
-                dynamicConditions.push(condition);
-            }
-        }
-    }
-    
-    criteria.dynamic_conditions = dynamicConditions;
-    
-    performScreen(criteria);
+function ensureDynamicEmptyState() {
+ const container = document.getElementById('dynamic-conditions-container');
+ const rowCount = container.querySelectorAll('.dynamic-condition-row').length;
+ if (rowCount === 0 && !document.getElementById('dynamic-empty-state')) {
+ container.innerHTML = '<div class="dynamic-empty" id="dynamic-empty-state">暂未添加动态条件，点击右上角“添加条件”开始配置。</div>';
+ }
 }
 
-// 执行筛选
-async function performScreen(criteria) {
-    showLoading('screen-results');
-    
-    try {
-        console.log('发送筛选请求:', criteria);
-        
-        // 调用增强的筛选API
-        const response = await apiRequest('/analysis/screen', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            data: criteria
-        });
-        
-        console.log('筛选响应:', response);
-        
-        if (response.code === 200) {
-            currentResults = response.data.stocks;
-            renderScreenResults(response.data.stocks, criteria);
-            document.getElementById('result-count').textContent = response.data.total;
-            
-            // 显示导出按钮
-            if (response.data.stocks.length > 0) {
-                document.getElementById('export-results').style.display = 'inline-block';
-            }
-            
-            // 显示是否有更多结果
-            if (response.data.has_more) {
-                showMoreResultsHint();
-            }
-        } else {
-            showError('screen-results', response.message || '筛选失败');
-        }
-    } catch (error) {
-        showError('screen-results', '筛选失败，请检查网络连接');
-        console.error('筛选失败:', error);
-    }
+function resetDynamicConditions() {
+ const container = document.getElementById('dynamic-conditions-container');
+ container.innerHTML = '<div class="dynamic-empty" id="dynamic-empty-state">暂未添加动态条件，点击右上角“添加条件”开始配置。</div>';
 }
 
-// 渲染筛选结果
-function renderScreenResults(stocks, criteria) {
-    const container = document.getElementById('screen-results');
-    
-    if (stocks.length === 0) {
-        container.innerHTML = '<div class="text-center py-4"><p class="text-muted">未找到符合条件的股票</p></div>';
-        return;
-    }
-    
-    const html = `
-        <div class="mb-3">
-            <small class="text-muted">筛选条件：${formatCriteria(criteria)}</small>
-        </div>
-        <div class="table-responsive">
-            <table class="table table-hover table-sm">
-                <thead class="table-light">
-                    <tr>
-                        <th>股票代码</th>
-                        <th>股票名称</th>
-                        <th>行业</th>
-                        <th>地域</th>
-                        <th>收盘价</th>
-                        <th>涨跌幅(%)</th>
-                        <th>PE</th>
-                        <th>PB</th>
-                        <th>总市值(万)</th>
-                        <th>换手率(%)</th>
-                        <th>净流入(万)</th>
-                        <th>数据日期</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${stocks.map(stock => `
-                        <tr>
-                            <td><code>${stock.symbol || stock.ts_code}</code></td>
-                            <td><strong>${stock.stock_name || stock.name}</strong></td>
-                            <td><span class="badge bg-secondary">${stock.industry || '--'}</span></td>
-                            <td>${stock.area || '--'}</td>
-                            <td class="text-end">${stock.daily_close ? formatNumber(stock.daily_close, 2) : '--'}</td>
-                            <td class="text-end ${getChangeClass(stock.factor_pct_change)}">
-                                ${stock.factor_pct_change ? formatNumber(stock.factor_pct_change, 2) + '%' : '--'}
-                            </td>
-                            <td class="text-end">${stock.pe ? formatNumber(stock.pe, 2) : '--'}</td>
-                            <td class="text-end">${stock.pb ? formatNumber(stock.pb, 2) : '--'}</td>
-                            <td class="text-end">${stock.total_mv ? formatNumber(stock.total_mv, 0) : '--'}</td>
-                            <td class="text-end">${stock.turnover_rate ? formatNumber(stock.turnover_rate, 2) : '--'}</td>
-                            <td class="text-end ${getChangeClass(stock.moneyflow_net_amount)}">
-                                ${stock.moneyflow_net_amount ? formatNumber(stock.moneyflow_net_amount, 0) : '--'}
-                            </td>
-                            <td>${stock.trade_date || '--'}</td>
-                            <td>
-                                <a href="/stock/${stock.ts_code}" class="btn btn-sm btn-primary" target="_blank">详情</a>
-                                <button class="btn btn-sm btn-outline-success ms-1" onclick="addToAnalysis('${stock.ts_code}')">分析</button>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-    `;
-    
-    container.innerHTML = html;
+function buildFieldOptions() {
+ return ['<option value="">请选择字段</option>']
+ .concat(DYNAMIC_FIELD_OPTIONS.map(item => `<option value="${item.value}">${item.label}</option>`))
+ .join('');
 }
 
-// 获取涨跌颜色类
-function getChangeClass(value) {
-    if (!value) return '';
-    return parseFloat(value) >= 0 ? 'text-success' : 'text-danger';
+function buildOperatorOptions() {
+ return ['<option value="">选择</option>']
+ .concat(OPERATOR_OPTIONS.map(op => `<option value="${op}">${op}</option>`))
+ .join('');
 }
 
-// 格式化筛选条件
-function formatCriteria(criteria) {
-    const conditions = [];
-    
-    // 基本条件
-    if (criteria.industry) conditions.push(`行业=${criteria.industry}`);
-    if (criteria.area) conditions.push(`地域=${criteria.area}`);
-    if (criteria.market) {
-        const marketName = criteria.market === 'SZ' ? '深圳' : criteria.market === 'SH' ? '上海' : criteria.market;
-        conditions.push(`市场=${marketName}`);
-    }
-    if (criteria.trade_date) conditions.push(`数据日期=${criteria.trade_date}`);
-    
-    // 数值范围条件
-    const rangeFields = [
-        ['pe_min', 'pe_max', 'PE'],
-        ['pb_min', 'pb_max', 'PB'],
-        ['ps_min', 'ps_max', 'PS'],
-        ['mv_min', 'mv_max', '总市值'],
-        ['turnover_min', 'turnover_max', '换手率']
-    ];
-    
-    rangeFields.forEach(([minKey, maxKey, label]) => {
-        if (criteria[minKey] || criteria[maxKey]) {
-            conditions.push(`${label}=${criteria[minKey] || '不限'}-${criteria[maxKey] || '不限'}`);
-        }
-    });
-    
-    // 动态条件
-    if (criteria.dynamic_conditions && criteria.dynamic_conditions.length > 0) {
-        criteria.dynamic_conditions.forEach(condition => {
-            const fieldALabel = getFieldLabel(condition.field_a);
-            const operatorLabel = OPERATORS[condition.operator];
-            const fieldBLabel = condition.field_b ? getFieldLabel(condition.field_b) : condition.value;
-            conditions.push(`${fieldALabel} ${operatorLabel} ${fieldBLabel}`);
-        });
-    }
-    
-    return conditions.length > 0 ? conditions.join(', ') : '无特定条件';
+async function loadIndustries() {
+ try {
+ const res = await apiRequest('/industries');
+ if (res && res.code === 200 && Array.isArray(res.data)) {
+ const select = document.getElementById('industry');
+ res.data.forEach(ind => {
+ const opt = document.createElement('option');
+ opt.value = ind;
+ opt.textContent = ind;
+ select.appendChild(opt);
+ });
+ }
+ } catch (e) {
+ console.error('Failed to load industries', e);
+ }
 }
 
-// 获取字段标签
-function getFieldLabel(fieldKey) {
-    for (const category of Object.values(AVAILABLE_FIELDS)) {
-        if (category[fieldKey]) {
-            return category[fieldKey];
-        }
-    }
-    return fieldKey;
+async function loadAreas() {
+ try {
+ const res = await apiRequest('/areas');
+ if (res && res.code === 200 && Array.isArray(res.data)) {
+ const select = document.getElementById('area');
+ res.data.forEach(area => {
+ const opt = document.createElement('option');
+ opt.value = area;
+ opt.textContent = area;
+ select.appendChild(opt);
+ });
+ }
+ } catch (e) {
+ console.error('Failed to load areas', e);
+ }
 }
 
-// 重置筛选
-function resetScreen() {
-    document.getElementById('screen-form').reset();
-    
-    // 清除动态条件
-    document.getElementById('dynamic-conditions').innerHTML = '';
-    dynamicConditionCount = 0;
-    
-    // 重置结果
-    document.getElementById('screen-results').innerHTML = `
-        <div class="text-center py-5">
-            <p class="text-muted">请设置筛选条件并点击"开始筛选"</p>
-        </div>
-    `;
-    document.getElementById('result-count').textContent = '0';
-    document.getElementById('export-results').style.display = 'none';
-    currentResults = [];
+async function preloadLatestTradeDate() {
+ try {
+ const res = await apiRequest('/market/health');
+ const payload = res?.data;
+ if (res?.code === 200 && payload?.latest_trade_date) {
+ document.getElementById('trade_date').value = payload.latest_trade_date;
+ }
+ } catch (e) {
+ console.error('Failed to preload trade date', e);
+ }
 }
 
-// 保存筛选模板
-function saveTemplate() {
-    // 收集当前筛选条件
-    const template = {
-        name: prompt('请输入模板名称:'),
-        conditions: getCurrentCriteria(),
-        created_at: new Date().toISOString()
-    };
-    
-    if (template.name) {
-        // 保存到localStorage
-        const templates = JSON.parse(localStorage.getItem('screenTemplates') || '[]');
-        templates.push(template);
-        localStorage.setItem('screenTemplates', JSON.stringify(templates));
-        
-        alert('模板保存成功！');
-    }
-}
-
-// 加载筛选模板
-function loadTemplate() {
-    const templates = JSON.parse(localStorage.getItem('screenTemplates') || '[]');
-    
-    if (templates.length === 0) {
-        alert('没有保存的模板');
-        return;
-    }
-    
-    // 创建模板选择对话框
-    let templateOptions = templates.map((template, index) => 
-        `${index + 1}. ${template.name} (${new Date(template.created_at).toLocaleDateString()})`
-    ).join('\n');
-    
-    const choice = prompt(`请选择要加载的模板:\n${templateOptions}\n\n请输入序号:`);
-    
-    if (choice) {
-        const index = parseInt(choice) - 1;
-        if (index >= 0 && index < templates.length) {
-            const template = templates[index];
-            applyTemplate(template.conditions);
-            alert(`模板 "${template.name}" 加载成功！`);
-        } else {
-            alert('无效的选择');
-        }
-    }
-}
-
-// 应用模板条件
-function applyTemplate(conditions) {
-    // 重置表单
-    resetScreen();
-    
-    // 应用基本条件
-    if (conditions.industry) document.getElementById('industry-filter').value = conditions.industry;
-    if (conditions.area) document.getElementById('area-filter').value = conditions.area;
-    if (conditions.market) document.getElementById('market-filter').value = conditions.market;
-    if (conditions.trade_date) document.getElementById('date-filter').value = conditions.trade_date;
-    
-    // 应用估值指标
-    if (conditions.pe_min) document.getElementById('pe-min').value = conditions.pe_min;
-    if (conditions.pe_max) document.getElementById('pe-max').value = conditions.pe_max;
-    if (conditions.pb_min) document.getElementById('pb-min').value = conditions.pb_min;
-    if (conditions.pb_max) document.getElementById('pb-max').value = conditions.pb_max;
-    if (conditions.ps_min) document.getElementById('ps-min').value = conditions.ps_min;
-    if (conditions.ps_max) document.getElementById('ps-max').value = conditions.ps_max;
-    if (conditions.dv_min) document.getElementById('dv-min').value = conditions.dv_min;
-    if (conditions.dv_max) document.getElementById('dv-max').value = conditions.dv_max;
-    
-    // 应用市值和交易指标
-    if (conditions.mv_min) document.getElementById('mv-min').value = conditions.mv_min;
-    if (conditions.mv_max) document.getElementById('mv-max').value = conditions.mv_max;
-    if (conditions.circ_mv_min) document.getElementById('circ-mv-min').value = conditions.circ_mv_min;
-    if (conditions.circ_mv_max) document.getElementById('circ-mv-max').value = conditions.circ_mv_max;
-    if (conditions.turnover_min) document.getElementById('turnover-min').value = conditions.turnover_min;
-    if (conditions.turnover_max) document.getElementById('turnover-max').value = conditions.turnover_max;
-    if (conditions.volume_ratio_min) document.getElementById('volume-ratio-min').value = conditions.volume_ratio_min;
-    if (conditions.volume_ratio_max) document.getElementById('volume-ratio-max').value = conditions.volume_ratio_max;
-    
-    // 应用技术指标
-    if (conditions.rsi6_min) document.getElementById('rsi6-min').value = conditions.rsi6_min;
-    if (conditions.rsi6_max) document.getElementById('rsi6-max').value = conditions.rsi6_max;
-    if (conditions.kdj_k_min) document.getElementById('kdj-k-min').value = conditions.kdj_k_min;
-    if (conditions.kdj_k_max) document.getElementById('kdj-k-max').value = conditions.kdj_k_max;
-    if (conditions.macd_min) document.getElementById('macd-min').value = conditions.macd_min;
-    if (conditions.macd_max) document.getElementById('macd-max').value = conditions.macd_max;
-    if (conditions.cci_min) document.getElementById('cci-min').value = conditions.cci_min;
-    if (conditions.cci_max) document.getElementById('cci-max').value = conditions.cci_max;
-    
-    // 应用资金流向
-    if (conditions.net_amount_min) document.getElementById('net-amount-min').value = conditions.net_amount_min;
-    if (conditions.net_amount_max) document.getElementById('net-amount-max').value = conditions.net_amount_max;
-    if (conditions.lg_buy_rate_min) document.getElementById('lg-buy-rate-min').value = conditions.lg_buy_rate_min;
-    if (conditions.lg_buy_rate_max) document.getElementById('lg-buy-rate-max').value = conditions.lg_buy_rate_max;
-    if (conditions.net_d5_amount_min) document.getElementById('net-d5-amount-min').value = conditions.net_d5_amount_min;
-    if (conditions.net_d5_amount_max) document.getElementById('net-d5-amount-max').value = conditions.net_d5_amount_max;
-    
-    // 应用动态条件
-    if (conditions.dynamic_conditions && conditions.dynamic_conditions.length > 0) {
-        conditions.dynamic_conditions.forEach(condition => {
-            addDynamicCondition();
-            const currentId = dynamicConditionCount;
-            
-            document.getElementById(`field-a-${currentId}`).value = condition.field_a;
-            document.getElementById(`operator-${currentId}`).value = condition.operator;
-            
-            if (condition.field_b) {
-                document.getElementById(`field-b-${currentId}`).value = condition.field_b;
-            } else if (condition.value !== null) {
-                document.getElementById(`field-b-${currentId}`).value = '__value__';
-                document.getElementById(`value-${currentId}`).style.display = 'block';
-                document.getElementById(`value-${currentId}`).value = condition.value;
-            }
-        });
-    }
-}
-
-// 导出结果
-function exportResults() {
-    if (currentResults.length === 0) {
-        alert('没有可导出的数据');
-        return;
-    }
-    
-    // 转换为CSV格式
-    const headers = ['股票代码', '股票名称', '行业', '地域', '收盘价', '涨跌幅(%)', 'PE', 'PB', '总市值(万)', '换手率(%)', '净流入(万)', '数据日期'];
-    const csvContent = [
-        headers.join(','),
-        ...currentResults.map(stock => [
-            stock.symbol || stock.ts_code,
-            stock.stock_name || stock.name,
-            stock.industry || '',
-            stock.area || '',
-            stock.daily_close || '',
-            stock.factor_pct_change || '',
-            stock.pe || '',
-            stock.pb || '',
-            stock.total_mv || '',
-            stock.turnover_rate || '',
-            stock.moneyflow_net_amount || '',
-            stock.trade_date || ''
-        ].join(','))
-    ].join('\n');
-    
-    // 下载文件
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `股票筛选结果_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-}
-
-// 获取当前筛选条件
-function getCurrentCriteria() {
-    const criteria = {
-        // 基本条件
-        industry: document.getElementById('industry-filter').value,
-        area: document.getElementById('area-filter').value,
-        market: document.getElementById('market-filter').value,
-        trade_date: document.getElementById('date-filter').value,
-        
-        // 估值指标
-        pe_min: document.getElementById('pe-min').value,
-        pe_max: document.getElementById('pe-max').value,
-        pb_min: document.getElementById('pb-min').value,
-        pb_max: document.getElementById('pb-max').value,
-        ps_min: document.getElementById('ps-min').value,
-        ps_max: document.getElementById('ps-max').value,
-        dv_min: document.getElementById('dv-min').value,
-        dv_max: document.getElementById('dv-max').value,
-        
-        // 市值和交易
-        mv_min: document.getElementById('mv-min').value,
-        mv_max: document.getElementById('mv-max').value,
-        circ_mv_min: document.getElementById('circ-mv-min').value,
-        circ_mv_max: document.getElementById('circ-mv-max').value,
-        turnover_min: document.getElementById('turnover-min').value,
-        turnover_max: document.getElementById('turnover-max').value,
-        volume_ratio_min: document.getElementById('volume-ratio-min').value,
-        volume_ratio_max: document.getElementById('volume-ratio-max').value,
-        
-        // 技术指标
-        rsi6_min: document.getElementById('rsi6-min').value,
-        rsi6_max: document.getElementById('rsi6-max').value,
-        kdj_k_min: document.getElementById('kdj-k-min').value,
-        kdj_k_max: document.getElementById('kdj-k-max').value,
-        macd_min: document.getElementById('macd-min').value,
-        macd_max: document.getElementById('macd-max').value,
-        cci_min: document.getElementById('cci-min').value,
-        cci_max: document.getElementById('cci-max').value,
-        
-        // 资金流向
-        net_amount_min: document.getElementById('net-amount-min').value,
-        net_amount_max: document.getElementById('net-amount-max').value,
-        lg_buy_rate_min: document.getElementById('lg-buy-rate-min').value,
-        lg_buy_rate_max: document.getElementById('lg-buy-rate-max').value,
-        net_d5_amount_min: document.getElementById('net-d5-amount-min').value,
-        net_d5_amount_max: document.getElementById('net-d5-amount-max').value
-    };
-    
-    // 收集动态查询条件
-    const dynamicConditions = [];
-    for (let i = 1; i <= dynamicConditionCount; i++) {
-        const fieldA = document.getElementById(`field-a-${i}`);
-        const operator = document.getElementById(`operator-${i}`);
-        const fieldB = document.getElementById(`field-b-${i}`);
-        const value = document.getElementById(`value-${i}`);
-        
-        if (fieldA && fieldA.value && operator && operator.value && fieldB && fieldB.value) {
-            const condition = {
-                field_a: fieldA.value,
-                operator: operator.value,
-                field_b: fieldB.value === '__value__' ? null : fieldB.value,
-                value: fieldB.value === '__value__' ? value.value : null
-            };
-            
-            // 验证条件完整性
-            if (condition.field_b || condition.value) {
-                dynamicConditions.push(condition);
-            }
-        }
-    }
-    
-    criteria.dynamic_conditions = dynamicConditions;
-    return criteria;
-}
-
-// 显示更多结果提示
-function showMoreResultsHint() {
-    const container = document.getElementById('screen-results');
-    const hint = document.createElement('div');
-    hint.className = 'alert alert-info mt-3';
-    hint.innerHTML = '<i class="fas fa-info-circle"></i> 结果已限制在200条以内，请使用更精确的筛选条件获得更好的结果。';
-    container.appendChild(hint);
-}
-
-// 添加到技术分析
-function addToAnalysis(tsCode) {
-    window.open(`/analysis?stock=${tsCode}`, '_blank');
-}
-
-// 显示加载状态
-function showLoading(containerId) {
-    const container = document.getElementById(containerId);
-    container.innerHTML = `
-        <div class="text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">筛选中...</span>
-            </div>
-            <p class="mt-3 text-muted">正在筛选股票，请稍候...</p>
-        </div>
-    `;
-}
-
-// 显示错误
-function showError(containerId, message) {
-    const container = document.getElementById(containerId);
-    container.innerHTML = `
-        <div class="alert alert-danger">
-            <i class="fas fa-exclamation-triangle"></i> ${message}
-        </div>
-    `;
-}
-
-// 工具函数
 function formatNumber(num, decimals = 2) {
-    if (num === null || num === undefined || isNaN(num)) return '--';
-    return Number(num).toLocaleString('zh-CN', {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals
-    });
+ if (num === null || num === undefined || Number.isNaN(Number(num))) return '--';
+ return Number(num).toFixed(decimals);
 }
 
-function formatPercent(num) {
-    if (num === null || num === undefined || isNaN(num)) return '--';
-    const sign = num >= 0 ? '+' : '';
-    return sign + Number(num).toFixed(2) + '%';
+function normalizeResultPayload(payload) {
+ if (Array.isArray(payload)) {
+ return {
+ stocks: payload,
+ total: payload.length,
+ has_more: false,
+ error: null
+ };
+ }
+ return {
+ stocks: Array.isArray(payload?.stocks) ? payload.stocks : [],
+ total: typeof payload?.total === 'number' ? payload.total : (Array.isArray(payload?.stocks) ? payload.stocks.length : 0),
+ has_more: Boolean(payload?.has_more),
+ error: payload?.error || null
+ };
+}
+
+function renderResults(payload) {
+ const container = document.getElementById('results-container');
+ const countEl = document.getElementById('result-count');
+ const tipEl = document.getElementById('result-tip');
+ const { stocks, total, has_more, error } = normalizeResultPayload(payload);
+ if (error) {
+ showError('results-container', error);
+ countEl.textContent = '共找到 0 只股票';
+ tipEl.textContent = '筛选执行失败，请调整条件后重试。';
+ return;
+ }
+ if (!stocks || stocks.length === 0) {
+ countEl.textContent = '共找到 0 只股票';
+ tipEl.textContent = '当前条件下没有匹配结果，请适当放宽筛选范围。';
+ container.innerHTML = '<div class="text-center text-muted py-5"><p class="mb-0">未找到符合条件的股票</p></div>';
+ return;
+ }
+ countEl.textContent = `共找到 ${total} 只股票`;
+ tipEl.textContent = has_more ? '结果数量较多，当前仅展示前 200 条，请继续缩小筛选范围。' : '已展示全部匹配结果。';
+ let html = '';
+ if (has_more) {
+ html += `
+  <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">匹配结果过多，当前仅展示前 200 条，请增加筛选条件以便进一步缩小范围。
+  </div> `;
+ }
+ html += `
+  <div class="table-responsive">
+<table class="table table-hover result-table align-middle">
+<thead>
+<tr>
+<th>代码</th>
+<th>名称</th>
+<th>行业</th>
+<th>交易日期</th>
+<th>PE</th>
+<th>PB</th>
+<th>换手率(%)</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody> `;
+ stocks.forEach(item => {
+ html += `
+  <tr>
+<td><code>${item.ts_code}</code></td>
+<td>
+<div class="fw-bold">${item.name || '--'}</div>
+<div class="text-muted small">${item.area || '--'}</div>
+</td>
+<td><span class="badge bg-light text-dark border">${item.industry || '--'}</span></td>
+<td>${item.trade_date || '--'}</td>
+<td>${formatNumber(item.pe)}</td>
+<td>${formatNumber(item.pb)}</td>
+<td>${formatNumber(item.turnover_rate)}</td>
+<td>
+<a href="/stock/${item.ts_code}" class="btn btn-sm btn-outline-primary" target="_blank">查看分析</a>
+</td>
+</tr> `;
+ });
+ html += '</tbody></table></div>';
+ container.innerHTML = html;
 }
 </script>
-{% endblock %} 
+{% endblock %}

@@ -1,0 +1,918 @@
+{% extends "base.html" %}
+{% block title %}实时监控 - 股票量化分析系统{% endblock %}
+
+{% block extra_css %}
+<style>
+.monitor-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 28px;
+    padding: 2rem;
+    background: radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 34%),
+                linear-gradient(135deg, #0f172a 0%, #111827 48%, #1e3a8a 100%);
+    color: #fff;
+    box-shadow: 0 24px 60px -28px rgba(15, 23, 42, 0.65);
+}
+.monitor-hero::after {
+    content: '';
+    position: absolute;
+    right: -60px;
+    top: -50px;
+    width: 200px;
+    height: 200px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.15);
+    filter: blur(4px);
+}
+.monitor-hero > * {
+    position: relative;
+    z-index: 1;
+}
+.monitor-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.85rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+.monitor-hero-title {
+    font-size: clamp(1.8rem, 3vw, 2.7rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin: 0.85rem 0 0.8rem;
+}
+.monitor-hero-text {
+    max-width: 720px;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 1rem;
+    line-height: 1.75;
+    margin-bottom: 1.5rem;
+}
+.monitor-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+.monitor-toolbar .form-control,
+.monitor-toolbar .form-select {
+    border-radius: 14px;
+    min-height: 48px;
+}
+.monitor-toolbar .input-group {
+    max-width: 520px;
+}
+.monitor-toolbar .btn {
+    border-radius: 14px;
+    min-height: 48px;
+    padding-inline: 1rem;
+}
+.monitor-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+}
+.market-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 22px;
+    padding: 1.15rem;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    box-shadow: 0 20px 40px -30px rgba(15, 23, 42, 0.55);
+}
+.market-card::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: linear-gradient(180deg, #2563eb, #60a5fa);
+}
+.market-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+.market-meta {
+    color: #64748b;
+    font-size: 0.84rem;
+    margin-top: 0.15rem;
+}
+.market-value {
+    margin-top: 1rem;
+    font-size: 2rem;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.03em;
+}
+.market-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.4rem;
+    padding: 0.38rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.83rem;
+    font-weight: 700;
+}
+.market-change.is-up,
+.quote-change.is-up {
+    color: #166534;
+    background: rgba(34, 197, 94, 0.12);
+}
+.market-change.is-down,
+.quote-change.is-down {
+    color: #b91c1c;
+    background: rgba(239, 68, 68, 0.12);
+}
+.market-change.is-flat,
+.quote-change.is-flat {
+    color: #475569;
+    background: rgba(148, 163, 184, 0.15);
+}
+.panel-card {
+    height: 100%;
+    border-radius: 24px;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    box-shadow: 0 24px 48px -34px rgba(15, 23, 42, 0.42);
+}
+.panel-card .card-body {
+    padding: 1.35rem;
+}
+.panel-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+.panel-subtitle {
+    color: #64748b;
+    font-size: 0.88rem;
+    margin-top: 0.2rem;
+}
+.section-note {
+    color: #64748b;
+    font-size: 0.84rem;
+}
+.source-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    border-radius: 18px;
+    padding: 0.95rem 1rem;
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(59, 130, 246, 0.03));
+    border: 1px solid rgba(37, 99, 235, 0.12);
+}
+.source-banner strong {
+    color: #0f172a;
+}
+.source-banner span {
+    color: #64748b;
+    font-size: 0.86rem;
+}
+.watchlist-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin-top: 1rem;
+}
+.watchlist-pill {
+    padding: 0.45rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.04);
+    color: #334155;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+.quote-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    margin-top: 1rem;
+}
+.quote-item {
+    border: 1px solid rgba(226, 232, 240, 0.92);
+    border-radius: 18px;
+    padding: 1rem;
+    background: #fff;
+    transition: all 0.22s ease;
+    cursor: pointer;
+}
+.quote-item:hover,
+.quote-item.active {
+    transform: translateY(-1px);
+    border-color: rgba(59, 130, 246, 0.45);
+    box-shadow: 0 18px 36px -28px rgba(37, 99, 235, 0.45);
+}
+.quote-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    align-items: flex-start;
+}
+.quote-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+.quote-code {
+    color: #64748b;
+    font-size: 0.82rem;
+    margin-top: 0.15rem;
+}
+.quote-price {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.03em;
+}
+.quote-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-top: 0.45rem;
+    padding: 0.32rem 0.62rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+.quote-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.9rem;
+}
+.quote-meta {
+    border-radius: 14px;
+    background: rgba(248, 250, 252, 0.9);
+    padding: 0.75rem;
+}
+.quote-meta-label {
+    color: #64748b;
+    font-size: 0.76rem;
+    margin-bottom: 0.3rem;
+}
+.quote-meta-value {
+    color: #0f172a;
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+.detail-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+.detail-title {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 0.25rem;
+}
+.detail-subtitle {
+    color: #64748b;
+}
+.detail-price {
+    text-align: right;
+}
+.detail-price-value {
+    font-size: 2.4rem;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.04em;
+}
+.detail-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.85rem;
+    margin: 1rem 0 1.15rem;
+}
+.detail-stat {
+    border: 1px solid rgba(226, 232, 240, 0.92);
+    border-radius: 18px;
+    padding: 0.95rem;
+    background: rgba(248, 250, 252, 0.88);
+}
+.detail-stat-label {
+    color: #64748b;
+    font-size: 0.78rem;
+    margin-bottom: 0.35rem;
+}
+.detail-stat-value {
+    color: #0f172a;
+    font-size: 1rem;
+    font-weight: 700;
+}
+.monitor-chart {
+    width: 100%;
+    height: 360px;
+    border-radius: 20px;
+    background: rgba(248, 250, 252, 0.65);
+}
+.signal-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+    margin-top: 1rem;
+}
+.signal-card {
+    border-radius: 18px;
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    background: #fff;
+    padding: 1rem;
+}
+.signal-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.55rem;
+}
+.signal-title {
+    color: #0f172a;
+    font-weight: 700;
+}
+.signal-badge {
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+.signal-badge.level-bullish {
+    color: #166534;
+    background: rgba(34, 197, 94, 0.12);
+}
+.signal-badge.level-warning {
+    color: #9a3412;
+    background: rgba(251, 146, 60, 0.16);
+}
+.signal-badge.level-bearish {
+    color: #b91c1c;
+    background: rgba(239, 68, 68, 0.12);
+}
+.signal-badge.level-neutral {
+    color: #475569;
+    background: rgba(148, 163, 184, 0.14);
+}
+.signal-text {
+    color: #64748b;
+    font-size: 0.88rem;
+    line-height: 1.7;
+}
+.empty-state {
+    border: 1px dashed rgba(148, 163, 184, 0.42);
+    border-radius: 20px;
+    padding: 2rem 1.2rem;
+    text-align: center;
+    color: #64748b;
+    background: rgba(248, 250, 252, 0.7);
+}
+.small-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.05);
+    color: #334155;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+@media (max-width: 1199px) {
+    .monitor-grid,
+    .detail-stat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 991px) {
+    .signal-grid,
+    .quote-meta-grid {
+        grid-template-columns: 1fr;
+    }
+}
+@media (max-width: 767px) {
+    .monitor-hero {
+        padding: 1.4rem;
+    }
+    .monitor-grid,
+    .detail-stat-grid {
+        grid-template-columns: 1fr;
+    }
+    .detail-price {
+        text-align: left;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column gap-4">
+    <section class="monitor-hero">
+        <span class="monitor-badge">Tushare 实时监控</span>
+        <h1 class="monitor-hero-title">把自选股、实时行情和分钟走势放进一个监控面板</h1>
+        <p class="monitor-hero-text">
+            这个页面会优先调用 Tushare 的实时行情与分钟级接口；当账号权限或频率受限时，会自动降级到最近交易日数据，确保监控页始终可用。
+            你可以直接监控自己的自选股，也可以手动输入若干 `ts_code` 临时盯盘。
+        </p>
+        <div class="monitor-toolbar">
+            <div class="input-group">
+                <input id="monitorCodesInput" type="text" class="form-control" placeholder="输入监控代码，例如 000001.SZ,600519.SH,300750.SZ">
+                <button id="applyCodesBtn" class="btn btn-light" type="button">应用代码</button>
+            </div>
+            <button id="useWatchlistBtn" class="btn btn-outline-light" type="button">使用我的自选</button>
+            <button id="refreshBtn" class="btn btn-primary" type="button">立即刷新</button>
+            <select id="freqSelect" class="form-select" style="max-width: 160px;">
+                <option value="1min">1 分钟走势</option>
+                <option value="5min">5 分钟走势</option>
+                <option value="15min">15 分钟走势</option>
+                <option value="30min">30 分钟走势</option>
+                <option value="60min">60 分钟走势</option>
+            </select>
+            <button id="autoRefreshBtn" class="btn btn-outline-light" type="button" data-enabled="false">自动刷新：关闭</button>
+        </div>
+    </section>
+
+    <section class="page-card p-4">
+        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+            <div>
+                <div class="panel-title">市场总览</div>
+                <div class="panel-subtitle">用来快速判断当前市场强弱，再决定重点盯哪几只股票。</div>
+            </div>
+            <div class="small-badge" id="marketMetaBadge">等待加载</div>
+        </div>
+        <div id="marketOverviewGrid" class="monitor-grid"></div>
+    </section>
+
+    <div class="row g-4">
+        <div class="col-xl-4">
+            <div class="card panel-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                        <div>
+                            <div class="panel-title">监控列表</div>
+                            <div class="panel-subtitle">优先展示你的自选股，也支持临时输入代码盯盘。</div>
+                        </div>
+                        <div class="small-badge" id="quoteCountBadge">0 只</div>
+                    </div>
+                    <div id="quoteSourceBanner" class="source-banner mt-3">
+                        <div>
+                            <strong>等待行情加载</strong>
+                            <span>页面将自动拉取实时行情或最近交易日数据。</span>
+                        </div>
+                        <span id="quotesUpdatedAt">--</span>
+                    </div>
+                    <div class="watchlist-pills" id="watchlistPills"></div>
+                    <div id="quoteList" class="quote-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-8">
+            <div class="card panel-card">
+                <div class="card-body">
+                    <div id="detailContainer" class="empty-state">
+                        请选择左侧任意股票，右侧会展示实时价格摘要、分钟级走势图和监控信号。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let dashboardState = null;
+let selectedCode = '';
+let autoRefreshTimer = null;
+let detailChart = null;
+
+function formatNumber(value, digits = 2) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return '--';
+    return number.toLocaleString('zh-CN', {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
+    });
+}
+
+function formatCompact(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return '--';
+    if (Math.abs(number) >= 100000000) {
+        return `${formatNumber(number / 100000000, 2)} 亿`;
+    }
+    if (Math.abs(number) >= 10000) {
+        return `${formatNumber(number / 10000, 2)} 万`;
+    }
+    return formatNumber(number, 0);
+}
+
+function getChangeClass(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number) || number === 0) return 'is-flat';
+    return number > 0 ? 'is-up' : 'is-down';
+}
+
+function escapeHtml(text) {
+    return String(text ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function getSignalClass(level) {
+    return `level-${level || 'neutral'}`;
+}
+
+async function fetchDashboard(rawCodes = '') {
+    const query = rawCodes ? `?ts_codes=${encodeURIComponent(rawCodes)}` : '';
+    return apiRequest(`/monitor/dashboard${query}`);
+}
+
+async function fetchStockDetail(tsCode, freq) {
+    return apiRequest(`/monitor/stocks/${encodeURIComponent(tsCode)}?freq=${encodeURIComponent(freq)}`);
+}
+
+function renderMarketOverview(data) {
+    const container = document.getElementById('marketOverviewGrid');
+    const badge = document.getElementById('marketMetaBadge');
+    const overview = data?.market_overview || {};
+    const items = overview.items || [];
+
+    badge.textContent = overview.trade_date ? `交易日 ${overview.trade_date}` : '市场数据待更新';
+
+    if (!items.length) {
+        container.innerHTML = '<div class="empty-state">市场总览暂无数据，请稍后刷新。</div>';
+        return;
+    }
+
+    container.innerHTML = items.map(item => {
+        const changeClass = getChangeClass(item.pct_chg);
+        return `
+            <article class="market-card">
+                <div class="market-title">${escapeHtml(item.name || item.ts_code)}</div>
+                <div class="market-meta">${escapeHtml(item.ts_code || '')} · ${escapeHtml(item.trade_date || '--')}</div>
+                <div class="market-value">${formatNumber(item.close, 2)}</div>
+                <div class="market-change ${changeClass}">
+                    <span>${formatNumber(item.change, 2)}</span>
+                    <span>${formatNumber(item.pct_chg, 2)}%</span>
+                </div>
+                <div class="mt-3 text-muted small">成交额 ${formatCompact(item.amount)}，成交量 ${formatCompact(item.vol)}</div>
+            </article>
+        `;
+    }).join('');
+}
+
+function renderWatchlistPills(data) {
+    const container = document.getElementById('watchlistPills');
+    const items = data?.watchlist_items || [];
+    if (!items.length) {
+        container.innerHTML = '<span class="watchlist-pill">当前还没有自选股，可先在股票详情页加入自选。</span>';
+        return;
+    }
+    container.innerHTML = items.map(item => `
+        <span class="watchlist-pill">${escapeHtml(item.stock_name || item.ts_code)} · ${escapeHtml(item.ts_code)}</span>
+    `).join('');
+}
+
+function renderQuoteList(data) {
+    const container = document.getElementById('quoteList');
+    const badge = document.getElementById('quoteCountBadge');
+    const sourceBanner = document.getElementById('quoteSourceBanner');
+    const updatedAt = document.getElementById('quotesUpdatedAt');
+    const quotes = data?.quotes || [];
+
+    badge.textContent = `${quotes.length} 只`;
+    updatedAt.textContent = data?.updated_at || '--';
+    sourceBanner.innerHTML = `
+        <div>
+            <strong>${escapeHtml(data?.quote_source || 'unknown')}</strong>
+            <span>${escapeHtml(data?.quote_message || '已完成行情加载。')}</span>
+        </div>
+        <span>${escapeHtml(data?.updated_at || '--')}</span>
+    `;
+
+    if (!quotes.length) {
+        container.innerHTML = '<div class="empty-state">没有可监控的股票，请输入代码或先添加自选股。</div>';
+        return;
+    }
+
+    container.innerHTML = quotes.map(item => {
+        const activeClass = item.ts_code === selectedCode ? 'active' : '';
+        const changeClass = getChangeClass(item.pct_chg);
+        return `
+            <article class="quote-item ${activeClass}" data-code="${escapeHtml(item.ts_code)}">
+                <div class="quote-header">
+                    <div>
+                        <div class="quote-name">${escapeHtml(item.name || item.ts_code)}</div>
+                        <div class="quote-code">${escapeHtml(item.ts_code)} · ${escapeHtml(item.source || '--')}</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="quote-price">${formatNumber(item.price, 2)}</div>
+                        <div class="quote-change ${changeClass}">
+                            <span>${formatNumber(item.change, 2)}</span>
+                            <span>${formatNumber(item.pct_chg, 2)}%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="quote-meta-grid">
+                    <div class="quote-meta">
+                        <div class="quote-meta-label">开盘 / 昨收</div>
+                        <div class="quote-meta-value">${formatNumber(item.open, 2)} / ${formatNumber(item.pre_close, 2)}</div>
+                    </div>
+                    <div class="quote-meta">
+                        <div class="quote-meta-label">振幅 / 换手</div>
+                        <div class="quote-meta-value">${formatNumber(item.amplitude, 2)}% / ${formatNumber(item.turnover_rate, 2)}%</div>
+                    </div>
+                    <div class="quote-meta">
+                        <div class="quote-meta-label">成交额</div>
+                        <div class="quote-meta-value">${formatCompact(item.amount)}</div>
+                    </div>
+                </div>
+            </article>
+        `;
+    }).join('');
+
+    container.querySelectorAll('.quote-item').forEach(node => {
+        node.addEventListener('click', () => {
+            selectedCode = node.dataset.code || '';
+            renderQuoteList(dashboardState);
+            loadStockDetail();
+        });
+    });
+}
+
+function renderDetail(data) {
+    const container = document.getElementById('detailContainer');
+    const quote = data?.quote || {};
+    const stockInfo = data?.stock_info || {};
+    const signals = data?.signals || [];
+    const changeClass = getChangeClass(quote.pct_chg);
+
+    container.className = '';
+    container.innerHTML = `
+        <div class="d-flex flex-column gap-3">
+            <div class="source-banner">
+                <div>
+                    <strong>${escapeHtml(data?.quote_source || 'unknown')}</strong>
+                    <span>${escapeHtml(data?.quote_message || '已加载监控详情。')}</span>
+                </div>
+                <span>${escapeHtml(data?.updated_at || '--')}</span>
+            </div>
+
+            <div class="detail-header">
+                <div>
+                    <div class="detail-title">${escapeHtml(quote.name || selectedCode)}</div>
+                    <div class="detail-subtitle">${escapeHtml(quote.ts_code || selectedCode)} · ${escapeHtml(stockInfo.industry || '行业待补充')} · ${escapeHtml(stockInfo.area || '地域待补充')}</div>
+                    <div class="mt-2 d-flex flex-wrap gap-2">
+                        <span class="small-badge">${data?.is_watchlist ? '已在自选股中' : '临时监控股票'}</span>
+                        <span class="small-badge">${escapeHtml(data?.series_mode === 'minute' ? '分钟级走势' : '日线降级走势')}</span>
+                    </div>
+                </div>
+                <div class="detail-price">
+                    <div class="detail-price-value">${formatNumber(quote.price, 2)}</div>
+                    <div class="quote-change ${changeClass}">
+                        <span>${formatNumber(quote.change, 2)}</span>
+                        <span>${formatNumber(quote.pct_chg, 2)}%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="detail-stat-grid">
+                <div class="detail-stat">
+                    <div class="detail-stat-label">今开 / 昨收</div>
+                    <div class="detail-stat-value">${formatNumber(quote.open, 2)} / ${formatNumber(quote.pre_close, 2)}</div>
+                </div>
+                <div class="detail-stat">
+                    <div class="detail-stat-label">最高 / 最低</div>
+                    <div class="detail-stat-value">${formatNumber(quote.high, 2)} / ${formatNumber(quote.low, 2)}</div>
+                </div>
+                <div class="detail-stat">
+                    <div class="detail-stat-label">成交量 / 成交额</div>
+                    <div class="detail-stat-value">${formatCompact(quote.volume)} / ${formatCompact(quote.amount)}</div>
+                </div>
+                <div class="detail-stat">
+                    <div class="detail-stat-label">振幅 / 换手率</div>
+                    <div class="detail-stat-value">${formatNumber(quote.amplitude, 2)}% / ${formatNumber(quote.turnover_rate, 2)}%</div>
+                </div>
+            </div>
+
+            <div class="section-note">${escapeHtml(data?.series_message || '')}</div>
+            <div id="monitorChart" class="monitor-chart"></div>
+
+            <div class="signal-grid">
+                ${signals.map(signal => `
+                    <article class="signal-card">
+                        <div class="signal-top">
+                            <div class="signal-title">${escapeHtml(signal.title)}</div>
+                            <span class="signal-badge ${getSignalClass(signal.level)}">${escapeHtml(signal.status)}</span>
+                        </div>
+                        <div class="signal-text">${escapeHtml(signal.text)}</div>
+                    </article>
+                `).join('')}
+            </div>
+        </div>
+    `;
+
+    renderChart(data?.series || [], data?.series_mode || 'minute', quote?.name || selectedCode);
+}
+
+function renderChart(series, mode, title) {
+    const chartDom = document.getElementById('monitorChart');
+    if (!chartDom) return;
+    if (!detailChart) {
+        detailChart = echarts.init(chartDom);
+        window.addEventListener('resize', () => detailChart && detailChart.resize());
+    }
+
+    if (!Array.isArray(series) || !series.length) {
+        detailChart.clear();
+        detailChart.setOption({
+            title: {
+                text: '暂无走势数据',
+                left: 'center',
+                top: 'middle',
+                textStyle: { color: '#64748b', fontSize: 15, fontWeight: 600 },
+            }
+        });
+        return;
+    }
+
+    const labels = series.map(item => item.label || '--');
+    const prices = series.map(item => Number(item.price || 0));
+    const volumes = series.map(item => Number(item.volume || 0));
+
+    detailChart.setOption({
+        animation: false,
+        grid: [
+            { left: 48, right: 24, top: 46, height: '58%' },
+            { left: 48, right: 24, top: '75%', height: '14%' }
+        ],
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'cross' },
+            backgroundColor: 'rgba(15, 23, 42, 0.92)',
+            borderWidth: 0,
+            textStyle: { color: '#fff' }
+        },
+        xAxis: [
+            {
+                type: 'category',
+                data: labels,
+                boundaryGap: false,
+                axisLine: { lineStyle: { color: '#cbd5e1' } },
+                axisLabel: { color: '#64748b', hideOverlap: true }
+            },
+            {
+                type: 'category',
+                gridIndex: 1,
+                data: labels,
+                boundaryGap: false,
+                axisLine: { lineStyle: { color: '#cbd5e1' } },
+                axisLabel: { show: false }
+            }
+        ],
+        yAxis: [
+            {
+                type: 'value',
+                scale: true,
+                axisLabel: { color: '#64748b' },
+                splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.18)' } }
+            },
+            {
+                type: 'value',
+                gridIndex: 1,
+                axisLabel: { color: '#64748b' },
+                splitLine: { show: false }
+            }
+        ],
+        series: [
+            {
+                name: mode === 'minute' ? `${title} 分钟价` : `${title} 日线价`,
+                type: 'line',
+                smooth: true,
+                data: prices,
+                symbol: 'none',
+                lineStyle: { color: '#2563eb', width: 2.4 },
+                areaStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: 'rgba(37, 99, 235, 0.28)' },
+                        { offset: 1, color: 'rgba(37, 99, 235, 0.03)' }
+                    ])
+                }
+            },
+            {
+                name: '成交量',
+                type: 'bar',
+                xAxisIndex: 1,
+                yAxisIndex: 1,
+                data: volumes,
+                itemStyle: { color: 'rgba(59, 130, 246, 0.45)' }
+            }
+        ]
+    });
+}
+
+async function loadDashboard(rawCodes = '') {
+    try {
+        const response = await fetchDashboard(rawCodes);
+        dashboardState = response.data || {};
+        renderMarketOverview(dashboardState);
+        renderWatchlistPills(dashboardState);
+        if (!selectedCode) {
+            selectedCode = dashboardState.selected_ts_code || dashboardState.codes?.[0] || '';
+        }
+        renderQuoteList(dashboardState);
+        if (selectedCode) {
+            await loadStockDetail();
+        }
+    } catch (error) {
+        document.getElementById('quoteList').innerHTML = `<div class="empty-state">${escapeHtml(error?.response?.data?.message || error.message || '监控数据加载失败')}</div>`;
+        document.getElementById('detailContainer').className = 'empty-state';
+        document.getElementById('detailContainer').textContent = '监控详情加载失败，请稍后重试。';
+    }
+}
+
+async function loadStockDetail() {
+    if (!selectedCode) return;
+    const freq = document.getElementById('freqSelect').value || '1min';
+    const container = document.getElementById('detailContainer');
+    container.className = 'loading-box';
+    container.innerHTML = '<div class="spinner-border spinner-border-sm text-primary" role="status"></div><span>正在加载监控详情...</span>';
+
+    try {
+        const response = await fetchStockDetail(selectedCode, freq);
+        renderDetail(response.data || {});
+    } catch (error) {
+        container.className = 'empty-state';
+        container.textContent = error?.response?.data?.message || '监控详情加载失败，请稍后重试。';
+    }
+}
+
+function syncInputWithDashboard() {
+    const input = document.getElementById('monitorCodesInput');
+    if (!input) return;
+    input.value = (dashboardState?.codes || []).join(',');
+}
+
+function toggleAutoRefresh() {
+    const button = document.getElementById('autoRefreshBtn');
+    const enabled = button.dataset.enabled === 'true';
+    if (enabled) {
+        button.dataset.enabled = 'false';
+        button.textContent = '自动刷新：关闭';
+        button.classList.remove('btn-light');
+        button.classList.add('btn-outline-light');
+        if (autoRefreshTimer) {
+            clearInterval(autoRefreshTimer);
+            autoRefreshTimer = null;
+        }
+        return;
+    }
+
+    button.dataset.enabled = 'true';
+    button.textContent = '自动刷新：开启';
+    button.classList.remove('btn-outline-light');
+    button.classList.add('btn-light');
+    if (autoRefreshTimer) {
+        clearInterval(autoRefreshTimer);
+    }
+    autoRefreshTimer = setInterval(() => {
+        const rawCodes = document.getElementById('monitorCodesInput').value.trim();
+        loadDashboard(rawCodes);
+    }, 30000);
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    document.getElementById('applyCodesBtn').addEventListener('click', async () => {
+        selectedCode = '';
+        await loadDashboard(document.getElementById('monitorCodesInput').value.trim());
+        syncInputWithDashboard();
+    });
+
+    document.getElementById('useWatchlistBtn').addEventListener('click', async () => {
+        document.getElementById('monitorCodesInput').value = '';
+        selectedCode = '';
+        await loadDashboard('');
+        syncInputWithDashboard();
+    });
+
+    document.getElementById('refreshBtn').addEventListener('click', async () => {
+        await loadDashboard(document.getElementById('monitorCodesInput').value.trim());
+    });
+
+    document.getElementById('freqSelect').addEventListener('change', loadStockDetail);
+    document.getElementById('autoRefreshBtn').addEventListener('click', toggleAutoRefresh);
+
+    await loadDashboard('');
+    syncInputWithDashboard();
+});
+</script>
+{% endblock %}

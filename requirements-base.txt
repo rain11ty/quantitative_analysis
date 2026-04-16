@@ -11,6 +11,7 @@ eventlet>=0.33.0
 # 数据库相关
 SQLAlchemy>=2.0.0
 PyMySQL>=1.1.0
+cryptography>=46.0.0
 Flask-SQLAlchemy>=3.0.0
 Flask-Migrate>=4.0.0
 
@@ -28,6 +29,8 @@ loguru>=0.7.0
 # 工具库
 requests>=2.31.0
 python-dateutil>=2.8.0
+pypinyin>=0.53.0
+
 
 # 时序数据库客户端
 influxdb-client>=1.38.0

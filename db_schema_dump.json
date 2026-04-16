@@ -1,0 +1,3193 @@
+{
+  "used": [],
+  "unused": [
+    {
+      "class_name": "FactorDefinition",
+      "table_name": "factor_definition",
+      "columns": [
+        {
+          "name": "factor_id",
+          "type": "VARCHAR(50)",
+          "pk": "景",
+          "comment": "因子ID"
+        },
+        {
+          "name": "factor_name",
+          "type": "VARCHAR(100)",
+          "pk": "否",
+          "comment": "因子名称"
+        },
+        {
+          "name": "factor_formula",
+          "type": "TEXT",
+          "pk": "否",
+          "comment": "因子公式"
+        },
+        {
+          "name": "factor_type",
+          "type": "VARCHAR(20)",
+          "pk": "否",
+          "comment": "因子类型(technical/fundamental/momentum/volatility)"
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "pk": "否",
+          "comment": "因子描述"
+        },
+        {
+          "name": "params",
+          "type": "JSON",
+          "pk": "否",
+          "comment": "参数配置"
+        },
+        {
+          "name": "is_active",
+          "type": "BOOLEAN",
+          "pk": "否",
+          "comment": "是否启用"
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "pk": "否",
+          "comment": "创建时间"
+        },
+        {
+          "name": "updated_at",
+          "type": "DATETIME",
+          "pk": "否",
+          "comment": "更新时间"
+        }
+      ],
+      "doc": "自定义因子定义表"
+    },
+    {
+      "class_name": "FactorValues",
+      "table_name": "factor_values",
+      "columns": [
+        {
+          "name": "ts_code",
+          "type": "VARCHAR(20)",
+          "pk": "景",
+          "comment": "股票代码"
+        },
+        {
+          "name": "trade_date",
+          "type": "DATE",
+          "pk": "景",
+          "comment": "交易日期"
+        },
+        {
+          "name": "factor_id",
+          "type": "VARCHAR(50)",
+          "pk": "景",
+          "comment": "因子ID"
+        },
+        {
+          "name": "factor_value",
+          "type": "DECIMAL(15, 6)",
+          "pk": "否",
+          "comment": "因子值"
+        },
+        {
+          "name": "percentile_rank",
+          "type": "DECIMAL(5, 2)",
+          "pk": "否",
+          "comment": "百分位排名"
+        },
+        {
+          "name": "z_score",
+          "type": "DECIMAL(10, 4)",
+          "pk": "否",
+          "comment": "Z分数"
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "pk": "否",
+          "comment": "创建时间"
+        }
+      ],
+      "doc": "因子计算结果表"
+    },
+    {
+      "class_name": "MLModelDefinition",
+      "table_name": "ml_model_definition",
+      "columns": [
+        {
+          "name": "model_id",
+          "type": "VARCHAR(50)",
+          "pk": "景",
+          "comment": "模型ID"
+        },
+        {
+          "name": "model_name",
+          "type": "VARCHAR(100)",
+          "pk": "否",
+          "comment": "模型名称"
+        },
+        {
+          "name": "model_type",
+          "type": "VARCHAR(30)",
+          "pk": "否",
+          "comment": "模型类型(random_forest/xgboost/lightgbm)"
+        },
+        {
+          "name": "factor_list",
+          "type": "JSON",
+          "pk": "否",
+          "comment": "使用的因子列表"
+        },
+        {
+          "name": "target_type",
+          "type": "VARCHAR(20)",
+          "pk": "否",
+          "comment": "预测目标(return_1d/return_5d/return_20d)"
+        },
+        {
+          "name": "model_params",
+          "type": "JSON",
+          "pk": "否",
+          "comment": "模型参数"
+        },
+        {
+          "name": "training_config",
+          "type": "JSON",
+          "pk": "否",
+          "comment": "训练配置"
+        },
+        {
+          "name": "is_active",
+          "type": "BOOLEAN",
+          "pk": "否",
+          "comment": "是否启用"
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "pk": "否",
+          "comment": "创建时间"
+        },
+        {
+          "name": "updated_at",
+          "type": "DATETIME",
+          "pk": "否",
+          "comment": "更新时间"
+        }
+      ],
+      "doc": "机器学习模型定义表"
+    },
+    {
+      "class_name": "MLPredictions",
+      "table_name": "ml_predictions",
+      "columns": [
+        {
+          "name": "ts_code",
+          "type": "VARCHAR(20)",
+          "pk": "景",
+          "comment": "股票代码"
+        },
+        {
+          "name": "trade_date",
+          "type": "DATE",
+          "pk": "景",
+          "comment": "交易日期"
+        },
+        {
+          "name": "model_id",
+          "type": "VARCHAR(50)",
+          "pk": "景",
+          "comment": "模型ID"
+        },
+        {
+          "name": "predicted_return",
+          "type": "DECIMAL(10, 4)",
+          "pk": "否",
+          "comment": "预测收益率"
+        },
+        {
+          "name": "probability_score",
+          "type": "DECIMAL(10, 4)",
+          "pk": "否",
+          "comment": "概率分数"
+        },
+        {
+          "name": "rank_score",
+          "type": "INTEGER",
+          "pk": "否",
+          "comment": "排名分数"
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "pk": "否",
+          "comment": "创建时间"
+        }
+      ],
+      "doc": "模型预测结果表"
+    },
+    {
+      "class_name": "StockBalanceSheet",
+      "table_name": "stock_balance_sheet",
+      "columns": [
+        {
+          "name": "ts_code",
+          "type": "VARCHAR(20)",
+          "pk": "景",
+          "comment": "TS股票代码"
+        },
+        {
+          "name": "end_date",
+          "type": "VARCHAR(8)",
+          "pk": "景",
+          "comment": "报告期"
+        },
+        {
+          "name": "ann_date",
+          "type": "VARCHAR(8)",
+          "pk": "否",
+          "comment": "公告日期"
+        },
+        {
+          "name": "f_ann_date",
+          "type": "VARCHAR(8)",
+          "pk": "否",
+          "comment": "实际公告日期"
+        },
+        {
+          "name": "report_type",
+          "type": "VARCHAR(10)",
+          "pk": "否",
+          "comment": "报告类型"
+        },
+        {
+          "name": "comp_type",
+          "type": "VARCHAR(10)",
+          "pk": "否",
+          "comment": "公司类型"
+        },
+        {
+          "name": "end_type",
+          "type": "VARCHAR(10)",
+          "pk": "否",
+          "comment": "报告期类型"
+        },
+        {
+          "name": "total_share",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "期末总股本"
+        },
+        {
+          "name": "cap_rese",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "资本公积金"
+        },
+        {
+          "name": "undistr_porfit",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "未分配利润"
+        },
+        {
+          "name": "surplus_rese",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "盈余公积金"
+        },
+        {
+          "name": "special_rese",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "专项储备"
+        },
+        {
+          "name": "money_cap",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "货币资金"
+        },
+        {
+          "name": "trad_asset",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "交易性金融资产"
+        },
+        {
+          "name": "notes_receiv",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应收票据"
+        },
+        {
+          "name": "accounts_receiv",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应收账款"
+        },
+        {
+          "name": "oth_receiv",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其他应收款"
+        },
+        {
+          "name": "prepayment",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "预付款项"
+        },
+        {
+          "name": "div_receiv",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应收股利"
+        },
+        {
+          "name": "int_receiv",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应收利息"
+        },
+        {
+          "name": "inventories",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "存货"
+        },
+        {
+          "name": "amor_exp",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "长期待摊费用"
+        },
+        {
+          "name": "nca_within_1y",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "一年内到期的非流动资产"
+        },
+        {
+          "name": "sett_rsrv",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "结算备付金"
+        },
+        {
+          "name": "loanto_oth_bank_fi",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "拆出资金"
+        },
+        {
+          "name": "premium_receiv",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应收保费"
+        },
+        {
+          "name": "reinsur_receiv",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应收分保账款"
+        },
+        {
+          "name": "reinsur_res_receiv",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应收分保合同准备金"
+        },
+        {
+          "name": "pur_resale_fa",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "买入返售金融资产"
+        },
+        {
+          "name": "oth_cur_assets",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其他流动资产"
+        },
+        {
+          "name": "total_cur_assets",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "流动资产合计"
+        },
+        {
+          "name": "fa_avail_for_sale",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "可供出售金融资产"
+        },
+        {
+          "name": "htm_invest",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "持有至到期投资"
+        },
+        {
+          "name": "lt_eqt_invest",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "长期股权投资"
+        },
+        {
+          "name": "invest_real_estate",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "投资性房地产"
+        },
+        {
+          "name": "time_deposits",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "定期存款"
+        },
+        {
+          "name": "oth_assets",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其他资产"
+        },
+        {
+          "name": "lt_rec",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "长期应收款"
+        },
+        {
+          "name": "fix_assets",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "固定资产"
+        },
+        {
+          "name": "cip",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "在建工程"
+        },
+        {
+          "name": "const_materials",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "工程物资"
+        },
+        {
+          "name": "fixed_assets_disp",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "固定资产清理"
+        },
+        {
+          "name": "produc_bio_assets",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "生产性生物资产"
+        },
+        {
+          "name": "oil_and_gas_assets",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "油气资产"
+        },
+        {
+          "name": "intan_assets",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "无形资产"
+        },
+        {
+          "name": "r_and_d",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "开发支出"
+        },
+        {
+          "name": "goodwill",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "商誉"
+        },
+        {
+          "name": "lt_amor_exp",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "长期待摊费用"
+        },
+        {
+          "name": "defer_tax_assets",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "递延所得税资产"
+        },
+        {
+          "name": "decr_in_disbur",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "发放贷款及垫款"
+        },
+        {
+          "name": "oth_nca",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其他非流动资产"
+        },
+        {
+          "name": "total_nca",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "非流动资产合计"
+        },
+        {
+          "name": "cash_reser_cb",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "现金及存放中央银行款项"
+        },
+        {
+          "name": "depos_in_oth_bfi",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "存放同业和其它金融机构款项"
+        },
+        {
+          "name": "prec_metals",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "贵金属"
+        },
+        {
+          "name": "deriv_assets",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "衍生金融资产"
+        },
+        {
+          "name": "rr_reins_une_prem",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应收分保未到期责任准备金"
+        },
+        {
+          "name": "rr_reins_outstd_cla",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应收分保未决赔款准备金"
+        },
+        {
+          "name": "rr_reins_lins_liab",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应收分保寿险责任准备金"
+        },
+        {
+          "name": "rr_reins_lthins_liab",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应收分保长期健康险责任准备金"
+        },
+        {
+          "name": "refund_depos",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "存出保证金"
+        },
+        {
+          "name": "ph_pledge_loans",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "保户质押贷款"
+        },
+        {
+          "name": "refund_cap_depos",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "存出资本保证金"
+        },
+        {
+          "name": "indep_acct_assets",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "独立账户资产"
+        },
+        {
+          "name": "client_depos",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其中：客户资金存款"
+        },
+        {
+          "name": "client_prov",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其中：客户备付金"
+        },
+        {
+          "name": "transac_seat_fee",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其中:交易席位费"
+        },
+        {
+          "name": "invest_as_receiv",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应收款项类投资"
+        },
+        {
+          "name": "total_assets",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "资产总计"
+        },
+        {
+          "name": "lt_borr",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "长期借款"
+        },
+        {
+          "name": "st_borr",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "短期借款"
+        },
+        {
+          "name": "cb_borr",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "向中央银行借款"
+        },
+        {
+          "name": "depos_ib_deposits",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "吸收存款及同业存放"
+        },
+        {
+          "name": "loan_oth_bank",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "拆入资金"
+        },
+        {
+          "name": "trading_fl",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "交易性金融负债"
+        },
+        {
+          "name": "notes_payable",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应付票据"
+        },
+        {
+          "name": "acct_payable",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应付账款"
+        },
+        {
+          "name": "adv_receipts",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "预收款项"
+        },
+        {
+          "name": "sold_for_repur_fa",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "卖出回购金融资产款"
+        },
+        {
+          "name": "comm_payable",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应付手续费及佣金"
+        },
+        {
+          "name": "payroll_payable",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应付职工薪酬"
+        },
+        {
+          "name": "taxes_payable",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应交税费"
+        },
+        {
+          "name": "int_payable",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应付利息"
+        },
+        {
+          "name": "div_payable",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应付股利"
+        },
+        {
+          "name": "oth_payable",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其他应付款"
+        },
+        {
+          "name": "acc_exp",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "预提费用"
+        },
+        {
+          "name": "deferred_inc",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "递延收益"
+        },
+        {
+          "name": "st_bonds_payable",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应付短期债券"
+        },
+        {
+          "name": "payable_to_reinsurer",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应付分保账款"
+        },
+        {
+          "name": "rsrv_insur_cont",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "保险合同准备金"
+        },
+        {
+          "name": "acting_trading_sec",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "代理买卖证券款"
+        },
+        {
+          "name": "acting_uw_sec",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "代理承销证券款"
+        },
+        {
+          "name": "non_cur_liab_due_1y",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "一年内到期的非流动负债"
+        },
+        {
+          "name": "oth_cur_liab",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其他流动负债"
+        },
+        {
+          "name": "total_cur_liab",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "流动负债合计"
+        },
+        {
+          "name": "bond_payable",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应付债券"
+        },
+        {
+          "name": "lt_payable",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "长期应付款"
+        },
+        {
+          "name": "specific_payables",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "专项应付款"
+        },
+        {
+          "name": "estimated_liab",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "预计负债"
+        },
+        {
+          "name": "defer_tax_liab",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "递延所得税负债"
+        },
+        {
+          "name": "defer_inc_non_cur_liab",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "递延收益-非流动负债"
+        },
+        {
+          "name": "oth_ncl",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其他非流动负债"
+        },
+        {
+          "name": "total_ncl",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "非流动负债合计"
+        },
+        {
+          "name": "depos_oth_bfi",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "同业和其它金融机构存放款项"
+        },
+        {
+          "name": "deriv_liab",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "衍生金融负债"
+        },
+        {
+          "name": "depos",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "吸收存款"
+        },
+        {
+          "name": "agency_bus_liab",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "代理业务负债"
+        },
+        {
+          "name": "oth_liab",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其他负债"
+        },
+        {
+          "name": "prem_receiv_adva",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "预收保费"
+        },
+        {
+          "name": "depos_received",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "存入保证金"
+        },
+        {
+          "name": "ph_invest",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "保户储金及投资款"
+        },
+        {
+          "name": "reser_une_prem",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "未到期责任准备金"
+        },
+        {
+          "name": "reser_outstd_claims",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "未决赔款准备金"
+        },
+        {
+          "name": "reser_lins_liab",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "寿险责任准备金"
+        },
+        {
+          "name": "reser_lthins_liab",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "长期健康险责任准备金"
+        },
+        {
+          "name": "indept_acc_liab",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "独立账户负债"
+        },
+        {
+          "name": "pledge_borr",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其中：质押借款"
+        },
+        {
+          "name": "indem_payable",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应付赔付款"
+        },
+        {
+          "name": "policy_div_payable",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应付保单红利"
+        },
+        {
+          "name": "total_liab",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "负债合计"
+        },
+        {
+          "name": "treasury_share",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "减:库存股"
+        },
+        {
+          "name": "ordin_risk_reser",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "一般风险准备"
+        },
+        {
+          "name": "forex_differ",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "外币报表折算差额"
+        },
+        {
+          "name": "invest_loss_unconf",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "未确认投资损失"
+        },
+        {
+          "name": "minority_int",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "少数股东权益"
+        },
+        {
+          "name": "total_hldr_eqy_exc_min_int",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "股东权益合计(不含少数股东权益)"
+        },
+        {
+          "name": "total_hldr_eqy_inc_min_int",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "股东权益合计(含少数股东权益)"
+        },
+        {
+          "name": "total_liab_hldr_eqy",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "负债及股东权益总计"
+        },
+        {
+          "name": "lt_payroll_payable",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "长期应付职工薪酬"
+        },
+        {
+          "name": "oth_comp_income",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其他综合收益"
+        },
+        {
+          "name": "oth_eqt_tools",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其他权益工具"
+        },
+        {
+          "name": "oth_eqt_tools_p_shr",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其他权益工具(优先股)"
+        },
+        {
+          "name": "lending_funds",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "融出资金"
+        },
+        {
+          "name": "acc_receivable",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应收款项"
+        },
+        {
+          "name": "st_fin_payable",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应付短期融资款"
+        },
+        {
+          "name": "payables",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应付款项"
+        },
+        {
+          "name": "hfs_assets",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "持有待售资产"
+        },
+        {
+          "name": "hfs_sales",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "持有待售负债"
+        },
+        {
+          "name": "cost_fin_assets",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "以摊余成本计量的金融资产"
+        },
+        {
+          "name": "fair_value_fin_assets",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "以公允价值计量且其变动计入其他综合收益的金融资产"
+        },
+        {
+          "name": "contract_assets",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "合同资产"
+        },
+        {
+          "name": "contract_liab",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "合同负债"
+        },
+        {
+          "name": "accounts_receiv_bill",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应收票据及应收账款"
+        },
+        {
+          "name": "accounts_pay",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应付票据及应付账款"
+        },
+        {
+          "name": "oth_rcv_total",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其他应收款(合计)"
+        },
+        {
+          "name": "fix_assets_total",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "固定资产(合计)"
+        },
+        {
+          "name": "cip_total",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "在建工程(合计)"
+        },
+        {
+          "name": "oth_pay_total",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其他应付款(合计)"
+        },
+        {
+          "name": "long_pay_total",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "长期应付款(合计)"
+        },
+        {
+          "name": "debt_invest",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "债权投资"
+        },
+        {
+          "name": "oth_debt_invest",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其他债权投资"
+        },
+        {
+          "name": "update_flag",
+          "type": "VARCHAR(1)",
+          "pk": "否",
+          "comment": "更新标识"
+        }
+      ],
+      "doc": "资产负债表数据表"
+    },
+    {
+      "class_name": "StockBasic",
+      "table_name": "stock_basic",
+      "columns": [
+        {
+          "name": "ts_code",
+          "type": "VARCHAR(20)",
+          "pk": "景",
+          "comment": "TS代码"
+        },
+        {
+          "name": "symbol",
+          "type": "VARCHAR(20)",
+          "pk": "否",
+          "comment": "股票代码"
+        },
+        {
+          "name": "name",
+          "type": "VARCHAR(100)",
+          "pk": "否",
+          "comment": "股票名称"
+        },
+        {
+          "name": "area",
+          "type": "VARCHAR(100)",
+          "pk": "否",
+          "comment": "地域"
+        },
+        {
+          "name": "industry",
+          "type": "VARCHAR(100)",
+          "pk": "否",
+          "comment": "所属行业"
+        },
+        {
+          "name": "list_date",
+          "type": "DATE",
+          "pk": "否",
+          "comment": "上市日期"
+        }
+      ],
+      "doc": "股票公司基本信息表"
+    },
+    {
+      "class_name": "StockBusiness",
+      "table_name": "stock_business",
+      "columns": [
+        {
+          "name": "ts_code",
+          "type": "VARCHAR(20)",
+          "pk": "景",
+          "comment": "TS股票代码"
+        },
+        {
+          "name": "trade_date",
+          "type": "DATE",
+          "pk": "景",
+          "comment": "交易日期"
+        },
+        {
+          "name": "stock_name",
+          "type": "VARCHAR(100)",
+          "pk": "否",
+          "comment": "股票名称"
+        },
+        {
+          "name": "daily_close",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "当日收盘价"
+        },
+        {
+          "name": "turnover_rate",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "换手率（%）"
+        },
+        {
+          "name": "turnover_rate_f",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "换手率（自由流通股）"
+        },
+        {
+          "name": "volume_ratio",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "量比"
+        },
+        {
+          "name": "pe",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "市盈率（总市值/净利润， 亏损的PE为空）"
+        },
+        {
+          "name": "pe_ttm",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "市盈率（TTM，亏损的PE为空）"
+        },
+        {
+          "name": "pb",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "市净率（总市值/净资产）"
+        },
+        {
+          "name": "ps",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "市销率"
+        },
+        {
+          "name": "ps_ttm",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "市销率（TTM）"
+        },
+        {
+          "name": "dv_ratio",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "股息率 （%）"
+        },
+        {
+          "name": "dv_ttm",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "股息率（TTM）（%）"
+        },
+        {
+          "name": "total_share",
+          "type": "NUMERIC(20, 2)",
+          "pk": "否",
+          "comment": "总股本 （万股）"
+        },
+        {
+          "name": "float_share",
+          "type": "NUMERIC(20, 2)",
+          "pk": "否",
+          "comment": "流通股本 （万股）"
+        },
+        {
+          "name": "free_share",
+          "type": "NUMERIC(20, 2)",
+          "pk": "否",
+          "comment": "自由流通股本 （万）"
+        },
+        {
+          "name": "total_mv",
+          "type": "NUMERIC(20, 2)",
+          "pk": "否",
+          "comment": "总市值 （万元）"
+        },
+        {
+          "name": "circ_mv",
+          "type": "NUMERIC(20, 2)",
+          "pk": "否",
+          "comment": "流通市值（万元）"
+        },
+        {
+          "name": "factor_open",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "开盘价"
+        },
+        {
+          "name": "factor_high",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "最高价"
+        },
+        {
+          "name": "factor_low",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "最低价"
+        },
+        {
+          "name": "factor_pre_close",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "昨收价"
+        },
+        {
+          "name": "factor_change",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "涨跌额"
+        },
+        {
+          "name": "factor_pct_change",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "涨跌幅"
+        },
+        {
+          "name": "factor_vol",
+          "type": "NUMERIC(20, 2)",
+          "pk": "否",
+          "comment": "成交量"
+        },
+        {
+          "name": "factor_amount",
+          "type": "NUMERIC(20, 2)",
+          "pk": "否",
+          "comment": "成交额"
+        },
+        {
+          "name": "factor_adj_factor",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "复权因子"
+        },
+        {
+          "name": "factor_open_hfq",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "后复权开盘价"
+        },
+        {
+          "name": "factor_open_qfq",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "前复权开盘价"
+        },
+        {
+          "name": "factor_close_hfq",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "后复权收盘价"
+        },
+        {
+          "name": "factor_close_qfq",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "前复权收盘价"
+        },
+        {
+          "name": "factor_high_hfq",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "后复权最高价"
+        },
+        {
+          "name": "factor_high_qfq",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "前复权最高价"
+        },
+        {
+          "name": "factor_low_hfq",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "后复权最低价"
+        },
+        {
+          "name": "factor_low_qfq",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "前复权最低价"
+        },
+        {
+          "name": "factor_pre_close_hfq",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "后复权昨收价"
+        },
+        {
+          "name": "factor_pre_close_qfq",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "前复权昨收价"
+        },
+        {
+          "name": "factor_macd_dif",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "MACD DIF值"
+        },
+        {
+          "name": "factor_macd_dea",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "MACD DEA值"
+        },
+        {
+          "name": "factor_macd",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "MACD值"
+        },
+        {
+          "name": "factor_kdj_k",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "KDJ K值"
+        },
+        {
+          "name": "factor_kdj_d",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "KDJ D值"
+        },
+        {
+          "name": "factor_kdj_j",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "KDJ J值"
+        },
+        {
+          "name": "factor_rsi_6",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "RSI 6日"
+        },
+        {
+          "name": "factor_rsi_12",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "RSI 12日"
+        },
+        {
+          "name": "factor_rsi_24",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "RSI 24日"
+        },
+        {
+          "name": "factor_boll_upper",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "布林上轨"
+        },
+        {
+          "name": "factor_boll_mid",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "布林中轨"
+        },
+        {
+          "name": "factor_boll_lower",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "布林下轨"
+        },
+        {
+          "name": "factor_cci",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "CCI指标"
+        },
+        {
+          "name": "moneyflow_pct_change",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "涨跌幅"
+        },
+        {
+          "name": "moneyflow_latest",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "最新价"
+        },
+        {
+          "name": "moneyflow_net_amount",
+          "type": "NUMERIC(20, 2)",
+          "pk": "否",
+          "comment": "净流入额"
+        },
+        {
+          "name": "moneyflow_net_d5_amount",
+          "type": "NUMERIC(20, 2)",
+          "pk": "否",
+          "comment": "5日净流入额"
+        },
+        {
+          "name": "moneyflow_buy_lg_amount",
+          "type": "NUMERIC(20, 2)",
+          "pk": "否",
+          "comment": "大单买入额"
+        },
+        {
+          "name": "moneyflow_buy_lg_amount_rate",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "大单买入额占比"
+        },
+        {
+          "name": "moneyflow_buy_md_amount",
+          "type": "NUMERIC(20, 2)",
+          "pk": "否",
+          "comment": "中单买入额"
+        },
+        {
+          "name": "moneyflow_buy_md_amount_rate",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "中单买入额占比"
+        },
+        {
+          "name": "moneyflow_buy_sm_amount",
+          "type": "NUMERIC(20, 2)",
+          "pk": "否",
+          "comment": "小单买入额"
+        },
+        {
+          "name": "moneyflow_buy_sm_amount_rate",
+          "type": "NUMERIC(10, 2)",
+          "pk": "否",
+          "comment": "小单买入额占比"
+        },
+        {
+          "name": "ma5",
+          "type": "NUMERIC(10, 3)",
+          "pk": "否",
+          "comment": "5日移动平均线"
+        },
+        {
+          "name": "ma10",
+          "type": "NUMERIC(10, 3)",
+          "pk": "否",
+          "comment": "10日移动平均线"
+        },
+        {
+          "name": "ma20",
+          "type": "NUMERIC(10, 3)",
+          "pk": "否",
+          "comment": "20日移动平均线"
+        },
+        {
+          "name": "ma30",
+          "type": "NUMERIC(10, 3)",
+          "pk": "否",
+          "comment": "30日移动平均线"
+        },
+        {
+          "name": "ma60",
+          "type": "NUMERIC(10, 3)",
+          "pk": "否",
+          "comment": "60日移动平均线"
+        },
+        {
+          "name": "ma120",
+          "type": "NUMERIC(10, 3)",
+          "pk": "否",
+          "comment": "120日移动平均线"
+        }
+      ],
+      "doc": "股票业务大宽表模型"
+    },
+    {
+      "class_name": "StockCyqPerf",
+      "table_name": "stock_cyq_perf",
+      "columns": [
+        {
+          "name": "ts_code",
+          "type": "VARCHAR(20)",
+          "pk": "景",
+          "comment": "股票代码"
+        },
+        {
+          "name": "trade_date",
+          "type": "DATE",
+          "pk": "景",
+          "comment": "交易日期"
+        },
+        {
+          "name": "his_low",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "历史最低价"
+        },
+        {
+          "name": "his_high",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "历史最高价"
+        },
+        {
+          "name": "cost_5pct",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "5%成本分位"
+        },
+        {
+          "name": "cost_15pct",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "15%成本分位"
+        },
+        {
+          "name": "cost_50pct",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "50%成本分位"
+        },
+        {
+          "name": "cost_85pct",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "85%成本分位"
+        },
+        {
+          "name": "cost_95pct",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "95%成本分位"
+        },
+        {
+          "name": "weight_avg",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "加权平均成本"
+        },
+        {
+          "name": "winner_rate",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "胜率"
+        }
+      ],
+      "doc": "每日筹码及胜率数据表"
+    },
+    {
+      "class_name": "StockDailyBasic",
+      "table_name": "stock_daily_basic",
+      "columns": [
+        {
+          "name": "ts_code",
+          "type": "VARCHAR(20)",
+          "pk": "景",
+          "comment": "TS股票代码"
+        },
+        {
+          "name": "trade_date",
+          "type": "DATE",
+          "pk": "景",
+          "comment": "交易日期"
+        },
+        {
+          "name": "close",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "当日收盘价"
+        },
+        {
+          "name": "turnover_rate",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "换手率（%）"
+        },
+        {
+          "name": "turnover_rate_f",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "换手率（自由流通股）"
+        },
+        {
+          "name": "volume_ratio",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "量比"
+        },
+        {
+          "name": "pe",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "市盈率"
+        },
+        {
+          "name": "pe_ttm",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "市盈率（TTM）"
+        },
+        {
+          "name": "pb",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "市净率"
+        },
+        {
+          "name": "ps",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "市销率"
+        },
+        {
+          "name": "ps_ttm",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "市销率（TTM）"
+        },
+        {
+          "name": "dv_ratio",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "股息率（%）"
+        },
+        {
+          "name": "dv_ttm",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "股息率（TTM）（%）"
+        },
+        {
+          "name": "total_share",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "总股本（万股）"
+        },
+        {
+          "name": "float_share",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "流通股本（万股）"
+        },
+        {
+          "name": "free_share",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "自由流通股本（万）"
+        },
+        {
+          "name": "total_mv",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "总市值（万元）"
+        },
+        {
+          "name": "circ_mv",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "流通市值（万元）"
+        }
+      ],
+      "doc": "股票日线基本数据表"
+    },
+    {
+      "class_name": "StockDailyHistory",
+      "table_name": "stock_daily_history",
+      "columns": [
+        {
+          "name": "ts_code",
+          "type": "VARCHAR(20)",
+          "pk": "景",
+          "comment": "股票代码"
+        },
+        {
+          "name": "trade_date",
+          "type": "DATE",
+          "pk": "景",
+          "comment": "交易日期"
+        },
+        {
+          "name": "open",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "开盘价"
+        },
+        {
+          "name": "high",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "最高价"
+        },
+        {
+          "name": "low",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "最低价"
+        },
+        {
+          "name": "close",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "收盘价"
+        },
+        {
+          "name": "pre_close",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "昨收价"
+        },
+        {
+          "name": "change_c",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "涨跌额"
+        },
+        {
+          "name": "pct_chg",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "涨跌幅"
+        },
+        {
+          "name": "vol",
+          "type": "BIGINT",
+          "pk": "否",
+          "comment": "成交量（手）"
+        },
+        {
+          "name": "amount",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "成交额（千元）"
+        }
+      ],
+      "doc": "股票日线行情历史数据表"
+    },
+    {
+      "class_name": "StockFactor",
+      "table_name": "stock_factor",
+      "columns": [
+        {
+          "name": "ts_code",
+          "type": "VARCHAR(20)",
+          "pk": "景",
+          "comment": "股票代码"
+        },
+        {
+          "name": "trade_date",
+          "type": "DATE",
+          "pk": "景",
+          "comment": "交易日期"
+        },
+        {
+          "name": "close",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "收盘价"
+        },
+        {
+          "name": "open",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "开盘价"
+        },
+        {
+          "name": "high",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "最高价"
+        },
+        {
+          "name": "low",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "最低价"
+        },
+        {
+          "name": "pre_close",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "昨收价"
+        },
+        {
+          "name": "change",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "涨跌额"
+        },
+        {
+          "name": "pct_change",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "涨跌幅"
+        },
+        {
+          "name": "vol",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "成交量"
+        },
+        {
+          "name": "amount",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "成交额"
+        },
+        {
+          "name": "adj_factor",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "复权因子"
+        },
+        {
+          "name": "open_hfq",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "后复权开盘价"
+        },
+        {
+          "name": "open_qfq",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "前复权开盘价"
+        },
+        {
+          "name": "close_hfq",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "后复权收盘价"
+        },
+        {
+          "name": "close_qfq",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "前复权收盘价"
+        },
+        {
+          "name": "high_hfq",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "后复权最高价"
+        },
+        {
+          "name": "high_qfq",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "前复权最高价"
+        },
+        {
+          "name": "low_hfq",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "后复权最低价"
+        },
+        {
+          "name": "low_qfq",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "前复权最低价"
+        },
+        {
+          "name": "pre_close_hfq",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "后复权昨收价"
+        },
+        {
+          "name": "pre_close_qfq",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "前复权昨收价"
+        },
+        {
+          "name": "macd_dif",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "MACD DIF值"
+        },
+        {
+          "name": "macd_dea",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "MACD DEA值"
+        },
+        {
+          "name": "macd",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "MACD值"
+        },
+        {
+          "name": "kdj_k",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "KDJ K值"
+        },
+        {
+          "name": "kdj_d",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "KDJ D值"
+        },
+        {
+          "name": "kdj_j",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "KDJ J值"
+        },
+        {
+          "name": "rsi_6",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "RSI 6日"
+        },
+        {
+          "name": "rsi_12",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "RSI 12日"
+        },
+        {
+          "name": "rsi_24",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "RSI 24日"
+        },
+        {
+          "name": "boll_upper",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "布林上轨"
+        },
+        {
+          "name": "boll_mid",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "布林中轨"
+        },
+        {
+          "name": "boll_lower",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "布林下轨"
+        },
+        {
+          "name": "cci",
+          "type": "DECIMAL(10, 2)",
+          "pk": "否",
+          "comment": "CCI指标"
+        }
+      ],
+      "doc": "股票技术面因子数据表"
+    },
+    {
+      "class_name": "StockIncomeStatement",
+      "table_name": "stock_income_statement",
+      "columns": [
+        {
+          "name": "ts_code",
+          "type": "VARCHAR(20)",
+          "pk": "景",
+          "comment": "TS股票代码"
+        },
+        {
+          "name": "end_date",
+          "type": "VARCHAR(8)",
+          "pk": "景",
+          "comment": "报告期"
+        },
+        {
+          "name": "ann_date",
+          "type": "VARCHAR(8)",
+          "pk": "否",
+          "comment": "公告日期"
+        },
+        {
+          "name": "f_ann_date",
+          "type": "VARCHAR(8)",
+          "pk": "否",
+          "comment": "实际公告日期"
+        },
+        {
+          "name": "report_type",
+          "type": "VARCHAR(10)",
+          "pk": "否",
+          "comment": "报告类型"
+        },
+        {
+          "name": "comp_type",
+          "type": "VARCHAR(10)",
+          "pk": "否",
+          "comment": "公司类型"
+        },
+        {
+          "name": "end_type",
+          "type": "VARCHAR(10)",
+          "pk": "否",
+          "comment": "报告期类型"
+        },
+        {
+          "name": "basic_eps",
+          "type": "DECIMAL(10, 4)",
+          "pk": "否",
+          "comment": "基本每股收益"
+        },
+        {
+          "name": "diluted_eps",
+          "type": "DECIMAL(10, 4)",
+          "pk": "否",
+          "comment": "稀释每股收益"
+        },
+        {
+          "name": "total_revenue",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "营业总收入"
+        },
+        {
+          "name": "revenue",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "营业收入"
+        },
+        {
+          "name": "int_income",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "利息收入"
+        },
+        {
+          "name": "prem_earned",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "已赚保费"
+        },
+        {
+          "name": "comm_income",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "手续费及佣金收入"
+        },
+        {
+          "name": "n_commis_income",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "手续费及佣金净收入"
+        },
+        {
+          "name": "n_oth_income",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其他经营净收益"
+        },
+        {
+          "name": "n_oth_b_income",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "加:其他业务净收益"
+        },
+        {
+          "name": "prem_income",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "保险业务收入"
+        },
+        {
+          "name": "out_prem",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "减:分出保费"
+        },
+        {
+          "name": "une_prem_reser",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "提取未到期责任准备金"
+        },
+        {
+          "name": "reins_income",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其中:分保费收入"
+        },
+        {
+          "name": "n_sec_tb_income",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "代理买卖证券业务净收入"
+        },
+        {
+          "name": "n_sec_uw_income",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "证券承销业务净收入"
+        },
+        {
+          "name": "n_asset_mg_income",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "受托客户资产管理业务净收入"
+        },
+        {
+          "name": "oth_b_income",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其他业务收入"
+        },
+        {
+          "name": "fv_value_chg_gain",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "加:公允价值变动净收益"
+        },
+        {
+          "name": "invest_income",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "加:投资净收益"
+        },
+        {
+          "name": "ass_invest_income",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其中:对联营企业和合营企业的投资收益"
+        },
+        {
+          "name": "forex_gain",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "加:汇兑净收益"
+        },
+        {
+          "name": "total_cogs",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "营业总成本"
+        },
+        {
+          "name": "oper_cost",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "减:营业成本"
+        },
+        {
+          "name": "int_exp",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "减:利息支出"
+        },
+        {
+          "name": "comm_exp",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "减:手续费及佣金支出"
+        },
+        {
+          "name": "biz_tax_surchg",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "减:营业税金及附加"
+        },
+        {
+          "name": "sell_exp",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "减:销售费用"
+        },
+        {
+          "name": "admin_exp",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "减:管理费用"
+        },
+        {
+          "name": "fin_exp",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "减:财务费用"
+        },
+        {
+          "name": "assets_impair_loss",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "减:资产减值损失"
+        },
+        {
+          "name": "prem_refund",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "退保金"
+        },
+        {
+          "name": "compens_payout",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "赔付总支出"
+        },
+        {
+          "name": "reser_insur_liab",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "提取保险责任准备金"
+        },
+        {
+          "name": "div_payt",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "保户红利支出"
+        },
+        {
+          "name": "reins_exp",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "分保费用"
+        },
+        {
+          "name": "oper_exp",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "营业支出"
+        },
+        {
+          "name": "compens_payout_refu",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "减:摊回赔付支出"
+        },
+        {
+          "name": "insur_reser_refu",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "减:摊回保险责任准备金"
+        },
+        {
+          "name": "reins_cost_refund",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "减:摊回分保费用"
+        },
+        {
+          "name": "other_bus_cost",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其他业务成本"
+        },
+        {
+          "name": "operate_profit",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "营业利润"
+        },
+        {
+          "name": "non_oper_income",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "加:营业外收入"
+        },
+        {
+          "name": "non_oper_exp",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "减:营业外支出"
+        },
+        {
+          "name": "nca_disploss",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其中:减:非流动资产处置净损失"
+        },
+        {
+          "name": "total_profit",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "利润总额"
+        },
+        {
+          "name": "income_tax",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "所得税费用"
+        },
+        {
+          "name": "n_income",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "净利润"
+        },
+        {
+          "name": "n_income_attr_p",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "归属于母公司所有者的净利润"
+        },
+        {
+          "name": "minority_gain",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "少数股东损益"
+        },
+        {
+          "name": "oth_compr_income",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "其他综合收益"
+        },
+        {
+          "name": "t_compr_income",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "综合收益总额"
+        },
+        {
+          "name": "compr_inc_attr_p",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "归属于母公司所有者的综合收益总额"
+        },
+        {
+          "name": "compr_inc_attr_m_s",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "归属于少数股东的综合收益总额"
+        },
+        {
+          "name": "ebit",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "息税前利润"
+        },
+        {
+          "name": "ebitda",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "息税折旧摊销前利润"
+        },
+        {
+          "name": "insurance_exp",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "保险业务支出"
+        },
+        {
+          "name": "undist_profit",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "年初未分配利润"
+        },
+        {
+          "name": "distable_profit",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "可分配利润"
+        },
+        {
+          "name": "rd_exp",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "研发费用"
+        },
+        {
+          "name": "fin_exp_int_exp",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "财务费用:利息费用"
+        },
+        {
+          "name": "fin_exp_int_inc",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "财务费用:利息收入"
+        },
+        {
+          "name": "transfer_surplus_rese",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "转入盈余公积"
+        },
+        {
+          "name": "transfer_housing_imprest",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "转入住房周转金"
+        },
+        {
+          "name": "transfer_oth",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "转入其他"
+        },
+        {
+          "name": "adj_lossgain",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "调整以前年度损益"
+        },
+        {
+          "name": "withdra_legal_surplus",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "提取法定盈余公积"
+        },
+        {
+          "name": "withdra_legal_pubfund",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "提取法定公益金"
+        },
+        {
+          "name": "withdra_biz_devfund",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "提取企业发展基金"
+        },
+        {
+          "name": "withdra_rese_fund",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "提取储备基金"
+        },
+        {
+          "name": "withdra_oth_ersu",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "提取其他"
+        },
+        {
+          "name": "workers_welfare",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "职工奖金福利"
+        },
+        {
+          "name": "distr_profit_shrhder",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "可供股东分配的利润"
+        },
+        {
+          "name": "prfshare_payable_dvd",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应付优先股股利"
+        },
+        {
+          "name": "comshare_payable_dvd",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "应付普通股股利"
+        },
+        {
+          "name": "capit_comstock_div",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "转作股本的普通股股利"
+        },
+        {
+          "name": "continued_net_profit",
+          "type": "DECIMAL(20, 4)",
+          "pk": "否",
+          "comment": "持续经营净利润"
+        },
+        {
+          "name": "update_flag",
+          "type": "VARCHAR(1)",
+          "pk": "否",
+          "comment": "更新标识"
+        }
+      ],
+      "doc": "利润表数据表"
+    },
+    {
+      "class_name": "StockMaData",
+      "table_name": "stock_ma_data",
+      "columns": [
+        {
+          "name": "ts_code",
+          "type": "VARCHAR(20)",
+          "pk": "景",
+          "comment": "股票代码"
+        },
+        {
+          "name": "ma5",
+          "type": "DECIMAL(10, 3)",
+          "pk": "否",
+          "comment": "5日移动平均线"
+        },
+        {
+          "name": "ma10",
+          "type": "DECIMAL(10, 3)",
+          "pk": "否",
+          "comment": "10日移动平均线"
+        },
+        {
+          "name": "ma20",
+          "type": "DECIMAL(10, 3)",
+          "pk": "否",
+          "comment": "20日移动平均线"
+        },
+        {
+          "name": "ma30",
+          "type": "DECIMAL(10, 3)",
+          "pk": "否",
+          "comment": "30日移动平均线"
+        },
+        {
+          "name": "ma60",
+          "type": "DECIMAL(10, 3)",
+          "pk": "否",
+          "comment": "60日移动平均线"
+        },
+        {
+          "name": "ma120",
+          "type": "DECIMAL(10, 3)",
+          "pk": "否",
+          "comment": "120日移动平均线"
+        },
+        {
+          "name": "ema5",
+          "type": "DECIMAL(10, 3)",
+          "pk": "否",
+          "comment": "5日指数移动平均线"
+        },
+        {
+          "name": "ema10",
+          "type": "DECIMAL(10, 3)",
+          "pk": "否",
+          "comment": "10日指数移动平均线"
+        },
+        {
+          "name": "ema20",
+          "type": "DECIMAL(10, 3)",
+          "pk": "否",
+          "comment": "20日指数移动平均线"
+        },
+        {
+          "name": "ema30",
+          "type": "DECIMAL(10, 3)",
+          "pk": "否",
+          "comment": "30日指数移动平均线"
+        },
+        {
+          "name": "ema60",
+          "type": "DECIMAL(10, 3)",
+          "pk": "否",
+          "comment": "60日指数移动平均线"
+        },
+        {
+          "name": "ema120",
+          "type": "DECIMAL(10, 3)",
+          "pk": "否",
+          "comment": "120日指数移动平均线"
+        }
+      ],
+      "doc": "股票移动平均线数据表"
+    },
+    {
+      "class_name": "StockMinuteData",
+      "table_name": "stock_minute_data",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "pk": "景",
+          "comment": ""
+        },
+        {
+          "name": "ts_code",
+          "type": "VARCHAR(20)",
+          "pk": "否",
+          "comment": "TS stock code"
+        },
+        {
+          "name": "datetime",
+          "type": "DATETIME",
+          "pk": "否",
+          "comment": "Bar datetime"
+        },
+        {
+          "name": "period_type",
+          "type": "VARCHAR(10)",
+          "pk": "否",
+          "comment": "Bar interval: 1min/5min/15min/30min/60min"
+        },
+        {
+          "name": "open",
+          "type": "FLOAT",
+          "pk": "否",
+          "comment": "Open"
+        },
+        {
+          "name": "high",
+          "type": "FLOAT",
+          "pk": "否",
+          "comment": "High"
+        },
+        {
+          "name": "low",
+          "type": "FLOAT",
+          "pk": "否",
+          "comment": "Low"
+        },
+        {
+          "name": "close",
+          "type": "FLOAT",
+          "pk": "否",
+          "comment": "Close"
+        },
+        {
+          "name": "volume",
+          "type": "BIGINT",
+          "pk": "否",
+          "comment": "Volume"
+        },
+        {
+          "name": "amount",
+          "type": "FLOAT",
+          "pk": "否",
+          "comment": "Amount"
+        },
+        {
+          "name": "pre_close",
+          "type": "FLOAT",
+          "pk": "否",
+          "comment": "Previous close"
+        },
+        {
+          "name": "change",
+          "type": "FLOAT",
+          "pk": "否",
+          "comment": "Change"
+        },
+        {
+          "name": "pct_chg",
+          "type": "FLOAT",
+          "pk": "否",
+          "comment": "Pct change"
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "pk": "否",
+          "comment": "Created at"
+        },
+        {
+          "name": "updated_at",
+          "type": "DATETIME",
+          "pk": "否",
+          "comment": "Updated at"
+        }
+      ],
+      "doc": "Unified minute-level quote storage."
+    },
+    {
+      "class_name": "StockMoneyflow",
+      "table_name": "stock_moneyflow",
+      "columns": [
+        {
+          "name": "ts_code",
+          "type": "VARCHAR(20)",
+          "pk": "景",
+          "comment": "股票代码"
+        },
+        {
+          "name": "trade_date",
+          "type": "DATE",
+          "pk": "景",
+          "comment": "交易日期"
+        },
+        {
+          "name": "buy_sm_vol",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "小单买入量（手）"
+        },
+        {
+          "name": "buy_sm_amount",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "小单买入金额（万元）"
+        },
+        {
+          "name": "sell_sm_vol",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "小单卖出量（手）"
+        },
+        {
+          "name": "sell_sm_amount",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "小单卖出金额（万元）"
+        },
+        {
+          "name": "buy_md_vol",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "中单买入量（手）"
+        },
+        {
+          "name": "buy_md_amount",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "中单买入金额（万元）"
+        },
+        {
+          "name": "sell_md_vol",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "中单卖出量（手）"
+        },
+        {
+          "name": "sell_md_amount",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "中单卖出金额（万元）"
+        },
+        {
+          "name": "buy_lg_vol",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "大单买入量（手）"
+        },
+        {
+          "name": "buy_lg_amount",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "大单买入金额（万元）"
+        },
+        {
+          "name": "sell_lg_vol",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "大单卖出量（手）"
+        },
+        {
+          "name": "sell_lg_amount",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "大单卖出金额（万元）"
+        },
+        {
+          "name": "buy_elg_vol",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "特大单买入量（手）"
+        },
+        {
+          "name": "buy_elg_amount",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "特大单买入金额（万元）"
+        },
+        {
+          "name": "sell_elg_vol",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "特大单卖出量（手）"
+        },
+        {
+          "name": "sell_elg_amount",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "特大单卖出金额（万元）"
+        },
+        {
+          "name": "net_mf_vol",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "净流入量（手）"
+        },
+        {
+          "name": "net_mf_amount",
+          "type": "DECIMAL(20, 2)",
+          "pk": "否",
+          "comment": "净流入额（万元）"
+        }
+      ],
+      "doc": "个股资金流向数据表"
+    },
+    {
+      "class_name": "SystemLog",
+      "table_name": "system_log",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "pk": "景",
+          "comment": ""
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "pk": "否",
+          "comment": ""
+        },
+        {
+          "name": "username",
+          "type": "VARCHAR(50)",
+          "pk": "否",
+          "comment": ""
+        },
+        {
+          "name": "role",
+          "type": "VARCHAR(20)",
+          "pk": "否",
+          "comment": ""
+        },
+        {
+          "name": "action_type",
+          "type": "VARCHAR(50)",
+          "pk": "否",
+          "comment": ""
+        },
+        {
+          "name": "message",
+          "type": "TEXT",
+          "pk": "否",
+          "comment": ""
+        },
+        {
+          "name": "ip",
+          "type": "VARCHAR(64)",
+          "pk": "否",
+          "comment": ""
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(20)",
+          "pk": "否",
+          "comment": ""
+        },
+        {
+          "name": "user_agent",
+          "type": "VARCHAR(255)",
+          "pk": "否",
+          "comment": ""
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "pk": "否",
+          "comment": ""
+        }
+      ],
+      "doc": ""
+    },
+    {
+      "class_name": "User",
+      "table_name": "user_account",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "pk": "景",
+          "comment": "id"
+        },
+        {
+          "name": "username",
+          "type": "VARCHAR(50)",
+          "pk": "否",
+          "comment": "username"
+        },
+        {
+          "name": "email",
+          "type": "VARCHAR(120)",
+          "pk": "否",
+          "comment": "email"
+        },
+        {
+          "name": "password_hash",
+          "type": "VARCHAR(255)",
+          "pk": "否",
+          "comment": "password hash"
+        },
+        {
+          "name": "nickname",
+          "type": "VARCHAR(50)",
+          "pk": "否",
+          "comment": "nickname"
+        },
+        {
+          "name": "avatar",
+          "type": "VARCHAR(255)",
+          "pk": "否",
+          "comment": "avatar url"
+        },
+        {
+          "name": "phone",
+          "type": "VARCHAR(20)",
+          "pk": "否",
+          "comment": "phone"
+        },
+        {
+          "name": "role",
+          "type": "VARCHAR(20)",
+          "pk": "否",
+          "comment": "role"
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(20)",
+          "pk": "否",
+          "comment": "status"
+        },
+        {
+          "name": "last_login_at",
+          "type": "DATETIME",
+          "pk": "否",
+          "comment": "last login time"
+        },
+        {
+          "name": "last_login_ip",
+          "type": "VARCHAR(64)",
+          "pk": "否",
+          "comment": "last login ip"
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "pk": "否",
+          "comment": "created time"
+        },
+        {
+          "name": "updated_at",
+          "type": "DATETIME",
+          "pk": "否",
+          "comment": "updated time"
+        }
+      ],
+      "doc": ""
+    },
+    {
+      "class_name": "UserAnalysisRecord",
+      "table_name": "user_analysis_record",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "pk": "景",
+          "comment": "id"
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "pk": "否",
+          "comment": "user id"
+        },
+        {
+          "name": "ts_code",
+          "type": "VARCHAR(20)",
+          "pk": "否",
+          "comment": "stock ts code"
+        },
+        {
+          "name": "stock_name",
+          "type": "VARCHAR(100)",
+          "pk": "否",
+          "comment": "stock name snapshot"
+        },
+        {
+          "name": "module_name",
+          "type": "VARCHAR(50)",
+          "pk": "否",
+          "comment": "module name"
+        },
+        {
+          "name": "summary",
+          "type": "VARCHAR(255)",
+          "pk": "否",
+          "comment": "record summary"
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "pk": "否",
+          "comment": "created time"
+        }
+      ],
+      "doc": ""
+    },
+    {
+      "class_name": "UserChatHistory",
+      "table_name": "user_chat_history",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "pk": "景",
+          "comment": "id"
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "pk": "否",
+          "comment": "user id"
+        },
+        {
+          "name": "question",
+          "type": "TEXT",
+          "pk": "否",
+          "comment": "user question"
+        },
+        {
+          "name": "answer",
+          "type": "TEXT",
+          "pk": "否",
+          "comment": "assistant answer"
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "pk": "否",
+          "comment": "created time"
+        }
+      ],
+      "doc": ""
+    },
+    {
+      "class_name": "UserWatchlist",
+      "table_name": "user_watchlist",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "pk": "景",
+          "comment": "id"
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "pk": "否",
+          "comment": "user id"
+        },
+        {
+          "name": "ts_code",
+          "type": "VARCHAR(20)",
+          "pk": "否",
+          "comment": "stock ts code"
+        },
+        {
+          "name": "stock_name",
+          "type": "VARCHAR(100)",
+          "pk": "否",
+          "comment": "stock name snapshot"
+        },
+        {
+          "name": "market",
+          "type": "VARCHAR(20)",
+          "pk": "否",
+          "comment": "market snapshot"
+        },
+        {
+          "name": "source",
+          "type": "VARCHAR(50)",
+          "pk": "否",
+          "comment": "add source"
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "pk": "否",
+          "comment": "created time"
+        }
+      ],
+      "doc": ""
+    }
+  ]
+}

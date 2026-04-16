@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}管理后台 - 股票量化分析系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/account-admin.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="workspace-shell">
+        <section class="workspace-hero">
+            <span class="workspace-kicker">管理员工作台</span>
+            <h1 class="workspace-title">管理后台总览</h1>
+            <p class="workspace-subtitle">
+                在这里集中查看用户活跃度、日志运行情况、股票数据规模与分钟数据覆盖情况，快速切换到各个后台管理模块。
+            </p>
+            <div class="workspace-actions">
+                <a class="btn btn-light" href="{{ url_for('admin.users') }}">用户管理</a>
+                <a class="btn btn-outline-light" href="{{ url_for('admin.logs') }}">系统日志</a>
+                <a class="btn btn-outline-light" href="{{ url_for('admin.data_center') }}">数据管理</a>
+                <a class="btn btn-outline-light" href="{{ url_for('auth.profile') }}">返回个人中心</a>
+                <a class="btn btn-outline-light" href="{{ url_for('admin.logout') }}">退出后台</a>
+            </div>
+            <div class="workspace-summary-grid">
+                <div class="workspace-stat-card">
+                    <div class="workspace-stat-label">注册用户</div>
+                    <div class="workspace-stat-value">{{ stats.total_users }}</div>
+                    <div class="workspace-stat-help">平台累计用户总数</div>
+                </div>
+                <div class="workspace-stat-card">
+                    <div class="workspace-stat-label">活跃用户</div>
+                    <div class="workspace-stat-value text-success">{{ stats.active_users }}</div>
+                    <div class="workspace-stat-help">当前可正常登录的账户</div>
+                </div>
+                <div class="workspace-stat-card">
+                    <div class="workspace-stat-label">系统日志</div>
+                    <div class="workspace-stat-value text-primary">{{ stats.total_logs }}</div>
+                    <div class="workspace-stat-help">可用于排查链路问题</div>
+                </div>
+                <div class="workspace-stat-card">
+                    <div class="workspace-stat-label">分钟数据行数</div>
+                    <div class="workspace-stat-value text-warning">{{ stats.total_minute_rows }}</div>
+                    <div class="workspace-stat-help">衡量盘中数据覆盖程度</div>
+                </div>
+            </div>
+        </section>
+
+        <div class="workspace-subgrid">
+            <a class="admin-shortcut" href="{{ url_for('admin.users') }}">
+                <span class="workspace-chip">用户管理</span>
+                <span class="admin-shortcut-title">查看用户列表与权限</span>
+                <span class="admin-shortcut-desc">支持搜索、修改角色、禁用或封禁账户，并查看单个用户的行为明细。</span>
+            </a>
+            <a class="admin-shortcut" href="{{ url_for('admin.logs') }}">
+                <span class="workspace-chip success">系统日志</span>
+                <span class="admin-shortcut-title">追踪操作与异常</span>
+                <span class="admin-shortcut-desc">筛选后台动作、登录记录与错误信息，便于排查运行链路。</span>
+            </a>
+            <a class="admin-shortcut" href="{{ url_for('admin.data_center') }}">
+                <span class="workspace-chip warning">数据中心</span>
+                <span class="admin-shortcut-title">检查数据规模与同步入口</span>
+                <span class="admin-shortcut-desc">查看股票基础表、分钟表规模，并手动尝试同步指定股票分钟数据。</span>
+            </a>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-12">
+                <div class="workspace-panel">
+                    <div class="workspace-panel-header">
+                        <div>
+                            <h2 class="workspace-panel-title">平台核心指标</h2>
+                            <p class="workspace-panel-desc">从账号、行为与业务数据三个维度快速了解系统当前状态。</p>
+                        </div>
+                    </div>
+                    <div class="workspace-summary-grid">
+                        <div class="workspace-soft-card">
+                            <div class="workspace-stat-label">禁用用户</div>
+                            <div class="workspace-stat-value text-warning">{{ stats.disabled_users }}</div>
+                            <div class="workspace-stat-help">已被暂停使用的账户</div>
+                        </div>
+                        <div class="workspace-soft-card">
+                            <div class="workspace-stat-label">封禁用户</div>
+                            <div class="workspace-stat-value text-danger">{{ stats.banned_users }}</div>
+                            <div class="workspace-stat-help">不允许访问系统的账户</div>
+                        </div>
+                        <div class="workspace-soft-card">
+                            <div class="workspace-stat-label">管理员账号</div>
+                            <div class="workspace-stat-value">{{ stats.admin_count }}</div>
+                            <div class="workspace-stat-help">具有后台权限的账户数量</div>
+                        </div>
+                        <div class="workspace-soft-card">
+                            <div class="workspace-stat-label">股票基础数据</div>
+                            <div class="workspace-stat-value text-primary">{{ stats.total_stocks }}</div>
+                            <div class="workspace-stat-help">基础股票主数据规模</div>
+                        </div>
+                        <div class="workspace-soft-card">
+                            <div class="workspace-stat-label">自选股记录</div>
+                            <div class="workspace-stat-value">{{ stats.total_watchlist }}</div>
+                            <div class="workspace-stat-help">用户关注股票累计数</div>
+                        </div>
+                        <div class="workspace-soft-card">
+                            <div class="workspace-stat-label">分析记录</div>
+                            <div class="workspace-stat-value text-success">{{ stats.total_analysis }}</div>
+                            <div class="workspace-stat-help">用户分析行为沉淀</div>
+                        </div>
+                        <div class="workspace-soft-card">
+                            <div class="workspace-stat-label">AI 问答</div>
+                            <div class="workspace-stat-value text-warning">{{ stats.total_chat }}</div>
+                            <div class="workspace-stat-help">智能问答互动累计次数</div>
+                        </div>
+                        <div class="workspace-soft-card">
+                            <div class="workspace-stat-label">系统日志总量</div>
+                            <div class="workspace-stat-value">{{ stats.total_logs }}</div>
+                            <div class="workspace-stat-help">系统操作与异常日志数</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="workspace-panel">
+                    <div class="workspace-panel-header">
+                        <div>
+                            <h2 class="workspace-panel-title">最新系统日志</h2>
+                            <p class="workspace-panel-desc">默认展示最近 12 条记录，帮助你快速判断服务状态和最近的后台动作。</p>
+                        </div>
+                        <span class="workspace-chip">最近 12 条</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table workspace-table align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>时间</th>
+                                    <th>动作</th>
+                                    <th>用户</th>
+                                    <th>状态</th>
+                                    <th>描述</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in latest_logs %}
+                                <tr>
+                                    <td>{{ item.created_at.strftime('%Y-%m-%d %H:%M:%S') if item.created_at else '-' }}</td>
+                                    <td><span class="workspace-chip">{{ item.action_type }}</span></td>
+                                    <td>{{ item.username or '-' }}</td>
+                                    <td>
+                                        {% if item.status == 'success' %}
+                                        <span class="status-pill success">成功</span>
+                                        {% else %}
+                                        <span class="status-pill danger">失败</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-muted">{{ item.message }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5">
+                                        <div class="workspace-empty">当前还没有日志记录。</div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

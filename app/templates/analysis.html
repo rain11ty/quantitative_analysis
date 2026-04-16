@@ -1,1319 +1,1871 @@
 {% extends "base.html" %}
+ {% block title %}技术分析 - 股票分析系统{% endblock %}
+ {% block extra_css %}
 
-{% block title %}技术分析 - 股票分析系统{% endblock %}
+<style> .chart-container {
+ width: 100%;
+ height: 400px;
+ position: relative;
 
-{% block extra_css %}
-<style>
-.chart-container {
-    width: 100%;
-    height: 400px;
-    position: relative;
 }
+
 .indicator-chart {
-    width: 100%;
-    height: 400px;
-    position: relative;
+ width: 100%;
+ height: 400px;
+ position: relative;
+
 }
+
 .loading-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(255, 255, 255, 0.8);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10;
+ position: absolute;
+ top: 0;
+ left: 0;
+ right: 0;
+ bottom: 0;
+ background: rgba(255, 255, 255, 0.8);
+ display: flex;
+ align-items: center;
+ justify-content: center;
+ z-index: 10;
+
 }
+
+.metrics-panel {
+ padding: 1rem 1.25rem;
+ background: linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(255, 255, 255, 1));
+}
+
+.metrics-grid {
+ display: grid;
+ grid-template-columns: repeat(4, minmax(0, 1fr));
+ gap: 0.9rem;
+}
+
 .metric-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 20px;
+ position: relative;
+ overflow: hidden;
+ background: rgba(255, 255, 255, 0.96);
+ border: 1px solid var(--card-border);
+ border-radius: 18px;
+ padding: 0.95rem 1rem;
+ margin-bottom: 0;
+ display: flex;
+ align-items: center;
+ justify-content: space-between;
+ gap: 0.8rem;
+ min-height: 88px;
+ box-shadow: 0 10px 30px -18px rgba(15, 23, 42, 0.28);
+ transition: var(--transition-smooth);
 }
+
+.metric-card::before {
+ content: '';
+ position: absolute;
+ inset: 0 auto 0 0;
+ width: 4px;
+ border-radius: 18px 0 0 18px;
+ background: var(--metric-accent, linear-gradient(180deg, #2563eb, #60a5fa));
+}
+
+.metric-card::after {
+ content: '';
+ position: absolute;
+ right: -18px;
+ top: -18px;
+ width: 68px;
+ height: 68px;
+ border-radius: 999px;
+ background: var(--metric-soft, rgba(37, 99, 235, 0.08));
+}
+
+.metric-card:hover {
+ transform: translateY(-2px);
+ box-shadow: 0 18px 32px -20px rgba(15, 23, 42, 0.35);
+}
+
+.metric-card--price {
+ --metric-accent: linear-gradient(180deg, #2563eb, #60a5fa);
+ --metric-soft: rgba(37, 99, 235, 0.10);
+}
+
+.metric-card--change {
+ --metric-accent: linear-gradient(180deg, #8b5cf6, #c084fc);
+ --metric-soft: rgba(139, 92, 246, 0.10);
+}
+
+.metric-card--volume {
+ --metric-accent: linear-gradient(180deg, #0891b2, #22d3ee);
+ --metric-soft: rgba(6, 182, 212, 0.10);
+}
+
+.metric-card--turnover {
+ --metric-accent: linear-gradient(180deg, #f59e0b, #fbbf24);
+ --metric-soft: rgba(245, 158, 11, 0.10);
+}
+
+.metric-content {
+ position: relative;
+ z-index: 1;
+ min-width: 0;
+}
+
 .metric-value {
-    font-size: 2rem;
-    font-weight: bold;
+ color: var(--text-main);
+ font-size: 1.5rem;
+ font-weight: 700;
+ line-height: 1.1;
+ letter-spacing: -0.02em;
+ white-space: nowrap;
 }
+
+.metric-card--change .metric-value {
+ color: var(--text-main);
+}
+
+.metric-card--change .metric-value.text-success {
+ color: #16a34a !important;
+}
+
+.metric-card--change .metric-value.text-danger {
+ color: #dc2626 !important;
+}
+
 .metric-label {
-    font-size: 0.9rem;
-    opacity: 0.8;
+ font-size: 0.78rem;
+ color: var(--text-muted);
+ text-transform: uppercase;
+ letter-spacing: 0.08em;
+ margin-bottom: 0.4rem;
 }
+
+.metric-icon {
+ position: relative;
+ z-index: 1;
+ width: 2.35rem;
+ height: 2.35rem;
+ border-radius: 999px;
+ display: inline-flex;
+ align-items: center;
+ justify-content: center;
+ font-size: 0.95rem;
+ font-weight: 700;
+ color: #334155;
+ background: rgba(255, 255, 255, 0.75);
+ border: 1px solid rgba(148, 163, 184, 0.18);
+ box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+ flex-shrink: 0;
+}
+
+@media (max-width: 992px) {
+ .metrics-grid {
+ grid-template-columns: repeat(2, minmax(0, 1fr));
+ }
+}
+
+@media (max-width: 576px) {
+ .metrics-panel {
+ padding: 0.9rem;
+ }
+
+ .metrics-grid {
+ grid-template-columns: 1fr;
+ gap: 0.75rem;
+ }
+
+ .metric-card {
+ min-height: auto;
+ }
+}
+
+.realtime-card {
+ height: 100%;
+}
+
+.realtime-card .card-body {
+ padding: 1.35rem;
+}
+
+.realtime-card-header {
+ display: flex;
+ justify-content: space-between;
+ align-items: flex-start;
+ gap: 1rem;
+ margin-bottom: 1rem;
+}
+
+.realtime-card-title {
+ font-size: 1.05rem;
+ font-weight: 700;
+ color: var(--text-main);
+ margin-bottom: 0.2rem;
+}
+
+.realtime-card-subtitle {
+ color: var(--text-muted);
+ font-size: 0.84rem;
+}
+
+.real-time-indicator {
+ display: inline-flex;
+ align-items: center;
+ padding: 0.35rem 0.8rem;
+ border-radius: 999px;
+ font-size: 0.78rem;
+ font-weight: 700;
+ color: #1d4ed8;
+ background: rgba(37, 99, 235, 0.08);
+ border: 1px solid rgba(37, 99, 235, 0.14);
+ white-space: nowrap;
+}
+
+.realtime-summary {
+ display: flex;
+ align-items: center;
+ justify-content: space-between;
+ gap: 1rem;
+ padding: 1rem 1.05rem;
+ border-radius: 16px;
+ background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(59, 130, 246, 0.03));
+ border: 1px solid rgba(37, 99, 235, 0.10);
+ margin-bottom: 1rem;
+}
+
+.realtime-summary-main {
+ min-width: 0;
+}
+
+.realtime-summary-label {
+ font-size: 0.78rem;
+ letter-spacing: 0.08em;
+ text-transform: uppercase;
+ color: #64748b;
+ margin-bottom: 0.25rem;
+}
+
+.realtime-summary-title {
+ font-size: 1.2rem;
+ font-weight: 700;
+ color: var(--text-main);
+ margin-bottom: 0.25rem;
+}
+
+.realtime-summary-text {
+ color: var(--text-muted);
+ font-size: 0.9rem;
+ line-height: 1.6;
+}
+
+.realtime-summary-date {
+ flex-shrink: 0;
+ padding: 0.45rem 0.7rem;
+ border-radius: 999px;
+ background: rgba(255, 255, 255, 0.8);
+ border: 1px solid rgba(148, 163, 184, 0.2);
+ color: #334155;
+ font-size: 0.82rem;
+ font-weight: 600;
+}
+
+.realtime-chip-grid {
+ display: grid;
+ grid-template-columns: repeat(3, minmax(0, 1fr));
+ gap: 0.75rem;
+}
+
+.realtime-chip {
+ border: 1px solid var(--card-border);
+ border-radius: 14px;
+ padding: 0.9rem;
+ background: rgba(248, 250, 252, 0.8);
+}
+
+.realtime-chip-label {
+ color: #64748b;
+ font-size: 0.8rem;
+ margin-bottom: 0.35rem;
+}
+
+.realtime-chip-value {
+ color: var(--text-main);
+ font-size: 0.96rem;
+ font-weight: 600;
+ line-height: 1.5;
+}
+
+.monitor-list {
+ display: flex;
+ flex-direction: column;
+ gap: 0.75rem;
+}
+
+.monitor-item {
+ display: flex;
+ align-items: flex-start;
+ justify-content: space-between;
+ gap: 0.9rem;
+ padding: 0.95rem 1rem;
+ border: 1px solid var(--card-border);
+ border-radius: 14px;
+ background: rgba(248, 250, 252, 0.72);
+}
+
+.monitor-item-title {
+ font-size: 0.95rem;
+ font-weight: 600;
+ color: var(--text-main);
+ margin-bottom: 0.2rem;
+}
+
+.monitor-item-text {
+ color: var(--text-muted);
+ font-size: 0.86rem;
+ line-height: 1.55;
+}
+
+.signal-pill {
+ display: inline-flex;
+ align-items: center;
+ justify-content: center;
+ min-width: 64px;
+ padding: 0.38rem 0.75rem;
+ border-radius: 999px;
+ font-size: 0.78rem;
+ font-weight: 700;
+ border: 1px solid transparent;
+ flex-shrink: 0;
+}
+
+.signal-pill--positive {
+ background: rgba(22, 163, 74, 0.12);
+ color: #15803d;
+ border-color: rgba(22, 163, 74, 0.18);
+}
+
+.signal-pill--warning {
+ background: rgba(245, 158, 11, 0.14);
+ color: #b45309;
+ border-color: rgba(245, 158, 11, 0.2);
+}
+
+.signal-pill--negative {
+ background: rgba(239, 68, 68, 0.12);
+ color: #b91c1c;
+ border-color: rgba(239, 68, 68, 0.18);
+}
+
+.signal-pill--neutral {
+ background: rgba(148, 163, 184, 0.12);
+ color: #475569;
+ border-color: rgba(148, 163, 184, 0.18);
+}
+
+@media (max-width: 768px) {
+ .realtime-card-header,
+ .realtime-summary {
+ flex-direction: column;
+ }
+
+ .realtime-chip-grid {
+ grid-template-columns: 1fr;
+ }
+
+ .monitor-item {
+ flex-direction: column;
+ }
+}
+
 .chart-tabs {
-    border-bottom: 1px solid #dee2e6;
-    margin-bottom: 20px;
+
+ border-bottom: 1px solid #dee2e6;
+ margin-bottom: 20px;
+
 }
+
 .chart-tab {
-    padding: 10px 20px;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    display: inline-block;
-    margin-right: 10px;
-    transition: all 0.3s;
+ padding: 10px 20px;
+ cursor: pointer;
+ border-bottom: 2px solid transparent;
+ display: inline-block;
+ margin-right: 10px;
+ transition: all 0.3s;
+
 }
+
 .chart-tab.active {
-    border-bottom-color: #007bff;
-    color: #007bff;
-    font-weight: bold;
+ border-bottom-color: #007bff;
+ color: #007bff;
+ font-weight: bold;
+
 }
+
 .chart-tab:hover {
-    background-color: #f8f9fa;
+ background-color: #f8f9fa;
+
 }
+
 #main-chart, #indicator-chart {
-    width: 100%;
-    height: 400px;
-}
-</style>
-{% endblock %}
+ width: 100%;
+ height: 400px;
 
-{% block content %}
+}
+
+</style> {% endblock %}
+ {% block content %}
+
 <div class="container">
-    <!-- 页面标题 -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <h1 class="h2">📈 技术分析</h1>
-            <p class="text-muted">专业K线图、技术指标分析</p>
-        </div>
-    </div>
-
-    <!-- 股票选择 -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body">
-                    <form id="stock-form" class="row g-3">
-                        <div class="col-md-4">
-                            <label for="stock-input" class="form-label">股票代码</label>
-                            <input type="text" class="form-control" id="stock-input" placeholder="请输入股票代码，如：000001.SZ" maxlength="9" value="000001.SZ">
-                            <div class="form-text">支持格式：000001.SZ（深圳）、600000.SH（上海）</div>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="period-select" class="form-label">时间周期</label>
-                            <select class="form-select" id="period-select">
-                                <option value="30">30天</option>
-                                <option value="60" selected>60天</option>
-                                <option value="120">120天</option>
-                                <option value="250">250天</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="chart-type-select" class="form-label">图表类型</label>
-                            <select class="form-select" id="chart-type-select">
-                                <option value="candlestick">K线图</option>
-                                <option value="line">线图</option>
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="submit" class="btn btn-primary d-block w-100">
-                                <i class="fas fa-chart-line"></i> 分析
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 股票信息卡片 -->
-    <div id="stock-info-section" class="row mb-4" style="display: none;">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body">
-                    <div id="stock-info-content"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 关键指标 -->
-    <div id="metrics-section" class="row mb-4" style="display: none;">
-        <div class="col-md-3">
-            <div class="metric-card text-center">
-                <div class="metric-value" id="current-price">--</div>
-                <div class="metric-label">当前价格</div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="metric-card text-center">
-                <div class="metric-value" id="price-change">--</div>
-                <div class="metric-label">涨跌幅</div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="metric-card text-center">
-                <div class="metric-value" id="volume">--</div>
-                <div class="metric-label">成交量</div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="metric-card text-center">
-                <div class="metric-value" id="turnover">--</div>
-                <div class="metric-label">成交额</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 主图表区域 -->
-    <div id="main-chart-section" class="row mb-4" style="display: none;">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">📊 价格图表</h5>
-                        <div class="btn-group btn-group-sm" role="group">
-                            <button type="button" class="btn btn-outline-primary active" onclick="switchMainChart('price')">价格</button>
-                            <button type="button" class="btn btn-outline-primary" onclick="switchMainChart('volume')">成交量</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div id="main-chart" class="chart-container"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 技术指标图表 -->
-    <div id="indicators-section" class="row" style="display: none;">
-        <!-- 图表选项卡 -->
-        <div class="col-12 mb-3">
-            <div class="chart-tabs">
-                <div class="chart-tab active" onclick="switchIndicatorChart('macd')">MACD</div>
-                <div class="chart-tab" onclick="switchIndicatorChart('kdj')">KDJ</div>
-                <div class="chart-tab" onclick="switchIndicatorChart('rsi')">RSI</div>
-                <div class="chart-tab" onclick="switchIndicatorChart('boll')">布林带</div>
-            </div>
-        </div>
-
-        <!-- 指标图表容器 -->
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h6 class="mb-0" id="indicator-title">📈 MACD指标</h6>
-                </div>
-                <div class="card-body">
-                    <div id="indicator-chart" class="indicator-chart"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 数据表格 -->
-    <div id="data-section" class="row mt-4" style="display: none;">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h6 class="mb-0">📋 详细数据</h6>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover" id="data-table">
-                            <thead>
-                                <tr>
-                                    <th>日期</th>
-                                    <th>开盘</th>
-                                    <th>最高</th>
-                                    <th>最低</th>
-                                    <th>收盘</th>
-                                    <th>成交量</th>
-                                    <th>涨跌幅</th>
-                                    <th>RSI</th>
-                                    <th>MACD</th>
-                                </tr>
-                            </thead>
-                            <tbody id="data-table-body">
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+<!-- 页面标题 -->
+<div class="row mb-4">
+<div class="col-12">
+<h1 class="h2">技术分析</h1>
+<p class="text-muted">专业K线图、技术指标分析</p>
 </div>
-{% endblock %}
+</div>
+<!-- 股票选择 -->
+<div class="row mb-4">
+<div class="col-12">
+<div class="page-card">
+<div class="card-body">
+<form id="stock-form" class="row g-3">
+<div class="col-md-4">
+<label for="stock-input" class="form-label">股票代码</label>
+<input type="text" class="form-control" id="stock-input" placeholder="请输入股票代码，如：000001.SZ" maxlength="9" value="000001.SZ">
+<div class="form-text">支持格式：000001.SZ（深圳）、600000.SH（上海）</div>
+</div>
+<div class="col-md-3">
+<label for="period-select" class="form-label">时间周期</label>
+<select class="form-select" id="period-select">
+<option value="30">30天</option>
+<option value="60" selected>60天</option>
+<option value="120">120天</option>
+<option value="250">250天</option>
+</select>
+</div>
+<div class="col-md-3">
+<label for="chart-type-select" class="form-label">图表类型</label>
+<select class="form-select" id="chart-type-select">
+<option value="candlestick">K线图</option>
+<option value="line">线图</option>
+</select>
+</div>
+<div class="col-md-2">
+<label class="form-label">&nbsp;</label>
+<button type="submit" class="btn-modern btn-modern-primary d-flex w-100 h-50 align-items-center">分析</button>
+</div>
+</form>
+</div>
+</div>
+</div>
+</div>
+<!-- 股票信息卡片 -->
+<div id="stock-info-section" class="row mb-4" style="display: none;">
+<div class="col-12">
+<div class="page-card">
+<div class="card-body">
+<div id="stock-info-content"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- 关键指标 -->
+<div id="metrics-section" class="row mb-4" style="display: none;">
+<div class="col-12">
+<div class="page-card metrics-panel">
+<div class="metrics-grid">
+<div class="metric-card metric-card--price">
+<div class="metric-content">
+<div class="metric-label">当前价格</div>
+<div class="metric-value" id="current-price">--</div>
+</div>
+<div class="metric-icon">￥</div>
+</div>
+<div class="metric-card metric-card--change">
+<div class="metric-content">
+<div class="metric-label">涨跌幅</div>
+<div class="metric-value" id="price-change">--</div>
+</div>
+<div class="metric-icon">%</div>
+</div>
+<div class="metric-card metric-card--volume">
+<div class="metric-content">
+<div class="metric-label">成交量</div>
+<div class="metric-value" id="volume">--</div>
+</div>
+<div class="metric-icon">量</div>
+</div>
+<div class="metric-card metric-card--turnover">
+<div class="metric-content">
+<div class="metric-label">成交额</div>
+<div class="metric-value" id="turnover">--</div>
+</div>
+<div class="metric-icon">额</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- 实时分析与监控 -->
+<div id="realtime-insights-section" class="row g-4 mb-4">
+<div class="col-lg-6">
+<div class="page-card realtime-card">
+<div class="card-body">
+<div class="realtime-card-header">
+<div>
+<div class="realtime-card-title">实时分析</div>
+<div class="realtime-card-subtitle">基于最新交易日价格与技术因子自动生成</div>
+</div>
+<span class="real-time-indicator">最新分析</span>
+</div>
+<div id="realtime-analysis-content">
+<div class="text-muted">完成分析后将展示趋势判断、动能解读和关键价位提示。</div>
+</div>
+</div>
+</div>
+</div>
+<div class="col-lg-6">
+<div class="page-card realtime-card">
+<div class="card-body">
+<div class="realtime-card-header">
+<div>
+<div class="realtime-card-title">实时监控</div>
+<div class="realtime-card-subtitle">用于快速观察量能、波动与技术信号状态</div>
+</div>
+<span class="real-time-indicator">监控中</span>
+</div>
+<div id="realtime-monitor-content">
+<div class="text-muted">完成分析后将展示放量、超买超卖与布林带等监控提示。</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- 主图表区域 -->
 
-{% block extra_js %}
-<script>
-let currentStock = null;
+<div id="main-chart-section" class="row mb-4" style="display: none;">
+<div class="col-12">
+<div class="page-card">
+<div class="card-header border-0 bg-transparent pt-3 pb-0">
+<div class="d-flex justify-content-between align-items-center">
+<h5 class="mb-0 fw-bold">价格图表</h5>
+<div class="btn-group btn-group-sm" role="group">
+<button type="button" class="btn btn-outline-primary active" onclick="switchMainChart('price')">价格</button>
+<button type="button" class="btn btn-outline-primary" onclick="switchMainChart('volume')">成交量</button>
+</div>
+</div>
+</div>
+<div class="card-body">
+<div id="main-chart" class="chart-container"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- 技术指标图表 -->
+<div id="indicators-section" class="row" style="display: none;">
+<!-- 图表选项卡 -->
+<div class="col-12 mb-3">
+<div class="chart-tabs">
+<div class="chart-tab active" onclick="switchIndicatorChart('macd')">MACD</div>
+<div class="chart-tab" onclick="switchIndicatorChart('kdj')">KDJ</div>
+<div class="chart-tab" onclick="switchIndicatorChart('rsi')">RSI</div>
+<div class="chart-tab" onclick="switchIndicatorChart('boll')">布林带</div>
+</div>
+</div>
+<!-- 指标图表容器 -->
+<div class="col-12">
+<div class="page-card">
+<div class="card-header border-0 bg-transparent pt-3 pb-0">
+<h5 class="mb-0 fw-bold" id="indicator-title">MACD指标</h5>
+</div>
+<div class="card-body">
+<div id="indicator-chart" class="indicator-chart"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- 数据表格 -->
+<div id="data-section" class="row mt-4" style="display: none;">
+<div class="col-12">
+<div class="page-card">
+<div class="card-header border-0 bg-transparent pt-3 pb-0">
+<h5 class="mb-0 fw-bold">详细数据</h5>
+</div>
+<div class="card-body">
+<div class="table-responsive">
+<table class="table table-sm table-hover" id="data-table">
+<thead>
+<tr>
+<th>日期</th>
+<th>开盘</th>
+<th>最高</th>
+<th>最低</th>
+<th>收盘</th>
+<th>成交量</th>
+<th>涨跌幅</th>
+<th>RSI</th>
+<th>MACD</th>
+</tr>
+</thead>
+<tbody id="data-table-body">
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div> {% endblock %}
+ {% block extra_js %}
+
+<script>let currentStock = null;
+
 let currentPeriod = 60;
+
 let historyData = [];
+
 let factorsData = [];
+
 let chartType = 'candlestick';
+
 let currentIndicator = 'macd';
+
 let currentMainChart = 'price';
+ // ECharts实例
 
-// ECharts实例
 let mainChart = null;
+
 let indicatorChart = null;
+ // 页面加载完成后初始化
 
-// 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM加载完成，开始初始化...');
-    console.log('ECharts是否可用:', typeof echarts !== 'undefined');
-    console.log('Axios是否可用:', typeof axios !== 'undefined');
-    
-    // 检查URL参数中是否有股票代码
-    const urlParams = new URLSearchParams(window.location.search);
-    const stockFromUrl = urlParams.get('stock');
-    if (stockFromUrl) {
-        document.getElementById('stock-input').value = stockFromUrl.toUpperCase();
-        currentStock = stockFromUrl.toUpperCase();
-        console.log('从URL获取股票代码:', currentStock);
-    }
-    
-    // 绑定事件
-    const stockForm = document.getElementById('stock-form');
-    if (stockForm) {
-        stockForm.addEventListener('submit', handleAnalysis);
-        console.log('表单事件绑定成功');
-    } else {
-        console.error('股票表单未找到');
-    }
-    
-    // 绑定股票代码输入框事件
-    const stockInput = document.getElementById('stock-input');
-    if (stockInput) {
-        stockInput.addEventListener('input', handleStockInputChange);
-        stockInput.addEventListener('blur', validateStockCode);
-    }
-    
-    // 延迟初始化图表容器，确保DOM完全渲染
-    setTimeout(() => {
-        initCharts();
-    }, 100);
+ console.log('DOM加载完成，开始初始化...');
+ console.log('ECharts是否可用:', typeof echarts !== 'undefined');
+ console.log('Axios是否可用:', typeof axios !== 'undefined');
+ // 检查URL参数中是否有股票代码
+ const urlParams = new URLSearchParams(window.location.search);
+ const stockFromUrl = urlParams.get('stock');
+ if (stockFromUrl) {
+ document.getElementById('stock-input').value = stockFromUrl.toUpperCase();
+ currentStock = stockFromUrl.toUpperCase();
+ console.log('从URL获取股票代码:', currentStock);
+ }
+ // 绑定事件
+ const stockForm = document.getElementById('stock-form');
+ if (stockForm) {
+ stockForm.addEventListener('submit', handleAnalysis);
+ console.log('表单事件绑定成功');
+ } else {
+ console.error('股票表单未找到');
+ }
+ // 绑定股票代码输入框事件
+ const stockInput = document.getElementById('stock-input');
+ if (stockInput) {
+ stockInput.addEventListener('input', handleStockInputChange);
+ stockInput.addEventListener('blur', validateStockCode);
+ }
+ // 延迟初始化图表容器，确保DOM完全渲染
+ setTimeout(() => {
+ initCharts();
+ }, 100);
+
 });
+ // 初始化图表容器
 
-// 初始化图表容器
 function initCharts() {
-    console.log('开始初始化图表...');
-    
-    // 检查ECharts是否可用
-    if (typeof echarts === 'undefined') {
-        console.error('ECharts未加载');
-        return;
-    }
-    
-    // 初始化主图表
-    const mainChartDom = document.getElementById('main-chart');
-    if (mainChartDom) {
-        console.log('找到主图表容器，尺寸:', mainChartDom.offsetWidth, 'x', mainChartDom.offsetHeight);
-        
-        // 确保容器有明确的尺寸
-        mainChartDom.style.width = '100%';
-        mainChartDom.style.height = '400px';
-        
-        try {
-            // 直接初始化图表
-            mainChart = echarts.init(mainChartDom);
-            console.log('主图表初始化成功');
-            
-            // 测试渲染一个简单图表
-            const testOption = {
-                title: { text: '等待数据加载...' },
-                xAxis: { type: 'category', data: [] },
-                yAxis: { type: 'value' },
-                series: [{ type: 'line', data: [] }]
-            };
-            mainChart.setOption(testOption);
-            console.log('主图表测试渲染完成');
-        } catch (error) {
-            console.error('主图表初始化失败:', error);
-        }
-    } else {
-        console.error('主图表容器未找到');
-    }
-    
-    // 初始化指标图表
-    const indicatorChartDom = document.getElementById('indicator-chart');
-    if (indicatorChartDom) {
-        console.log('找到指标图表容器，尺寸:', indicatorChartDom.offsetWidth, 'x', indicatorChartDom.offsetHeight);
-        
-        // 确保容器有明确的尺寸
-        indicatorChartDom.style.width = '100%';
-        indicatorChartDom.style.height = '400px';
-        
-        try {
-            // 直接初始化图表
-            indicatorChart = echarts.init(indicatorChartDom);
-            console.log('指标图表初始化成功');
-            
-            // 测试渲染一个简单图表
-            const testOption = {
-                title: { text: '等待数据加载...' },
-                xAxis: { type: 'category', data: [] },
-                yAxis: { type: 'value' },
-                series: [{ type: 'line', data: [] }]
-            };
-            indicatorChart.setOption(testOption);
-            console.log('指标图表测试渲染完成');
-        } catch (error) {
-            console.error('指标图表初始化失败:', error);
-        }
-    } else {
-        console.error('指标图表容器未找到');
-    }
-    
-    // 窗口大小改变时重新调整图表
-    window.addEventListener('resize', function() {
-        setTimeout(() => {
-            if (mainChart) {
-                mainChart.resize();
-                console.log('主图表已调整尺寸');
-            }
-            if (indicatorChart) {
-                indicatorChart.resize();
-                console.log('指标图表已调整尺寸');
-            }
-        }, 100);
-    });
-}
+ console.log('开始初始化图表...');
+ // 检查ECharts是否可用
+ if (typeof echarts === 'undefined') {
+ console.error('ECharts未加载');
+ return;
+ }
+ // 初始化主图表
+ const mainChartDom = document.getElementById('main-chart');
+ if (mainChartDom) {
+ console.log('找到主图表容器，尺寸:', mainChartDom.offsetWidth, 'x', mainChartDom.offsetHeight);
+ // 确保容器有明确的尺寸
+ mainChartDom.style.width = '100%';
+ mainChartDom.style.height = '400px';
+ try {
+ // 直接初始化图表
+ mainChart = echarts.init(mainChartDom);
+ console.log('主图表初始化成功');
+ // 测试渲染一个简单图表
+ const testOption = {
+ title: { text: '等待数据加载...' },
+ xAxis: { type: 'category', data: [] },
+ yAxis: { type: 'value' },
+ series: [{ type: 'line', data: [] }]
+ };
+ mainChart.setOption(testOption);
+ console.log('主图表测试渲染完成');
+ } catch (error) {
+ console.error('主图表初始化失败:', error);
+ }
+ } else {
+ console.error('主图表容器未找到');
+ }
+ // 初始化指标图表
+ const indicatorChartDom = document.getElementById('indicator-chart');
+ if (indicatorChartDom) {
+ console.log('找到指标图表容器，尺寸:', indicatorChartDom.offsetWidth, 'x', indicatorChartDom.offsetHeight);
+ // 确保容器有明确的尺寸
+ indicatorChartDom.style.width = '100%';
+ indicatorChartDom.style.height = '400px';
+ try {
+ // 直接初始化图表
+ indicatorChart = echarts.init(indicatorChartDom);
+ console.log('指标图表初始化成功');
+ // 测试渲染一个简单图表
+ const testOption = {
+ title: { text: '等待数据加载...' },
+ xAxis: { type: 'category', data: [] },
+ yAxis: { type: 'value' },
+ series: [{ type: 'line', data: [] }]
+ };
+ indicatorChart.setOption(testOption);
+ console.log('指标图表测试渲染完成');
+ } catch (error) {
+ console.error('指标图表初始化失败:', error);
+ }
+ } else {
+ console.error('指标图表容器未找到');
+ }
+ // 窗口大小改变时重新调整图表
+ window.addEventListener('resize', function() {
+ setTimeout(() => {
+ if (mainChart) {
+ mainChart.resize();
+ console.log('主图表已调整尺寸');
+ }
+ if (indicatorChart) {
+ indicatorChart.resize();
+ console.log('指标图表已调整尺寸');
+ }
+ }, 100);
+ });
 
-// 处理股票代码输入变化
+}
+ // 处理股票代码输入变化
+
 function handleStockInputChange(event) {
-    const input = event.target;
-    let value = input.value.toUpperCase();
-    
-    // 自动格式化股票代码
-    if (value.length === 6 && !value.includes('.')) {
-        // 根据股票代码前缀自动添加后缀
-        if (value.startsWith('0') || value.startsWith('3')) {
-            value += '.SZ'; // 深圳
-        } else if (value.startsWith('6')) {
-            value += '.SH'; // 上海
-        }
-        input.value = value;
-    }
-    
-    currentStock = value;
-}
+ const input = event.target;
+ let value = input.value.toUpperCase();
+ // 自动格式化股票代码
+ if (value.length === 6 && !value.includes('.')) {
+ // 根据股票代码前缀自动添加后缀
+ if (value.startsWith('0') || value.startsWith('3')) {
+ value += '.SZ'; // 深圳
+ } else if (value.startsWith('6')) {
+ value += '.SH'; // 上海
+ }
+ input.value = value;
+ }
+ currentStock = value;
 
-// 验证股票代码格式
+}
+ // 验证股票代码格式
+
 function validateStockCode() {
-    const input = document.getElementById('stock-input');
-    const value = input.value.trim();
-    
-    if (value && !isValidStockCode(value)) {
-        input.classList.add('is-invalid');
-        showTooltip(input, '请输入正确的股票代码格式，如：000001.SZ 或 600000.SH');
-    } else {
-        input.classList.remove('is-invalid');
-        hideTooltip(input);
-    }
-}
+ const input = document.getElementById('stock-input');
+ const value = input.value.trim();
+ if (value && !isValidStockCode(value)) {
+ input.classList.add('is-invalid');
+ showTooltip(input, '请输入正确的股票代码格式，如：000001.SZ 或 600000.SH');
+ } else {
+ input.classList.remove('is-invalid');
+ hideTooltip(input);
+ }
 
-// 检查股票代码格式是否正确
+}
+ // 检查股票代码格式是否正确
+
 function isValidStockCode(code) {
-    const pattern = /^[0-9]{6}\.(SZ|SH)$/;
-    return pattern.test(code);
-}
+ const pattern = /^[0-9]{6}\.(SZ|SH)$/;
+ return pattern.test(code);
 
-// 显示提示信息
+}
+ // 显示提示信息
+
 function showTooltip(element, message) {
-    hideTooltip(element); // 先清除已有的提示
-    
-    const tooltip = document.createElement('div');
-    tooltip.className = 'invalid-feedback d-block';
-    tooltip.textContent = message;
-    tooltip.id = 'stock-code-tooltip';
-    
-    element.parentNode.appendChild(tooltip);
-}
+ hideTooltip(element); // 先清除已有的提示
+ const tooltip = document.createElement('div');
+ tooltip.className = 'invalid-feedback d-block';
+ tooltip.textContent = message;
+ tooltip.id = 'stock-code-tooltip';
+ element.parentNode.appendChild(tooltip);
 
-// 隐藏提示信息
+}
+ // 隐藏提示信息
+
 function hideTooltip(element) {
-    const existingTooltip = document.getElementById('stock-code-tooltip');
-    if (existingTooltip) {
-        existingTooltip.remove();
-    }
-}
+ const existingTooltip = document.getElementById('stock-code-tooltip');
+ if (existingTooltip) {
+ existingTooltip.remove();
+ }
 
-// 处理分析请求
+}
+ // 处理分析请求
+
 async function handleAnalysis(event) {
-    event.preventDefault();
-    
-    const tsCode = document.getElementById('stock-input').value.trim().toUpperCase();
-    const period = document.getElementById('period-select').value;
-    chartType = document.getElementById('chart-type-select').value;
-    
-    if (!tsCode) {
-        alert('请输入股票代码');
-        return;
-    }
-    
-    if (!isValidStockCode(tsCode)) {
-        alert('请输入正确的股票代码格式，如：000001.SZ 或 600000.SH');
-        return;
-    }
-    
-    currentStock = tsCode;
-    currentPeriod = period;
-    
-    // 显示加载状态
-    showAnalysisLoading();
-    
-    try {
-        // 并行加载数据
-        const [stockInfoResponse, historyResponse, factorsResponse] = await Promise.all([
-            apiRequest(`/stocks/${tsCode}`).catch(() => ({ code: 404, data: null })),
-            apiRequest(`/stocks/${tsCode}/history?limit=${period}`),
-            apiRequest(`/stocks/${tsCode}/factors?limit=${period}`)
-        ]);
-        
-        // 检查历史数据和技术因子数据是否成功获取（这两个是必需的）
-        if (historyResponse.code === 200 && factorsResponse.code === 200) {
-            historyData = historyResponse.data || [];
-            factorsData = factorsResponse.data || [];
-            
-            if (historyData.length === 0) {
-                throw new Error('该股票暂无历史数据');
-            }
-            
-            // 渲染所有组件（股票信息可能为空，但不影响技术分析）
-            renderStockInfo(stockInfoResponse.code === 200 ? stockInfoResponse.data : null);
-            renderMetrics(historyData);
-            renderMainChart();
-            renderIndicatorChart();
-            renderDataTable(historyData, factorsData);
-            
-            // 显示所有区域
-            showAnalysisResults();
-        } else {
-            if (historyResponse.code !== 200) {
-                throw new Error('无法获取该股票的历史数据，请检查股票代码是否正确');
-            } else {
-                throw new Error('无法获取该股票的技术指标数据');
-            }
-        }
-    } catch (error) {
-        console.error('分析失败:', error);
-        alert(error.message || '分析失败，请检查股票代码是否正确');
-        showAnalysisError();
-    }
-}
+ event.preventDefault();
+ const tsCode = document.getElementById('stock-input').value.trim().toUpperCase();
+ const period = document.getElementById('period-select').value;
+ chartType = document.getElementById('chart-type-select').value;
+ if (!tsCode) {
+ alert('请输入股票代码');
+ return;
+ }
+ if (!isValidStockCode(tsCode)) {
+ alert('请输入正确的股票代码格式，如：000001.SZ 或 600000.SH');
+ return;
+ }
+ currentStock = tsCode;
+ currentPeriod = period;
+ // 显示加载状态
+ showAnalysisLoading();
+ try {
+ // 并行加载数据
+ const [stockInfoResponse, historyResponse, factorsResponse] = await Promise.all([
+ apiRequest(`/stocks/${tsCode}`).catch(() => ({ code: 404, data: null })),
+ apiRequest(`/stocks/${tsCode}/history?limit=${period}`),
+ apiRequest(`/stocks/${tsCode}/factors?limit=${period}`).catch(error => ({
+ code: error?.response?.status || 500,
+ data: [],
+ message: error?.response?.data?.message || '技术指标数据暂不可用'
+ }))
+ ]);
+ // 历史数据是主链路，技术因子失败时允许页面继续展示实时分析与监控
+ if (historyResponse.code === 200) {
+ historyData = historyResponse.data || [];
+ factorsData = factorsResponse.code === 200 ? (factorsResponse.data || []) : [];
+ if (historyData.length === 0) {
+ throw new Error('该股票暂无历史数据');
+ }
+ // 渲染所有组件（股票信息可能为空，但不影响技术分析）
+ renderStockInfo(stockInfoResponse.code === 200 ? stockInfoResponse.data : null);
+ renderMetrics(historyData);
+ renderRealtimeInsights(historyData, factorsData);
+ renderMainChart();
+ if (factorsData.length > 0) {
+ renderIndicatorChart();
+ } else {
+ renderIndicatorPlaceholder(factorsResponse.message || '技术指标数据暂不可用，已先展示实时分析与实时监控。');
+ }
+ renderDataTable(historyData, factorsData);
 
-// 显示分析加载状态
+ // 显示所有区域
+ showAnalysisResults();
+ } else {
+ throw new Error('无法获取该股票的历史数据，请检查股票代码是否正确');
+ }
+ } catch (error) {
+ console.error('分析失败:', error);
+ alert(error.message || '分析失败，请检查股票代码是否正确');
+ showAnalysisError();
+ }
+
+}
+ // 显示分析加载状态
+
 function showAnalysisLoading() {
-    if (mainChart) {
-        mainChart.showLoading('default', {
-            text: '正在加载数据...',
-            color: '#007bff',
-            textColor: '#000',
-            maskColor: 'rgba(255, 255, 255, 0.8)',
-            zlevel: 0
-        });
-    }
-    if (indicatorChart) {
-        indicatorChart.showLoading();
-    }
-}
+ if (mainChart) {
+ mainChart.showLoading('default', {
+ text: '正在加载数据...',
+ color: '#007bff',
+ textColor: '#000',
+ maskColor: 'rgba(255, 255, 255, 0.8)',
+ zlevel: 0
+ });
+ }
+ if (indicatorChart) {
+ indicatorChart.showLoading();
+ }
 
-// 显示分析结果
+}
+ // 显示分析结果
+
 function showAnalysisResults() {
-    document.getElementById('stock-info-section').style.display = 'block';
-    document.getElementById('metrics-section').style.display = 'block';
-    document.getElementById('main-chart-section').style.display = 'block';
-    document.getElementById('indicators-section').style.display = 'block';
-    document.getElementById('data-section').style.display = 'block';
-    
-    if (mainChart) mainChart.hideLoading();
-    if (indicatorChart) indicatorChart.hideLoading();
+ document.getElementById('stock-info-section').style.display = 'block';
+ document.getElementById('metrics-section').style.display = 'block';
+ document.getElementById('realtime-insights-section').style.display = 'block';
+ document.getElementById('main-chart-section').style.display = 'block';
+ document.getElementById('indicators-section').style.display = 'block';
+ document.getElementById('data-section').style.display = 'block';
+ if (mainChart) mainChart.hideLoading();
+ if (indicatorChart) indicatorChart.hideLoading();
+
 }
 
-// 显示分析错误
+ // 显示分析错误
+
 function showAnalysisError() {
-    if (mainChart) {
-        mainChart.hideLoading();
-        mainChart.clear();
-        mainChart.setOption({
-            title: {
-                text: '数据加载失败',
-                left: 'center',
-                top: 'center',
-                textStyle: {
-                    color: '#999'
-                }
-            }
-        });
-    }
-}
+ document.getElementById('realtime-insights-section').style.display = 'block';
+ document.getElementById('realtime-analysis-content').innerHTML = '<div class="alert alert-warning mb-0">实时分析暂未生成，请先确认股票代码和历史行情数据是否可用。</div>';
+ document.getElementById('realtime-monitor-content').innerHTML = '<div class="alert alert-warning mb-0">实时监控暂未生成，待行情数据成功加载后会自动更新。</div>';
+ if (mainChart) {
+ mainChart.hideLoading();
+ mainChart.clear();
+ mainChart.setOption({
+ title: {
+ text: '数据加载失败',
+ left: 'center',
+ top: 'center',
+ textStyle: {
+ color: '#999'
+ }
+ }
+ });
+ }
+ if (indicatorChart) {
+ indicatorChart.hideLoading();
+ }
 
-// 渲染股票信息
+}
+ // 渲染股票信息
+
 function renderStockInfo(stock) {
-    const container = document.getElementById('stock-info-content');
-    
-    // 如果没有获取到股票信息，显示基本信息
-    if (!stock) {
-        container.innerHTML = `
-            <div class="row align-items-center">
-                <div class="col-md-8">
-                    <h4 class="mb-2">${currentStock} <small class="text-muted">股票代码</small></h4>
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle"></i> 
-                        无法获取该股票的详细信息，但可以进行技术分析
-                    </div>
-                </div>
-                <div class="col-md-4 text-end">
-                    <button class="btn btn-outline-primary btn-sm me-2" onclick="window.open('/stock/${currentStock}', '_blank')">
-                        <i class="fas fa-external-link-alt"></i> 详情
-                    </button>
-                    <button class="btn btn-outline-success btn-sm" onclick="addToWatchlist()">
-                        <i class="fas fa-star"></i> 自选
-                    </button>
-                </div>
-            </div>
-        `;
-        return;
-    }
-    
-    container.innerHTML = `
-        <div class="row align-items-center">
-            <div class="col-md-8">
-                <h4 class="mb-2">${stock.name || currentStock} <small class="text-muted">(${stock.ts_code || currentStock})</small></h4>
-                <div class="row g-3">
-                    <div class="col-md-3">
-                        <small class="text-muted">行业</small><br>
-                        <span class="badge bg-secondary">${stock.industry || '--'}</span>
-                    </div>
-                    <div class="col-md-3">
-                        <small class="text-muted">地域</small><br>
-                        <span class="badge bg-info">${stock.area || '--'}</span>
-                    </div>
-                    <div class="col-md-3">
-                        <small class="text-muted">上市日期</small><br>
-                        <strong>${stock.list_date || '--'}</strong>
-                    </div>
-                    <div class="col-md-3">
-                        <small class="text-muted">市场</small><br>
-                        <span class="badge ${(stock.ts_code || currentStock).includes('SH') ? 'bg-danger' : 'bg-success'}">
-                            ${(stock.ts_code || currentStock).includes('SH') ? '上海' : '深圳'}
-                        </span>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 text-end">
-                <button class="btn btn-outline-primary btn-sm me-2" onclick="window.open('/stock/${currentStock}', '_blank')">
-                    <i class="fas fa-external-link-alt"></i> 详情
-                </button>
-                <button class="btn btn-outline-success btn-sm" onclick="addToWatchlist()">
-                    <i class="fas fa-star"></i> 自选
-                </button>
-            </div>
-        </div>
-    `;
-}
+ const container = document.getElementById('stock-info-content');
+ // 如果没有获取到股票信息，显示基本信息
+ if (!stock) {
+ container.innerHTML = `
+  <div class="row align-items-center">
+<div class="col-md-8">
+<h4 class="mb-2">${currentStock} <small class="text-muted">股票代码</small></h4>
+<div class="alert alert-warning">无法获取该股票的详细信息，但可以进行技术分析</div>
+</div>
+<div class="col-md-4 text-end">
+<button class="btn btn-outline-primary btn-sm me-2" onclick="window.open('/stock/${currentStock}', '_blank')">详情</button>
+<button class="btn btn-outline-success btn-sm" onclick="addToWatchlist()">自选</button>
+</div>
+</div> `;
+ return;
+ }
+ container.innerHTML = `
+  <div class="row align-items-center">
+<div class="col-md-8">
+<h4 class="mb-2">${stock.name || currentStock} <small class="text-muted">(${stock.ts_code || currentStock})</small></h4>
+<div class="row g-3">
+<div class="col-md-3">
+<small class="text-muted">行业</small><br>
+<span class="badge bg-secondary">${stock.industry || '--'}</span>
+</div>
+<div class="col-md-3">
+<small class="text-muted">地域</small><br>
+<span class="badge bg-info">${stock.area || '--'}</span>
+</div>
+<div class="col-md-3">
+<small class="text-muted">上市日期</small><br>
+<strong>${stock.list_date || '--'}</strong>
+</div>
+<div class="col-md-3">
+<small class="text-muted">市场</small><br>
+<span class="badge ${(stock.ts_code || currentStock).includes('SH') ? 'bg-danger' : 'bg-success'}"> ${(stock.ts_code || currentStock).includes('SH') ? '上海' : '深圳'}
+  </span>
+</div>
+</div>
+</div>
+<div class="col-md-4 text-end">
+<button class="btn btn-outline-primary btn-sm me-2" onclick="window.open('/stock/${currentStock}', '_blank')">详情</button>
+<button class="btn btn-outline-success btn-sm" onclick="addToWatchlist()">自选</button>
+</div>
+</div> `;
 
-// 渲染关键指标
+}
+ // 渲染关键指标
+
 function renderMetrics(data) {
-    if (!data || data.length === 0) return;
-    
-    const latest = data[0];
-    const previous = data[1];
-    
-    const currentPrice = latest.close || 0;
-    const priceChange = previous ? ((currentPrice - previous.close) / previous.close * 100) : 0;
-    const volume = latest.vol || 0;
-    const turnover = latest.amount || 0;
-    
-    document.getElementById('current-price').textContent = formatNumber(currentPrice, 2);
-    document.getElementById('price-change').textContent = formatPercent(priceChange);
-    document.getElementById('price-change').className = `metric-value ${priceChange >= 0 ? 'text-success' : 'text-danger'}`;
-    document.getElementById('volume').textContent = formatNumber(volume / 10000, 1) + '万';
-    document.getElementById('turnover').textContent = formatNumber(turnover / 100000000, 2) + '亿';
+ if (!data || data.length === 0) return;
+ const latest = data[0];
+ const previous = data[1];
+ const currentPrice = latest.close || 0;
+ const priceChange = previous ? ((currentPrice - previous.close) / previous.close * 100) : 0;
+ const volume = latest.vol || 0;
+ const turnover = latest.amount || 0;
+ document.getElementById('current-price').textContent = formatNumber(currentPrice, 2);
+ document.getElementById('price-change').textContent = formatPercent(priceChange);
+ document.getElementById('price-change').className = `metric-value ${priceChange >= 0 ? 'text-success' : 'text-danger'}`;
+ document.getElementById('volume').textContent = formatNumber(volume / 10000, 1) + '万';
+ document.getElementById('turnover').textContent = formatNumber(turnover / 100000000, 2) + '亿';
+
 }
 
-// 渲染主图表
+function renderRealtimeInsights(historyData, factorsData) {
+ const analysisContainer = document.getElementById('realtime-analysis-content');
+ const monitorContainer = document.getElementById('realtime-monitor-content');
+ if (!analysisContainer || !monitorContainer || !historyData || historyData.length === 0) {
+ return;
+ }
+
+ const latest = historyData[0];
+ const previous = historyData[1] || null;
+ const latestFactor = findFactorByTradeDate(factorsData, latest.trade_date);
+ const latestClose = Number(latest.close || 0);
+ const priceChange = previous ? ((latestClose - Number(previous.close || 0)) / Number(previous.close || 1)) * 100 : 0;
+ const ma5 = average(historyData.slice(0, 5).map(item => Number(item.close || 0)));
+ const ma20 = average(historyData.slice(0, 20).map(item => Number(item.close || 0)));
+ const avgVolume5 = average(historyData.slice(1, 6).map(item => Number(item.vol || 0)));
+ const volumeRatio = avgVolume5 > 0 ? Number(latest.vol || 0) / avgVolume5 : 1;
+ const rsi6 = Number(latestFactor?.rsi_6 ?? latestFactor?.factor_rsi_6 ?? 0);
+ const macd = Number(latestFactor?.macd ?? latestFactor?.factor_macd ?? 0);
+ const kdjK = Number(latestFactor?.kdj_k ?? latestFactor?.factor_kdj_k ?? 0);
+ const bollUpper = Number(latestFactor?.boll_upper ?? 0);
+ const bollLower = Number(latestFactor?.boll_lower ?? 0);
+ const position = evaluateTrend(latestClose, ma5, ma20, priceChange);
+ const momentum = evaluateMomentum(macd, rsi6, kdjK);
+ const volatility = evaluateVolatility(latestClose, bollUpper, bollLower);
+ const monitorItems = buildMonitorItems({ latestClose, priceChange, volumeRatio, rsi6, macd, bollUpper, bollLower, latest });
+
+ analysisContainer.innerHTML = `
+ <div class="realtime-summary">
+  <div class="realtime-summary-main">
+   <div class="realtime-summary-label">实时分析结论</div>
+   <div class="realtime-summary-title">${position.title}</div>
+   <div class="realtime-summary-text">${position.text}</div>
+  </div>
+  <div class="realtime-summary-date">${formatTradeDate(latest.trade_date)}</div>
+ </div>
+ <div class="realtime-chip-grid">
+  <div class="realtime-chip">
+   <div class="realtime-chip-label">趋势结构</div>
+   <div class="realtime-chip-value">${position.chip}</div>
+  </div>
+  <div class="realtime-chip">
+   <div class="realtime-chip-label">动能状态</div>
+   <div class="realtime-chip-value">${momentum}</div>
+  </div>
+  <div class="realtime-chip">
+   <div class="realtime-chip-label">波动位置</div>
+   <div class="realtime-chip-value">${volatility}</div>
+  </div>
+ </div>`;
+
+ monitorContainer.innerHTML = `<div class="monitor-list">${monitorItems.map(item => `
+ <div class="monitor-item">
+  <div>
+   <div class="monitor-item-title">${item.title}</div>
+   <div class="monitor-item-text">${item.text}</div>
+  </div>
+  <span class="signal-pill signal-pill--${item.level}">${item.status}</span>
+ </div>`).join('')}
+ </div>`;
+}
+
+function buildMonitorItems({ latestClose, priceChange, volumeRatio, rsi6, macd, bollUpper, bollLower, latest }) {
+ const rangeText = `当日振幅 ${(Number(latest.high || 0) - Number(latest.low || 0)).toFixed(2)} 元，收盘 ${formatNumber(latestClose, 2)} 元。`;
+ return [
+ {
+ title: '量能监控',
+ status: volumeRatio >= 1.6 ? '放量' : volumeRatio <= 0.75 ? '缩量' : '平稳',
+ level: volumeRatio >= 1.6 ? 'warning' : volumeRatio <= 0.75 ? 'neutral' : 'positive',
+ text: volumeRatio >= 1.6 ? `最新成交量约为近5日均量的 ${formatNumber(volumeRatio, 2)} 倍，短线活跃度明显抬升。` : volumeRatio <= 0.75 ? '量能低于近5日平均水平，短线资金参与度偏谨慎。' : '量能维持在近5日均值附近，暂未出现明显异动。'
+ },
+ {
+ title: '动能监控',
+ status: rsi6 >= 70 ? '偏热' : rsi6 <= 30 ? '偏弱' : '中性',
+ level: rsi6 >= 70 ? 'warning' : rsi6 <= 30 ? 'negative' : 'positive',
+ text: rsi6 ? `RSI(6) 当前为 ${formatNumber(rsi6, 2)}，${rsi6 >= 70 ? '短线有过热迹象，注意追高风险。' : rsi6 <= 30 ? '处于偏弱区间，可关注是否出现企稳反弹。' : '仍处于相对中性的可跟踪区间。'}` : '当前未获取到 RSI 数据，可先结合价格与成交量观察。'
+ },
+ {
+ title: 'MACD监控',
+ status: macd > 0 ? '偏强' : macd < 0 ? '偏弱' : '观望',
+ level: macd > 0 ? 'positive' : macd < 0 ? 'negative' : 'neutral',
+ text: macd > 0 ? 'MACD 位于零轴上方，说明趋势动能仍偏向多头。' : macd < 0 ? 'MACD 位于零轴下方，短线趋势仍有整理压力。' : 'MACD 靠近零轴，方向选择仍需更多确认。'
+ },
+ {
+ title: '波动监控',
+ status: bollUpper && latestClose >= bollUpper ? '突破' : bollLower && latestClose <= bollLower ? '承压' : '正常',
+ level: bollUpper && latestClose >= bollUpper ? 'warning' : bollLower && latestClose <= bollLower ? 'negative' : 'neutral',
+ text: bollUpper && latestClose >= bollUpper ? '价格已接近或突破布林上轨，波动扩张明显，注意高位震荡。' : bollLower && latestClose <= bollLower ? '价格逼近布林下轨，短线承压较强，需关注止跌信号。' : rangeText
+ }
+ ];
+}
+
+function evaluateTrend(latestClose, ma5, ma20, priceChange) {
+ if (latestClose >= ma5 && latestClose >= ma20 && priceChange >= 0) {
+ return {
+ title: '短线趋势偏强',
+ chip: `收盘站上均线（MA5 ${formatNumber(ma5, 2)} / MA20 ${formatNumber(ma20, 2)}）`,
+ text: '最新价格位于短中期均线上方，且当日涨跌幅为正，说明当前走势具备一定延续性，可继续结合量能观察。'
+ };
+ }
+ if (latestClose < ma5 && latestClose < ma20 && priceChange < 0) {
+ return {
+ title: '短线走势承压',
+ chip: `价格弱于均线（MA5 ${formatNumber(ma5, 2)} / MA20 ${formatNumber(ma20, 2)}）`,
+ text: '最新价格位于短中期均线下方，且当日表现偏弱，建议重点关注是否出现缩量止跌或趋势修复信号。'
+ };
+ }
+ return {
+ title: '区间震荡观察',
+ chip: `价格处于均线附近（MA5 ${formatNumber(ma5, 2)} / MA20 ${formatNumber(ma20, 2)}）`,
+ text: '当前价格在短中期均线附近反复，趋势方向尚未完全拉开，更适合配合成交量与指标共振进行确认。'
+ };
+}
+
+function evaluateMomentum(macd, rsi6, kdjK) {
+ if (macd > 0 && rsi6 >= 55) {
+ return `MACD 与 RSI 共振偏强，KDJ-K ${formatNumber(kdjK, 2)}`;
+ }
+ if (rsi6 >= 70) {
+ return `RSI(6) 达到 ${formatNumber(rsi6, 2)}，短线偏热`;
+ }
+ if (macd < 0 && rsi6 <= 45) {
+ return `MACD 偏弱且 RSI 回落，KDJ-K ${formatNumber(kdjK, 2)}`;
+ }
+ return `指标整体中性，KDJ-K ${formatNumber(kdjK, 2)}，等待突破`;
+}
+
+function evaluateVolatility(latestClose, bollUpper, bollLower) {
+ if (bollUpper && latestClose >= bollUpper) {
+ return '价格触及布林上轨，波动放大';
+ }
+ if (bollLower && latestClose <= bollLower) {
+ return '价格接近布林下轨，防守压力较大';
+ }
+ if (bollUpper && bollLower) {
+ return `运行于布林区间内（${formatNumber(bollLower, 2)} - ${formatNumber(bollUpper, 2)}）`;
+ }
+ return '暂无布林带数据，建议结合高低点观察';
+}
+
+function findFactorByTradeDate(factors, tradeDate) {
+ if (!Array.isArray(factors) || factors.length === 0) return null;
+ const targetDate = normalizeTradeDate(tradeDate);
+ return factors.find(item => normalizeTradeDate(item.trade_date) === targetDate) || factors[factors.length - 1] || factors[0];
+}
+
+function normalizeTradeDate(tradeDate) {
+ return String(tradeDate || '').replace(/-/g, '');
+}
+
+function formatTradeDate(tradeDate) {
+ const normalized = normalizeTradeDate(tradeDate);
+ if (normalized.length !== 8) return tradeDate || '--';
+ return `${normalized.slice(0, 4)}-${normalized.slice(4, 6)}-${normalized.slice(6, 8)}`;
+}
+
+function average(values) {
+ const validValues = values.filter(value => Number.isFinite(value) && value > 0);
+ if (validValues.length === 0) return 0;
+ return validValues.reduce((sum, value) => sum + value, 0) / validValues.length;
+}
+
+function renderIndicatorPlaceholder(message) {
+ if (!indicatorChart && typeof echarts !== 'undefined') {
+ const indicatorChartDom = document.getElementById('indicator-chart');
+ if (indicatorChartDom) {
+ indicatorChart = echarts.init(indicatorChartDom);
+ }
+ }
+ document.getElementById('indicator-title').textContent = '技术指标状态';
+ if (!indicatorChart) {
+ return;
+ }
+ indicatorChart.clear();
+ indicatorChart.setOption({
+ title: {
+ text: '技术指标暂不可用',
+ left: 'center',
+ top: '42%',
+ textStyle: {
+ color: '#64748b',
+ fontSize: 16,
+ fontWeight: 600
+ }
+ },
+ graphic: [{
+ type: 'text',
+ left: 'center',
+ top: '54%',
+ style: {
+ text: message || '技术指标数据暂不可用，稍后可重试分析。',
+ fill: '#94a3b8',
+ fontSize: 13,
+ textAlign: 'center'
+ }
+ }],
+ xAxis: { show: false },
+ yAxis: { show: false },
+ series: []
+ }, true);
+ setTimeout(() => {
+ indicatorChart.resize();
+ }, 100);
+}
+
+ // 渲染主图表
+
+
 function renderMainChart() {
-    if (!historyData || historyData.length === 0) {
-        console.log('主图表渲染失败: 没有历史数据');
-        return;
-    }
-    
-    if (!mainChart) {
-        console.log('主图表渲染失败: 图表实例不存在，尝试重新初始化');
-        const mainChartDom = document.getElementById('main-chart');
-        if (mainChartDom) {
-            mainChart = echarts.init(mainChartDom);
-            console.log('主图表重新初始化成功');
-        } else {
-            console.error('主图表容器未找到');
-            return;
-        }
-    }
-    
-    if (currentMainChart === 'price') {
-        renderPriceChart();
-    } else {
-        renderVolumeChart();
-    }
-}
+ if (!historyData || historyData.length === 0) {
+ console.log('主图表渲染失败: 没有历史数据');
+ return;
+ }
+ if (!mainChart) {
+ console.log('主图表渲染失败: 图表实例不存在，尝试重新初始化');
+ const mainChartDom = document.getElementById('main-chart');
+ if (mainChartDom) {
+ mainChart = echarts.init(mainChartDom);
+ console.log('主图表重新初始化成功');
+ } else {
+ console.error('主图表容器未找到');
+ return;
+ }
+ }
+ if (currentMainChart === 'price') {
+ renderPriceChart();
+ } else {
+ renderVolumeChart();
+ }
 
-// 渲染价格图表
+}
+ // 渲染价格图表
+
 function renderPriceChart() {
-    console.log('开始渲染价格图表，图表类型:', chartType);
-    console.log('历史数据条数:', historyData.length);
-    
-    // 后端已经返回正序数据，直接使用
-    const dates = historyData.map(item => item.trade_date);
-    const klineData = historyData.map(item => [item.open, item.close, item.low, item.high]);
-    const lineData = historyData.map(item => item.close);
-    
-    console.log('处理后的数据:', {
-        dates: dates.slice(0, 3),
-        klineData: klineData.slice(0, 3),
-        lineData: lineData.slice(0, 3)
-    });
-    
-    const option = {
-        title: {
-            text: `${currentStock} 价格走势`,
-            left: 'left'
-        },
-        tooltip: {
-            trigger: 'axis',
-            axisPointer: {
-                type: 'cross'
-            },
-            formatter: function(params) {
-                const data = params[0];
-                if (chartType === 'candlestick') {
-                    const values = data.data;
-                    return `${data.name}<br/>
-                            开盘: ${values[0]}<br/>
-                            收盘: ${values[1]}<br/>
-                            最低: ${values[2]}<br/>
-                            最高: ${values[3]}`;
-                } else {
-                    return `${data.name}<br/>收盘价: ${data.value}`;
-                }
-            }
-        },
-        legend: {
-            data: [chartType === 'candlestick' ? 'K线' : '收盘价'],
-            top: 30
-        },
-        grid: {
-            left: '3%',
-            right: '4%',
-            bottom: '15%',
-            containLabel: true
-        },
-        xAxis: {
-            type: 'category',
-            data: dates,
-            scale: true,
-            boundaryGap: false,
-            axisLine: { onZero: false },
-            splitLine: { show: false },
-            min: 'dataMin',
-            max: 'dataMax'
-        },
-        yAxis: {
-            scale: true,
-            splitArea: {
-                show: true
-            }
-        },
-        dataZoom: [
-            {
-                type: 'inside',
-                start: 50,
-                end: 100
-            },
-            {
-                show: true,
-                type: 'slider',
-                top: '90%',
-                start: 50,
-                end: 100
-            }
-        ],
-        series: [{
-            name: chartType === 'candlestick' ? 'K线' : '收盘价',
-            type: chartType === 'candlestick' ? 'candlestick' : 'line',
-            data: chartType === 'candlestick' ? klineData : lineData,
-            itemStyle: chartType === 'candlestick' ? {
-                color: '#ef232a',
-                color0: '#14b143',
-                borderColor: '#ef232a',
-                borderColor0: '#14b143'
-            } : {
-                color: '#5470c6'
-            },
-            markPoint: {
-                label: {
-                    formatter: function (param) {
-                        return param != null ? Math.round(param.value * 100) / 100 + '' : '';
-                    }
-                },
-                data: [
-                    {
-                        name: '最高值',
-                        type: 'max',
-                        valueDim: chartType === 'candlestick' ? 'highest' : 'y'
-                    },
-                    {
-                        name: '最低值',
-                        type: 'min',
-                        valueDim: chartType === 'candlestick' ? 'lowest' : 'y'
-                    }
-                ]
-            }
-        }]
-    };
-    
-    console.log('设置价格图表选项...');
-    mainChart.setOption(option, true);
-    console.log('价格图表选项设置完成');
-    
-    // 强制调整图表尺寸
-    setTimeout(() => {
-        mainChart.resize();
-        console.log('价格图表尺寸调整完成');
-    }, 100);
-}
+ console.log('开始渲染价格图表，图表类型:', chartType);
+ console.log('历史数据条数:', historyData.length);
+ // 后端已经返回正序数据，直接使用
+ const dates = historyData.map(item => item.trade_date);
+ const klineData = historyData.map(item => [item.open, item.close, item.low, item.high]);
+ const lineData = historyData.map(item => item.close);
+ console.log('处理后的数据:', {
+ dates: dates.slice(0, 3),
+ klineData: klineData.slice(0, 3),
+ lineData: lineData.slice(0, 3)
+ });
+ const option = {
+ title: {
+ text: `${currentStock} 价格走势`,
+ left: 'left'
+ },
+ tooltip: {
+ trigger: 'axis',
+ axisPointer: {
+ type: 'cross'
+ },
+ formatter: function(params) {
+ const data = params[0];
+ if (chartType === 'candlestick') {
+ const values = data.data;
+ return `${data.name}<br/>开盘: ${values[0]}<br/>收盘: ${values[1]}<br/>最低: ${values[2]}<br/>最高: ${values[3]}`;
+ } else {
+ return `${data.name}<br/>收盘价: ${data.value}`;
+ }
+ }
+ },
+ legend: {
+ data: [chartType === 'candlestick' ? 'K线' : '收盘价'],
+ top: 30
+ },
+ grid: {
+ left: '3%',
+ right: '4%',
+ bottom: '15%',
+ containLabel: true
+ },
+ xAxis: {
+ type: 'category',
+ data: dates,
+ scale: true,
+ boundaryGap: false,
+ axisLine: { onZero: false },
+ splitLine: { show: false },
+ min: 'dataMin',
+ max: 'dataMax'
+ },
+ yAxis: {
+ scale: true,
+ splitArea: {
+ show: true
+ }
+ },
+ dataZoom: [
+ {
+ type: 'inside',
+ start: 50,
+ end: 100
+ },
+ {
+ show: true,
+ type: 'slider',
+ top: '90%',
+ start: 50,
+ end: 100
+ }
+ ],
+ series: [{
+ name: chartType === 'candlestick' ? 'K线' : '收盘价',
+ type: chartType === 'candlestick' ? 'candlestick' : 'line',
+ data: chartType === 'candlestick' ? klineData : lineData,
+ itemStyle: chartType === 'candlestick' ? {
+ color: '#ef232a',
+ color0: '#14b143',
+ borderColor: '#ef232a',
+ borderColor0: '#14b143'
+ } : {
+ color: '#5470c6'
+ },
+ markPoint: {
+ label: {
+ formatter: function (param) {
+ return param != null ? Math.round(param.value * 100) / 100 + '' : '';
+ }
+ },
+ data: [
+ {
+ name: '最高值',
+ type: 'max',
+ valueDim: chartType === 'candlestick' ? 'highest' : 'y'
+ },
+ {
+ name: '最低值',
+ type: 'min',
+ valueDim: chartType === 'candlestick' ? 'lowest' : 'y'
+ }
+ ]
+ }
+ }]
+ };
+ console.log('设置价格图表选项...');
+ mainChart.setOption(option, true);
+ console.log('价格图表选项设置完成');
+ // 强制调整图表尺寸
+ setTimeout(() => {
+ mainChart.resize();
+ console.log('价格图表尺寸调整完成');
+ }, 100);
 
-// 渲染成交量图表
+}
+ // 渲染成交量图表
+
 function renderVolumeChart() {
-    // 后端已经返回正序数据，直接使用
-    const dates = historyData.map(item => item.trade_date);
-    const volumeData = historyData.map(item => item.vol);
-    
-    const option = {
-        title: {
-            text: `${currentStock} 成交量`,
-            left: 'left'
-        },
-        tooltip: {
-            trigger: 'axis',
-            formatter: function(params) {
-                const data = params[0];
-                return `${data.name}<br/>成交量: ${formatNumber(data.value / 10000, 1)}万`;
-            }
-        },
-        legend: {
-            data: ['成交量'],
-            top: 30
-        },
-        grid: {
-            left: '3%',
-            right: '4%',
-            bottom: '15%',
-            containLabel: true
-        },
-        xAxis: {
-            type: 'category',
-            data: dates
-        },
-        yAxis: {
-            type: 'value',
-            axisLabel: {
-                formatter: function(value) {
-                    return formatNumber(value / 10000, 1) + '万';
-                }
-            }
-        },
-        dataZoom: [
-            {
-                type: 'inside',
-                start: 50,
-                end: 100
-            },
-            {
-                show: true,
-                type: 'slider',
-                top: '90%',
-                start: 50,
-                end: 100
-            }
-        ],
-        series: [{
-            name: '成交量',
-            type: 'bar',
-            data: volumeData,
-            itemStyle: {
-                color: '#91cc75'
-            }
-        }]
-    };
-    
-    mainChart.setOption(option, true);
-    // 强制调整图表尺寸
-    setTimeout(() => {
-        mainChart.resize();
-    }, 100);
-}
+ // 后端已经返回正序数据，直接使用
+ const dates = historyData.map(item => item.trade_date);
+ const volumeData = historyData.map(item => item.vol);
+ const option = {
+ title: {
+ text: `${currentStock} 成交量`,
+ left: 'left'
+ },
+ tooltip: {
+ trigger: 'axis',
+ formatter: function(params) {
+ const data = params[0];
+ return `${data.name}<br/>成交量: ${formatNumber(data.value / 10000, 1)}万`;
+ }
+ },
+ legend: {
+ data: ['成交量'],
+ top: 30
+ },
+ grid: {
+ left: '3%',
+ right: '4%',
+ bottom: '15%',
+ containLabel: true
+ },
+ xAxis: {
+ type: 'category',
+ data: dates
+ },
+ yAxis: {
+ type: 'value',
+ axisLabel: {
+ formatter: function(value) {
+ return formatNumber(value / 10000, 1) + '万';
+ }
+ }
+ },
+ dataZoom: [
+ {
+ type: 'inside',
+ start: 50,
+ end: 100
+ },
+ {
+ show: true,
+ type: 'slider',
+ top: '90%',
+ start: 50,
+ end: 100
+ }
+ ],
+ series: [{
+ name: '成交量',
+ type: 'bar',
+ data: volumeData,
+ itemStyle: {
+ color: '#91cc75'
+ }
+ }]
+ };
+ mainChart.setOption(option, true);
+ // 强制调整图表尺寸
+ setTimeout(() => {
+ mainChart.resize();
+ }, 100);
 
-// 渲染指标图表
+}
+ // 渲染指标图表
+
 function renderIndicatorChart() {
-    if (!factorsData || factorsData.length === 0) {
-        console.log('指标图表渲染失败: 没有技术因子数据');
-        return;
-    }
-    
-    if (!indicatorChart) {
-        console.log('指标图表渲染失败: 图表实例不存在，尝试重新初始化');
-        const indicatorChartDom = document.getElementById('indicator-chart');
-        if (indicatorChartDom) {
-            indicatorChart = echarts.init(indicatorChartDom);
-            console.log('指标图表重新初始化成功');
-        } else {
-            console.error('指标图表容器未找到');
-            return;
-        }
-    }
-    
-    console.log('开始渲染指标图表:', currentIndicator, '数据条数:', factorsData.length);
-    
-    switch(currentIndicator) {
-        case 'macd':
-            renderMACDChart();
-            break;
-        case 'kdj':
-            renderKDJChart();
-            break;
-        case 'rsi':
-            renderRSIChart();
-            break;
-        case 'boll':
-            renderBollChart();
-            break;
-    }
-}
+ if (!factorsData || factorsData.length === 0) {
+ console.log('指标图表渲染失败: 没有技术因子数据');
+ return;
+ }
+ if (!indicatorChart) {
+ console.log('指标图表渲染失败: 图表实例不存在，尝试重新初始化');
+ const indicatorChartDom = document.getElementById('indicator-chart');
+ if (indicatorChartDom) {
+ indicatorChart = echarts.init(indicatorChartDom);
+ console.log('指标图表重新初始化成功');
+ } else {
+ console.error('指标图表容器未找到');
+ return;
+ }
+ }
+ console.log('开始渲染指标图表:', currentIndicator, '数据条数:', factorsData.length);
+ switch(currentIndicator) {
+ case 'macd':
+ renderMACDChart();
+ break;
+ case 'kdj':
+ renderKDJChart();
+ break;
+ case 'rsi':
+ renderRSIChart();
+ break;
+ case 'boll':
+ renderBollChart();
+ break;
+ }
 
-// 渲染MACD图表
+}
+ // 渲染MACD图表
+
 function renderMACDChart() {
-    // 后端已经返回正序数据，直接使用
-    const dates = factorsData.map(item => item.trade_date);
-    const macdData = factorsData.map(item => item.macd || 0);
-    const deaData = factorsData.map(item => item.macd_dea || 0);
-    const difData = factorsData.map(item => item.macd_dif || 0);
-    
-    console.log('MACD数据:', {
-        dates: dates.slice(0, 3),
-        macd: macdData.slice(0, 3),
-        dea: deaData.slice(0, 3),
-        dif: difData.slice(0, 3)
-    });
-    
-    const option = {
-        title: {
-            text: 'MACD指标',
-            left: 'left'
-        },
-        tooltip: {
-            trigger: 'axis'
-        },
-        legend: {
-            data: ['MACD', 'DEA', 'DIF'],
-            top: 30
-        },
-        grid: {
-            left: '3%',
-            right: '4%',
-            bottom: '3%',
-            containLabel: true
-        },
-        xAxis: {
-            type: 'category',
-            data: dates
-        },
-        yAxis: {
-            type: 'value'
-        },
-        series: [
-            {
-                name: 'MACD',
-                type: 'bar',
-                data: macdData,
-                itemStyle: {
-                    color: function(params) {
-                        return params.value >= 0 ? '#ef232a' : '#14b143';
-                    }
-                }
-            },
-            {
-                name: 'DEA',
-                type: 'line',
-                data: deaData,
-                smooth: true,
-                itemStyle: {
-                    color: '#fac858'
-                }
-            },
-            {
-                name: 'DIF',
-                type: 'line',
-                data: difData,
-                smooth: true,
-                itemStyle: {
-                    color: '#5470c6'
-                }
-            }
-        ]
-    };
-    
-    indicatorChart.setOption(option, true);
-    // 强制调整图表尺寸
-    setTimeout(() => {
-        indicatorChart.resize();
-    }, 100);
-}
+ // 后端已经返回正序数据，直接使用
+ const dates = factorsData.map(item => item.trade_date);
+ const macdData = factorsData.map(item => item.macd || 0);
+ const deaData = factorsData.map(item => item.macd_dea || 0);
+ const difData = factorsData.map(item => item.macd_dif || 0);
+ console.log('MACD数据:', {
+ dates: dates.slice(0, 3),
+ macd: macdData.slice(0, 3),
+ dea: deaData.slice(0, 3),
+ dif: difData.slice(0, 3)
+ });
+ const option = {
+ title: {
+ text: 'MACD指标',
+ left: 'left'
+ },
+ tooltip: {
+ trigger: 'axis'
+ },
+ legend: {
+ data: ['MACD', 'DEA', 'DIF'],
+ top: 30
+ },
+ grid: {
+ left: '3%',
+ right: '4%',
+ bottom: '3%',
+ containLabel: true
+ },
+ xAxis: {
+ type: 'category',
+ data: dates
+ },
+ yAxis: {
+ type: 'value'
+ },
+ series: [
+ {
+ name: 'MACD',
+ type: 'bar',
+ data: macdData,
+ itemStyle: {
+ color: function(params) {
+ return params.value >= 0 ? '#ef232a' : '#14b143';
+ }
+ }
+ },
+ {
+ name: 'DEA',
+ type: 'line',
+ data: deaData,
+ smooth: true,
+ itemStyle: {
+ color: '#fac858'
+ }
+ },
+ {
+ name: 'DIF',
+ type: 'line',
+ data: difData,
+ smooth: true,
+ itemStyle: {
+ color: '#5470c6'
+ }
+ }
+ ]
+ };
+ indicatorChart.setOption(option, true);
+ // 强制调整图表尺寸
+ setTimeout(() => {
+ indicatorChart.resize();
+ }, 100);
 
-// 渲染KDJ图表
+}
+ // 渲染KDJ图表
+
 function renderKDJChart() {
-    // 后端已经返回正序数据，直接使用
-    const dates = factorsData.map(item => item.trade_date);
-    const kData = factorsData.map(item => item.kdj_k || 0);
-    const dData = factorsData.map(item => item.kdj_d || 0);
-    const jData = factorsData.map(item => item.kdj_j || 0);
-    
-    const option = {
-        title: {
-            text: 'KDJ指标',
-            left: 'left'
-        },
-        tooltip: {
-            trigger: 'axis'
-        },
-        legend: {
-            data: ['K', 'D', 'J'],
-            top: 30
-        },
-        grid: {
-            left: '3%',
-            right: '4%',
-            bottom: '3%',
-            containLabel: true
-        },
-        xAxis: {
-            type: 'category',
-            data: dates
-        },
-        yAxis: {
-            type: 'value',
-            min: 0,
-            max: 100,
-            axisLine: {
-                lineStyle: {
-                    color: '#999'
-                }
-            },
-            splitLine: {
-                lineStyle: {
-                    color: ['#eee']
-                }
-            }
-        },
-        series: [
-            {
-                name: 'K',
-                type: 'line',
-                data: kData,
-                smooth: true,
-                itemStyle: {
-                    color: '#5470c6'
-                }
-            },
-            {
-                name: 'D',
-                type: 'line',
-                data: dData,
-                smooth: true,
-                itemStyle: {
-                    color: '#91cc75'
-                }
-            },
-            {
-                name: 'J',
-                type: 'line',
-                data: jData,
-                smooth: true,
-                itemStyle: {
-                    color: '#fac858'
-                }
-            }
-        ],
-        markLine: {
-            data: [
-                { yAxis: 80, lineStyle: { color: '#ef232a', type: 'dashed' } },
-                { yAxis: 20, lineStyle: { color: '#14b143', type: 'dashed' } }
-            ]
-        }
-    };
-    
-    indicatorChart.setOption(option, true);
-    // 强制调整图表尺寸
-    setTimeout(() => {
-        indicatorChart.resize();
-    }, 100);
-}
+ // 后端已经返回正序数据，直接使用
+ const dates = factorsData.map(item => item.trade_date);
+ const kData = factorsData.map(item => item.kdj_k || 0);
+ const dData = factorsData.map(item => item.kdj_d || 0);
+ const jData = factorsData.map(item => item.kdj_j || 0);
+ const option = {
+ title: {
+ text: 'KDJ指标',
+ left: 'left'
+ },
+ tooltip: {
+ trigger: 'axis'
+ },
+ legend: {
+ data: ['K', 'D', 'J'],
+ top: 30
+ },
+ grid: {
+ left: '3%',
+ right: '4%',
+ bottom: '3%',
+ containLabel: true
+ },
+ xAxis: {
+ type: 'category',
+ data: dates
+ },
+ yAxis: {
+ type: 'value',
+ min: 0,
+ max: 100,
+ axisLine: {
+ lineStyle: {
+ color: '#999'
+ }
+ },
+ splitLine: {
+ lineStyle: {
+ color: ['#eee']
+ }
+ }
+ },
+ series: [
+ {
+ name: 'K',
+ type: 'line',
+ data: kData,
+ smooth: true,
+ itemStyle: {
+ color: '#5470c6'
+ }
+ },
+ {
+ name: 'D',
+ type: 'line',
+ data: dData,
+ smooth: true,
+ itemStyle: {
+ color: '#91cc75'
+ }
+ },
+ {
+ name: 'J',
+ type: 'line',
+ data: jData,
+ smooth: true,
+ itemStyle: {
+ color: '#fac858'
+ }
+ }
+ ],
+ markLine: {
+ data: [
+ { yAxis: 80, lineStyle: { color: '#ef232a', type: 'dashed' } },
+ { yAxis: 20, lineStyle: { color: '#14b143', type: 'dashed' } }
+ ]
+ }
+ };
+ indicatorChart.setOption(option, true);
+ // 强制调整图表尺寸
+ setTimeout(() => {
+ indicatorChart.resize();
+ }, 100);
 
-// 渲染RSI图表
+}
+ // 渲染RSI图表
+
 function renderRSIChart() {
-    // 后端已经返回正序数据，直接使用
-    const dates = factorsData.map(item => item.trade_date);
-    const rsi6Data = factorsData.map(item => item.rsi_6 || 0);
-    const rsi12Data = factorsData.map(item => item.rsi_12 || 0);
-    const rsi24Data = factorsData.map(item => item.rsi_24 || 0);
-    
-    const option = {
-        title: {
-            text: 'RSI指标',
-            left: 'left'
-        },
-        tooltip: {
-            trigger: 'axis'
-        },
-        legend: {
-            data: ['RSI6', 'RSI12', 'RSI24'],
-            top: 30
-        },
-        grid: {
-            left: '3%',
-            right: '4%',
-            bottom: '3%',
-            containLabel: true
-        },
-        xAxis: {
-            type: 'category',
-            data: dates
-        },
-        yAxis: {
-            type: 'value',
-            min: 0,
-            max: 100
-        },
-        series: [
-            {
-                name: 'RSI6',
-                type: 'line',
-                data: rsi6Data,
-                smooth: true,
-                itemStyle: {
-                    color: '#5470c6'
-                }
-            },
-            {
-                name: 'RSI12',
-                type: 'line',
-                data: rsi12Data,
-                smooth: true,
-                itemStyle: {
-                    color: '#91cc75'
-                }
-            },
-            {
-                name: 'RSI24',
-                type: 'line',
-                data: rsi24Data,
-                smooth: true,
-                itemStyle: {
-                    color: '#fac858'
-                }
-            }
-        ],
-        markLine: {
-            data: [
-                { yAxis: 70, lineStyle: { color: '#ef232a', type: 'dashed' } },
-                { yAxis: 30, lineStyle: { color: '#14b143', type: 'dashed' } }
-            ]
-        }
-    };
-    
-    indicatorChart.setOption(option, true);
-    // 强制调整图表尺寸
-    setTimeout(() => {
-        indicatorChart.resize();
-    }, 100);
-}
+ // 后端已经返回正序数据，直接使用
+ const dates = factorsData.map(item => item.trade_date);
+ const rsi6Data = factorsData.map(item => item.rsi_6 || 0);
+ const rsi12Data = factorsData.map(item => item.rsi_12 || 0);
+ const rsi24Data = factorsData.map(item => item.rsi_24 || 0);
+ const option = {
+ title: {
+ text: 'RSI指标',
+ left: 'left'
+ },
+ tooltip: {
+ trigger: 'axis'
+ },
+ legend: {
+ data: ['RSI6', 'RSI12', 'RSI24'],
+ top: 30
+ },
+ grid: {
+ left: '3%',
+ right: '4%',
+ bottom: '3%',
+ containLabel: true
+ },
+ xAxis: {
+ type: 'category',
+ data: dates
+ },
+ yAxis: {
+ type: 'value',
+ min: 0,
+ max: 100
+ },
+ series: [
+ {
+ name: 'RSI6',
+ type: 'line',
+ data: rsi6Data,
+ smooth: true,
+ itemStyle: {
+ color: '#5470c6'
+ }
+ },
+ {
+ name: 'RSI12',
+ type: 'line',
+ data: rsi12Data,
+ smooth: true,
+ itemStyle: {
+ color: '#91cc75'
+ }
+ },
+ {
+ name: 'RSI24',
+ type: 'line',
+ data: rsi24Data,
+ smooth: true,
+ itemStyle: {
+ color: '#fac858'
+ }
+ }
+ ],
+ markLine: {
+ data: [
+ { yAxis: 70, lineStyle: { color: '#ef232a', type: 'dashed' } },
+ { yAxis: 30, lineStyle: { color: '#14b143', type: 'dashed' } }
+ ]
+ }
+ };
+ indicatorChart.setOption(option, true);
+ // 强制调整图表尺寸
+ setTimeout(() => {
+ indicatorChart.resize();
+ }, 100);
 
-// 渲染布林带图表
+}
+ // 渲染布林带图表
+
 function renderBollChart() {
-    // 后端已经返回正序数据，直接使用
-    const dates = historyData.map(item => item.trade_date);
-    const closeData = historyData.map(item => item.close);
-    
-    // 从技术因子数据中获取布林带数据
-    const bollUpper = [];
-    const bollMid = [];
-    const bollLower = [];
-    
-    dates.forEach(date => {
-        const factor = factorsData.find(f => f.trade_date === date);
-        bollUpper.push(factor ? factor.boll_upper || 0 : 0);
-        bollMid.push(factor ? factor.boll_mid || 0 : 0);
-        bollLower.push(factor ? factor.boll_lower || 0 : 0);
-    });
-    
-    const option = {
-        title: {
-            text: '布林带指标',
-            left: 'left'
-        },
-        tooltip: {
-            trigger: 'axis'
-        },
-        legend: {
-            data: ['收盘价', '上轨', '中轨', '下轨'],
-            top: 30
-        },
-        grid: {
-            left: '3%',
-            right: '4%',
-            bottom: '3%',
-            containLabel: true
-        },
-        xAxis: {
-            type: 'category',
-            data: dates
-        },
-        yAxis: {
-            type: 'value'
-        },
-        series: [
-            {
-                name: '收盘价',
-                type: 'line',
-                data: closeData,
-                smooth: true,
-                itemStyle: {
-                    color: '#5470c6'
-                },
-                lineStyle: {
-                    width: 2
-                }
-            },
-            {
-                name: '上轨',
-                type: 'line',
-                data: bollUpper,
-                smooth: true,
-                itemStyle: {
-                    color: '#ef232a'
-                },
-                lineStyle: {
-                    type: 'dashed'
-                }
-            },
-            {
-                name: '中轨',
-                type: 'line',
-                data: bollMid,
-                smooth: true,
-                itemStyle: {
-                    color: '#fac858'
-                }
-            },
-            {
-                name: '下轨',
-                type: 'line',
-                data: bollLower,
-                smooth: true,
-                itemStyle: {
-                    color: '#14b143'
-                },
-                lineStyle: {
-                    type: 'dashed'
-                }
-            }
-        ]
-    };
-    
-    indicatorChart.setOption(option, true);
-    // 强制调整图表尺寸
-    setTimeout(() => {
-        indicatorChart.resize();
-    }, 100);
-}
+ // 后端已经返回正序数据，直接使用
+ const dates = historyData.map(item => item.trade_date);
+ const closeData = historyData.map(item => item.close);
+ // 从技术因子数据中获取布林带数据
+ const bollUpper = [];
+ const bollMid = [];
+ const bollLower = [];
+ dates.forEach(date => {
+ const factor = factorsData.find(f => f.trade_date === date);
+ bollUpper.push(factor ? factor.boll_upper || 0 : 0);
+ bollMid.push(factor ? factor.boll_mid || 0 : 0);
+ bollLower.push(factor ? factor.boll_lower || 0 : 0);
+ });
+ const option = {
+ title: {
+ text: '布林带指标',
+ left: 'left'
+ },
+ tooltip: {
+ trigger: 'axis'
+ },
+ legend: {
+ data: ['收盘价', '上轨', '中轨', '下轨'],
+ top: 30
+ },
+ grid: {
+ left: '3%',
+ right: '4%',
+ bottom: '3%',
+ containLabel: true
+ },
+ xAxis: {
+ type: 'category',
+ data: dates
+ },
+ yAxis: {
+ type: 'value'
+ },
+ series: [
+ {
+ name: '收盘价',
+ type: 'line',
+ data: closeData,
+ smooth: true,
+ itemStyle: {
+ color: '#5470c6'
+ },
+ lineStyle: {
+ width: 2
+ }
+ },
+ {
+ name: '上轨',
+ type: 'line',
+ data: bollUpper,
+ smooth: true,
+ itemStyle: {
+ color: '#ef232a'
+ },
+ lineStyle: {
+ type: 'dashed'
+ }
+ },
+ {
+ name: '中轨',
+ type: 'line',
+ data: bollMid,
+ smooth: true,
+ itemStyle: {
+ color: '#fac858'
+ }
+ },
+ {
+ name: '下轨',
+ type: 'line',
+ data: bollLower,
+ smooth: true,
+ itemStyle: {
+ color: '#14b143'
+ },
+ lineStyle: {
+ type: 'dashed'
+ }
+ }
+ ]
+ };
+ indicatorChart.setOption(option, true);
+ // 强制调整图表尺寸
+ setTimeout(() => {
+ indicatorChart.resize();
+ }, 100);
 
-// 切换主图表
-function switchMainChart(type) {
-    currentMainChart = type;
-    document.querySelectorAll('#main-chart-section .btn-group .btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    
-    if (historyData.length > 0) {
-        renderMainChart();
-    }
 }
+ // 切换主图表
 
-// 切换指标图表
-function switchIndicatorChart(indicator) {
-    currentIndicator = indicator;
-    
-    // 更新选项卡状态
-    document.querySelectorAll('.chart-tab').forEach(tab => tab.classList.remove('active'));
-    event.target.classList.add('active');
-    
-    // 更新标题
-    const titles = {
-        'macd': '📈 MACD指标',
-        'kdj': '📊 KDJ指标',
-        'rsi': '📉 RSI指标',
-        'boll': '📊 布林带指标'
-    };
-    document.getElementById('indicator-title').textContent = titles[indicator];
-    
-    if (factorsData.length > 0) {
-        renderIndicatorChart();
-    }
+function switchMainChart(type, event) {
+ currentMainChart = type;
+ document.querySelectorAll('#main-chart-section .btn-group .btn').forEach(btn => btn.classList.remove('active'));
+ const triggerButton = event?.currentTarget || event?.target;
+ if (triggerButton) {
+ triggerButton.classList.add('active');
+ }
+ if (historyData.length > 0) {
+ renderMainChart();
+ }
+
 }
+ // 切换指标图表
 
-// 渲染数据表格
+function switchIndicatorChart(indicator, event) {
+ currentIndicator = indicator;
+ // 更新选项卡状态
+ document.querySelectorAll('.chart-tab').forEach(tab => tab.classList.remove('active'));
+ const activeTab = event?.currentTarget || event?.target;
+ if (activeTab) {
+ activeTab.classList.add('active');
+ }
+ // 更新标题
+ const titles = {
+ 'macd': 'MACD指标',
+ 'kdj': 'KDJ指标',
+ 'rsi': 'RSI指标',
+ 'boll': '布林带指标'
+ };
+ document.getElementById('indicator-title').innerHTML = titles[indicator];
+ if (factorsData.length > 0) {
+ renderIndicatorChart();
+ }
+
+}
+ // 渲染数据表格
+
 function renderDataTable(historyData, factorsData) {
-    const tbody = document.getElementById('data-table-body');
-    
-    if (!historyData || historyData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">暂无数据</td></tr>';
-        return;
-    }
-    
-    // 合并历史数据和技术因子数据
-    const mergedData = historyData.slice(0, 20).map(history => {
-        const factor = factorsData.find(f => f.trade_date === history.trade_date) || {};
-        return { ...history, ...factor };
-    });
-    
-    tbody.innerHTML = mergedData.map(item => `
-        <tr>
-            <td>${item.trade_date}</td>
-            <td>${formatNumber(item.open, 2)}</td>
-            <td class="text-danger">${formatNumber(item.high, 2)}</td>
-            <td class="text-success">${formatNumber(item.low, 2)}</td>
-            <td><strong>${formatNumber(item.close, 2)}</strong></td>
-            <td>${formatNumber(item.vol/10000, 1)}万</td>
-            <td class="${(item.pct_chg || 0) >= 0 ? 'text-danger' : 'text-success'}">
-                ${formatPercent(item.pct_chg || 0)}
-            </td>
-            <td>${formatNumber(item.rsi_6, 2)}</td>
-            <td>${formatNumber(item.macd, 4)}</td>
-        </tr>
-    `).join('');
-}
+ const tbody = document.getElementById('data-table-body');
+ if (!historyData || historyData.length === 0) {
+ tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">暂无数据</td></tr>';
+ return;
+ }
+ // 合并历史数据和技术因子数据
+ const mergedData = historyData.slice(0, 20).map(history => {
+ const factor = factorsData.find(f => f.trade_date === history.trade_date) || {};
+ return { ...history, ...factor };
+ });
+ tbody.innerHTML = mergedData.map(item => `
+  <tr>
+<td>${item.trade_date}</td>
+<td>${formatNumber(item.open, 2)}</td>
+<td class="text-danger">${formatNumber(item.high, 2)}</td>
+<td class="text-success">${formatNumber(item.low, 2)}</td>
+<td><strong>${formatNumber(item.close, 2)}</strong></td>
+<td>${formatNumber(item.vol/10000, 1)}万</td>
+<td class="${(item.pct_chg || 0) >= 0 ? 'text-danger' : 'text-success'}"> ${formatPercent(item.pct_chg || 0)}
+  </td>
+<td>${formatNumber(item.rsi_6, 2)}</td>
+<td>${formatNumber(item.macd, 4)}</td>
+</tr> `).join('');
 
-// 添加到自选股
+}
+ // 添加到自选股
+
 function addToWatchlist() {
-    if (currentStock) {
-        alert(`已将股票 ${currentStock} 加入自选股`);
-    }
-}
+ if (currentStock) {
+ alert(`已将股票 ${currentStock} 加入自选股`);
+ }
 
-// 工具函数
+}
+ // 工具函数
+
 function formatNumber(num, decimals = 2) {
-    if (num === null || num === undefined || isNaN(num)) return '--';
-    return Number(num).toLocaleString('zh-CN', {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals
-    });
+ if (num === null || num === undefined || isNaN(num)) return '--';
+ return Number(num).toLocaleString('zh-CN', {
+ minimumFractionDigits: decimals,
+ maximumFractionDigits: decimals
+ });
+
+}
+ function formatPercent(num) {
+ if (num === null || num === undefined || isNaN(num)) return '--';
+ const sign = num >= 0 ? '+' : '';
+ return sign + Number(num).toFixed(2) + '%';
+
 }
 
-function formatPercent(num) {
-    if (num === null || num === undefined || isNaN(num)) return '--';
-    const sign = num >= 0 ? '+' : '';
-    return sign + Number(num).toFixed(2) + '%';
-}
-</script>
-{% endblock %} 
+</script> {% endblock %} 

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+ {% block title %}管理员登录 - 股票量化分析系统{% endblock %}
+ {% block content %}
+
+<div class="container py-4 py-lg-5">
+<div class="row justify-content-center">
+<div class="col-lg-8 col-xl-7">
+<div class="row g-4 align-items-stretch">
+<div class="col-lg-5">
+<div class="page-card h-100 p-4 p-lg-5">
+<span class="badge bg-light text-primary border mb-3">后台总控入口</span>
+<h1 class="h3 mb-3">管理员登录</h1>
+<p class="text-muted mb-4">通过后台可统一管理用户状态、审计系统日志，并执行数据同步等运维操作。</p>
+<ul class="list-unstyled small text-muted mb-0">
+<li class="mb-3">用户角色与账号状态管理</li>
+<li class="mb-3">系统日志审计</li>
+<li>数据同步与后台统计</li>
+</ul>
+</div>
+</div>
+<div class="col-lg-7">
+<div class="page-card h-100 p-4 p-lg-5">
+<form method="post">
+<div class="mb-3">
+<label class="form-label" for="account">管理员账号</label>
+<input class="form-control" id="account" name="account" placeholder="用户名或邮箱" required>
+</div>
+<div class="mb-4">
+<label class="form-label" for="password">密码</label>
+<input type="password" class="form-control" id="password" name="password" placeholder="请输入管理员密码" required>
+</div>
+<div class="d-grid gap-2 d-md-flex">
+<button class="btn btn-primary flex-fill" type="submit">进入后台</button>
+<a class="btn btn-outline-secondary flex-fill" href="{{ url_for('auth.login') }}">返回用户登录</a>
+</div>
+</form>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div> {% endblock %}
+

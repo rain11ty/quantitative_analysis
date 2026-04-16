@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+ {% block title %}用户注册 - 股票量化分析系统{% endblock %}
+ {% block content %}
+
+<div class="container py-4 py-lg-5">
+<div class="row justify-content-center">
+<div class="col-lg-10">
+<div class="row g-4 align-items-stretch">
+<div class="col-lg-5">
+<div class="page-card h-100 p-4 p-lg-5">
+<span class="badge bg-light text-success border mb-3">新用户注册</span>
+<h1 class="h3 mb-3">创建你的专属账号</h1>
+<p class="text-muted mb-4">注册完成后，你可以在个人中心管理资料、自选股、行为记录以及 AI 问答历史。</p>
+<ul class="list-unstyled mb-0">
+<li class="mb-3">个人资料管理</li>
+<li class="mb-3">股票筛选与回测功能</li>
+<li>自选股与 AI 对话留痕</li>
+</ul>
+</div>
+</div>
+<div class="col-lg-7">
+<div class="page-card h-100 p-4 p-lg-5">
+<form method="post">
+<div class="mb-3">
+<label for="username" class="form-label">用户名</label>
+<input type="text" class="form-control" id="username" name="username" value="{{ request.form.get('username', '') }}" placeholder="至少 3 个字符" required>
+</div>
+<div class="mb-3">
+<label for="email" class="form-label">邮箱</label>
+<input type="email" class="form-control" id="email" name="email" value="{{ request.form.get('email', '') }}" placeholder="请输入常用邮箱" required>
+</div>
+<div class="row g-3 mb-1">
+<div class="col-md-6">
+<label for="phone" class="form-label">手机号（可选）</label>
+<input type="text" class="form-control" id="phone" name="phone" value="{{ request.form.get('phone', '') }}" placeholder="选填">
+</div>
+<div class="col-md-6">
+<label for="verify_code" class="form-label">验证码（演示字段）</label>
+<input type="text" class="form-control" id="verify_code" name="verify_code" value="{{ request.form.get('verify_code', '') }}" placeholder="当前仅做界面保留">
+</div>
+</div>
+<div class="row g-3">
+<div class="col-md-6">
+<label for="password" class="form-label">密码</label>
+<input type="password" class="form-control" id="password" name="password" placeholder="至少 6 位" required>
+</div>
+<div class="col-md-6">
+<label for="confirm_password" class="form-label">确认密码</label>
+<input type="password" class="form-control" id="confirm_password" name="confirm_password" placeholder="请再次输入密码" required>
+</div>
+</div>
+<div class="d-grid gap-2 d-md-flex mt-4">
+<button type="submit" class="btn btn-primary flex-fill">立即注册</button>
+<a href="{{ url_for('auth.login') }}" class="btn btn-outline-primary flex-fill">返回登录</a>
+</div>
+</form>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div> {% endblock %}
+

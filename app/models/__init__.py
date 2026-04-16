@@ -6,13 +6,16 @@ from .stock_ma_data import StockMaData
 from .stock_moneyflow import StockMoneyflow
 from .stock_cyq_perf import StockCyqPerf
 from .stock_business import StockBusiness
-from .factor_definition import FactorDefinition
-from .factor_values import FactorValues
-from .ml_model_definition import MLModelDefinition
-from .ml_predictions import MLPredictions
 from .stock_income_statement import StockIncomeStatement
 from .stock_balance_sheet import StockBalanceSheet
-from .text2sql_metadata import TableMetadata, FieldMetadata, QueryTemplate, QueryHistory, BusinessDictionary
+from .stock_minute_data import StockMinuteData
+from .user import User
+from .user_activity import UserWatchlist, UserAnalysisRecord, UserChatHistory
+from .ai_conversation import UserAiConversation, UserAiMessage
+from .system_log import SystemLog
+from .trading_signals import TradingSignals
+from .portfolio_positions import PortfolioPositions
+from .risk_alerts import RiskAlerts
 
 __all__ = [
     'StockBasic',
@@ -23,15 +26,17 @@ __all__ = [
     'StockMoneyflow',
     'StockCyqPerf',
     'StockBusiness',
-    'FactorDefinition',
-    'FactorValues',
-    'MLModelDefinition',
-    'MLPredictions',
     'StockIncomeStatement',
     'StockBalanceSheet',
-    'TableMetadata',
-    'FieldMetadata', 
-    'QueryTemplate',
-    'QueryHistory',
-    'BusinessDictionary'
+    'StockMinuteData',
+    'User',
+    'UserWatchlist',
+    'UserAnalysisRecord',
+    'UserChatHistory',
+    'UserAiConversation',
+    'UserAiMessage',
+    'SystemLog',
+    'TradingSignals',
+    'PortfolioPositions',
+    'RiskAlerts'
 ] 

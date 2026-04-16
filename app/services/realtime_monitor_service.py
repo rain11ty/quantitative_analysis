@@ -1,586 +1,531 @@
-"""
-实时监控服务
-提供实时行情监控、热点板块监控、异动股票监控和市场情绪监控功能
-"""
+from __future__ import annotations
 
-import pandas as pd
-import numpy as np
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Tuple
-import logging
-from sqlalchemy import func, desc, asc
+from typing import Any, Dict, List, Optional
 
-from app.models.stock_minute_data import StockMinuteData
-from app.models.stock_basic import StockBasic
-from app.models.realtime_indicator import RealtimeIndicator
+import tushare as ts
+from loguru import logger
 
-logger = logging.getLogger(__name__)
+from app.models import StockBasic, UserWatchlist
+from app.services.market_overview_service import MarketOverviewService
+from app.services.stock_service import StockService
+from app.utils.db_utils import DatabaseUtils
 
 
 class RealtimeMonitorService:
-    """实时监控服务"""
-    
-    def __init__(self):
-        self.sector_mapping = self._initialize_sector_mapping()
-    
-    def _initialize_sector_mapping(self):
-        """初始化板块映射"""
-        return {
-            '银行': ['000001.SZ', '600000.SH', '600036.SH', '601988.SH'],
-            '房地产': ['000002.SZ', '600048.SH', '000069.SZ', '600383.SH'],
-            '钢铁': ['600019.SH', '000898.SZ', '600581.SH', '000709.SZ'],
-            '煤炭': ['600188.SH', '601088.SH', '000983.SZ', '600123.SH'],
-            '有色金属': ['600362.SH', '000831.SZ', '002460.SZ', '600111.SH'],
-            '石油石化': ['600028.SH', '000656.SZ', '600688.SH', '000301.SZ'],
-            '电力': ['600886.SH', '000027.SZ', '600795.SH', '000875.SZ'],
-            '汽车': ['600104.SH', '000625.SZ', '002594.SZ', '600066.SH'],
-            '机械': ['000157.SZ', '002008.SZ', '600031.SH', '000528.SZ'],
-            '电子': ['000725.SZ', '002415.SZ', '600584.SH', '000021.SZ'],
-            '医药': ['000858.SZ', '600276.SH', '000423.SZ', '600867.SH'],
-            '食品饮料': ['000568.SZ', '600519.SH', '000596.SZ', '600887.SH'],
-            '纺织服装': ['600177.SH', '002029.SZ', '000902.SZ', '600398.SH'],
-            '轻工制造': ['000488.SZ', '002572.SZ', '600978.SH', '000726.SZ'],
-            '商贸零售': ['600694.SH', '000759.SZ', '002024.SZ', '600361.SH'],
-            '交通运输': ['600026.SH', '000089.SZ', '600115.SH', '000039.SZ'],
-            '休闲服务': ['000978.SZ', '600138.SH', '000430.SZ', '600258.SH'],
-            '综合': ['600643.SH', '000039.SZ', '600663.SH', '000042.SZ'],
-            '建筑材料': ['000401.SZ', '600585.SH', '000877.SZ', '600801.SH'],
-            '建筑装饰': ['000090.SZ', '002271.SZ', '600170.SH', '000065.SZ'],
-            '电气设备': ['000400.SZ', '002202.SZ', '600406.SH', '000012.SZ'],
-            '国防军工': ['000768.SZ', '002013.SZ', '600150.SH', '000099.SZ'],
-            '计算机': ['000977.SZ', '002405.SZ', '600588.SH', '000034.SZ'],
-            '传媒': ['000156.SZ', '002027.SZ', '600633.SH', '000917.SZ'],
-            '通信': ['000063.SZ', '002415.SZ', '600050.SH', '000070.SZ'],
-            '公用事业': ['000826.SZ', '600008.SH', '000939.SZ', '600874.SH'],
-            '农林牧渔': ['000876.SZ', '002714.SZ', '600598.SH', '000735.SZ'],
-            '化工': ['000792.SZ', '002648.SZ', '600309.SH', '000059.SZ'],
-            '非银金融': ['000166.SZ', '002736.SZ', '600030.SH', '000776.SZ']
-        }
-    
-    def get_realtime_quotes(self, stock_codes: List[str] = None, 
-                           period_type: str = '1min', limit: int = 50) -> Dict:
-        """获取实时行情数据"""
-        try:
-            # 如果没有指定股票代码，获取活跃股票
-            if not stock_codes:
-                stock_codes = self._get_active_stocks(limit)
-            
-            # 获取最新价格数据
-            end_time = datetime.now()
-            start_time = end_time - timedelta(hours=1)  # 最近1小时
-            
-            quotes = []
-            for ts_code in stock_codes:
-                try:
-                    # 获取最新数据
-                    latest_data = StockMinuteData.query.filter(
-                        StockMinuteData.ts_code == ts_code,
-                        StockMinuteData.period_type == period_type,
-                        StockMinuteData.datetime >= start_time
-                    ).order_by(desc(StockMinuteData.datetime)).first()
-                    
-                    if not latest_data:
-                        continue
-                    
-                    # 获取前一交易日收盘价（用于计算涨跌幅）
-                    prev_close = self._get_previous_close(ts_code, latest_data.datetime, period_type)
-                    
-                    # 计算涨跌幅
-                    change_pct = 0.0
-                    if prev_close and prev_close > 0:
-                        change_pct = (latest_data.close - prev_close) / prev_close * 100
-                    
-                    # 计算成交量比
-                    volume_ratio = self._calculate_volume_ratio(ts_code, latest_data.datetime, period_type)
-                    
-                    quotes.append({
-                        'ts_code': ts_code,
-                        'name': self._get_stock_name(ts_code),
-                        'current_price': latest_data.close,
-                        'open_price': latest_data.open,
-                        'high_price': latest_data.high,
-                        'low_price': latest_data.low,
-                        'volume': latest_data.volume,
-                        'amount': latest_data.amount,
-                        'change_pct': change_pct,
-                        'volume_ratio': volume_ratio,
-                        'update_time': latest_data.datetime.isoformat(),
-                        'turnover_rate': self._calculate_turnover_rate(ts_code, latest_data.volume)
-                    })
-                    
-                except Exception as e:
-                    logger.error(f"获取 {ts_code} 行情数据失败: {str(e)}")
-                    continue
-            
-            return {
-                'success': True,
-                'data': {
-                    'quotes': quotes,
-                    'total_count': len(quotes),
-                    'update_time': datetime.now().isoformat()
-                },
-                'message': f'成功获取 {len(quotes)} 只股票的实时行情'
-            }
-            
-        except Exception as e:
-            logger.error(f"获取实时行情失败: {str(e)}")
-            return {'success': False, 'message': str(e)}
-    
-    def get_sector_performance(self, period_hours: int = 1) -> Dict:
-        """获取板块表现"""
-        try:
-            end_time = datetime.now()
-            start_time = end_time - timedelta(hours=period_hours)
-            
-            sector_performance = []
-            
-            for sector_name, stock_codes in self.sector_mapping.items():
-                try:
-                    sector_changes = []
-                    sector_volumes = []
-                    sector_amounts = []
-                    
-                    for ts_code in stock_codes:
-                        # 获取最新数据
-                        latest_data = StockMinuteData.query.filter(
-                            StockMinuteData.ts_code == ts_code,
-                            StockMinuteData.datetime >= start_time
-                        ).order_by(desc(StockMinuteData.datetime)).first()
-                        
-                        if not latest_data:
-                            continue
-                        
-                        # 计算涨跌幅
-                        prev_close = self._get_previous_close(ts_code, latest_data.datetime, '1min')
-                        if prev_close and prev_close > 0:
-                            change_pct = (latest_data.close - prev_close) / prev_close * 100
-                            sector_changes.append(change_pct)
-                            sector_volumes.append(latest_data.volume)
-                            sector_amounts.append(latest_data.amount)
-                    
-                    if sector_changes:
-                        # 计算板块平均涨跌幅（等权重）
-                        avg_change = np.mean(sector_changes)
-                        total_volume = sum(sector_volumes)
-                        total_amount = sum(sector_amounts)
-                        
-                        # 计算上涨股票数量
-                        rising_count = sum(1 for change in sector_changes if change > 0)
-                        falling_count = sum(1 for change in sector_changes if change < 0)
-                        
-                        sector_performance.append({
-                            'sector_name': sector_name,
-                            'avg_change_pct': avg_change,
-                            'total_volume': total_volume,
-                            'total_amount': total_amount,
-                            'stock_count': len(sector_changes),
-                            'rising_count': rising_count,
-                            'falling_count': falling_count,
-                            'rising_ratio': rising_count / len(sector_changes) * 100 if sector_changes else 0
-                        })
-                        
-                except Exception as e:
-                    logger.error(f"计算板块 {sector_name} 表现失败: {str(e)}")
-                    continue
-            
-            # 按涨跌幅排序
-            sector_performance.sort(key=lambda x: x['avg_change_pct'], reverse=True)
-            
-            return {
-                'success': True,
-                'data': {
-                    'sectors': sector_performance,
-                    'total_sectors': len(sector_performance),
-                    'period_hours': period_hours,
-                    'update_time': datetime.now().isoformat()
-                },
-                'message': f'成功获取 {len(sector_performance)} 个板块的表现数据'
-            }
-            
-        except Exception as e:
-            logger.error(f"获取板块表现失败: {str(e)}")
-            return {'success': False, 'message': str(e)}
-    
-    def detect_anomalies(self, change_threshold: float = 5.0, 
-                        volume_threshold: float = 3.0, 
-                        period_hours: int = 1) -> Dict:
-        """检测异动股票"""
-        try:
-            end_time = datetime.now()
-            start_time = end_time - timedelta(hours=period_hours)
-            
-            # 获取所有活跃股票
-            active_stocks = self._get_active_stocks(200)
-            
-            anomalies = []
-            
-            for ts_code in active_stocks:
-                try:
-                    # 获取最新数据
-                    latest_data = StockMinuteData.query.filter(
-                        StockMinuteData.ts_code == ts_code,
-                        StockMinuteData.datetime >= start_time
-                    ).order_by(desc(StockMinuteData.datetime)).first()
-                    
-                    if not latest_data:
-                        continue
-                    
-                    # 计算涨跌幅
-                    prev_close = self._get_previous_close(ts_code, latest_data.datetime, '1min')
-                    if not prev_close or prev_close <= 0:
-                        continue
-                    
-                    change_pct = (latest_data.close - prev_close) / prev_close * 100
-                    
-                    # 计算成交量比
-                    volume_ratio = self._calculate_volume_ratio(ts_code, latest_data.datetime, '1min')
-                    
-                    # 检测异动条件
-                    anomaly_types = []
-                    
-                    # 价格异动
-                    if abs(change_pct) >= change_threshold:
-                        if change_pct > 0:
-                            anomaly_types.append('急涨')
-                        else:
-                            anomaly_types.append('急跌')
-                    
-                    # 成交量异动
-                    if volume_ratio >= volume_threshold:
-                        anomaly_types.append('放量')
-                    
-                    # 价格突破（简单判断）
-                    if self._check_price_breakout(ts_code, latest_data):
-                        anomaly_types.append('突破')
-                    
-                    if anomaly_types:
-                        anomalies.append({
-                            'ts_code': ts_code,
-                            'name': self._get_stock_name(ts_code),
-                            'current_price': latest_data.close,
-                            'change_pct': change_pct,
-                            'volume_ratio': volume_ratio,
-                            'anomaly_types': anomaly_types,
-                            'anomaly_score': self._calculate_anomaly_score(change_pct, volume_ratio),
-                            'update_time': latest_data.datetime.isoformat()
-                        })
-                        
-                except Exception as e:
-                    logger.error(f"检测 {ts_code} 异动失败: {str(e)}")
-                    continue
-            
-            # 按异动评分排序
-            anomalies.sort(key=lambda x: x['anomaly_score'], reverse=True)
-            
-            return {
-                'success': True,
-                'data': {
-                    'anomalies': anomalies[:50],  # 返回前50个异动股票
-                    'total_count': len(anomalies),
-                    'change_threshold': change_threshold,
-                    'volume_threshold': volume_threshold,
-                    'period_hours': period_hours,
-                    'update_time': datetime.now().isoformat()
-                },
-                'message': f'检测到 {len(anomalies)} 只异动股票'
-            }
-            
-        except Exception as e:
-            logger.error(f"检测异动股票失败: {str(e)}")
-            return {'success': False, 'message': str(e)}
-    
-    def get_market_sentiment(self, period_hours: int = 1) -> Dict:
-        """获取市场情绪指标"""
-        try:
-            end_time = datetime.now()
-            start_time = end_time - timedelta(hours=period_hours)
-            
-            # 获取所有活跃股票的数据
-            active_stocks = self._get_active_stocks(500)
-            
-            rising_stocks = 0
-            falling_stocks = 0
-            unchanged_stocks = 0
-            total_volume = 0
-            total_amount = 0
-            changes = []
-            
-            for ts_code in active_stocks:
-                try:
-                    # 获取最新数据
-                    latest_data = StockMinuteData.query.filter(
-                        StockMinuteData.ts_code == ts_code,
-                        StockMinuteData.datetime >= start_time
-                    ).order_by(desc(StockMinuteData.datetime)).first()
-                    
-                    if not latest_data:
-                        continue
-                    
-                    # 计算涨跌幅
-                    prev_close = self._get_previous_close(ts_code, latest_data.datetime, '1min')
-                    if not prev_close or prev_close <= 0:
-                        continue
-                    
-                    change_pct = (latest_data.close - prev_close) / prev_close * 100
-                    changes.append(change_pct)
-                    
-                    # 统计涨跌家数
-                    if change_pct > 0.1:
-                        rising_stocks += 1
-                    elif change_pct < -0.1:
-                        falling_stocks += 1
-                    else:
-                        unchanged_stocks += 1
-                    
-                    total_volume += latest_data.volume
-                    total_amount += latest_data.amount
-                    
-                except Exception as e:
-                    logger.error(f"处理 {ts_code} 市场情绪数据失败: {str(e)}")
-                    continue
-            
-            total_stocks = rising_stocks + falling_stocks + unchanged_stocks
-            
-            if total_stocks == 0:
-                return {
-                    'success': False,
-                    'message': '没有足够的数据计算市场情绪'
-                }
-            
-            # 计算市场情绪指标
-            rising_ratio = rising_stocks / total_stocks * 100
-            falling_ratio = falling_stocks / total_stocks * 100
-            
-            # 计算市场强度指标
-            avg_change = np.mean(changes) if changes else 0
-            change_std = np.std(changes) if changes else 0
-            
-            # 计算情绪评分 (0-100)
-            sentiment_score = min(100, max(0, 50 + avg_change * 5 + (rising_ratio - 50)))
-            
-            # 确定市场状态
-            if sentiment_score >= 70:
-                market_status = '强势'
-                status_color = 'success'
-            elif sentiment_score >= 55:
-                market_status = '偏强'
-                status_color = 'info'
-            elif sentiment_score >= 45:
-                market_status = '震荡'
-                status_color = 'warning'
-            elif sentiment_score >= 30:
-                market_status = '偏弱'
-                status_color = 'secondary'
-            else:
-                market_status = '弱势'
-                status_color = 'danger'
-            
-            return {
-                'success': True,
-                'data': {
-                    'sentiment_score': sentiment_score,
-                    'market_status': market_status,
-                    'status_color': status_color,
-                    'rising_stocks': rising_stocks,
-                    'falling_stocks': falling_stocks,
-                    'unchanged_stocks': unchanged_stocks,
-                    'total_stocks': total_stocks,
-                    'rising_ratio': rising_ratio,
-                    'falling_ratio': falling_ratio,
-                    'avg_change_pct': avg_change,
-                    'volatility': change_std,
-                    'total_volume': total_volume,
-                    'total_amount': total_amount,
-                    'period_hours': period_hours,
-                    'update_time': datetime.now().isoformat()
-                },
-                'message': f'成功计算市场情绪，涉及 {total_stocks} 只股票'
-            }
-            
-        except Exception as e:
-            logger.error(f"获取市场情绪失败: {str(e)}")
-            return {'success': False, 'message': str(e)}
-    
-    def get_monitor_overview(self) -> Dict:
-        """获取监控概览"""
-        try:
-            # 获取基础统计
-            total_stocks = StockMinuteData.query.with_entities(
-                func.count(func.distinct(StockMinuteData.ts_code))
-            ).scalar() or 0
-            
-            # 获取最新更新时间
-            latest_time = StockMinuteData.query.with_entities(
-                func.max(StockMinuteData.datetime)
-            ).scalar()
-            
-            # 获取今日数据量
-            today = datetime.now().date()
-            today_records = StockMinuteData.query.filter(
-                func.date(StockMinuteData.datetime) == today
-            ).count()
-            
-            # 获取活跃股票数（最近1小时有数据）
-            recent_time = datetime.now() - timedelta(hours=1)
-            active_stocks = StockMinuteData.query.filter(
-                StockMinuteData.datetime >= recent_time
-            ).with_entities(
-                func.count(func.distinct(StockMinuteData.ts_code))
-            ).scalar() or 0
-            
-            return {
-                'success': True,
-                'data': {
-                    'total_stocks': total_stocks,
-                    'active_stocks': active_stocks,
-                    'today_records': today_records,
-                    'latest_update': latest_time.isoformat() if latest_time else None,
-                    'system_status': 'running',
-                    'data_delay': self._calculate_data_delay(latest_time) if latest_time else None
-                },
-                'message': '监控概览获取成功'
-            }
-            
-        except Exception as e:
-            logger.error(f"获取监控概览失败: {str(e)}")
-            return {'success': False, 'message': str(e)}
-    
-    def _get_active_stocks(self, limit: int = 100) -> List[str]:
-        """获取活跃股票列表"""
-        try:
-            # 获取最近1小时有数据的股票
-            recent_time = datetime.now() - timedelta(hours=1)
-            
-            active_stocks = StockMinuteData.query.filter(
-                StockMinuteData.datetime >= recent_time
-            ).with_entities(
-                StockMinuteData.ts_code
-            ).distinct().limit(limit).all()
-            
-            return [stock[0] for stock in active_stocks]
-            
-        except Exception as e:
-            logger.error(f"获取活跃股票失败: {str(e)}")
-            # 返回默认股票列表
-            return ['000001.SZ', '000002.SZ', '600000.SH', '600036.SH', '000858.SZ']
-    
-    def _get_previous_close(self, ts_code: str, current_time: datetime, period_type: str) -> Optional[float]:
-        """获取前一交易日收盘价"""
-        try:
-            # 简化处理：获取当前时间前1小时的数据作为基准
-            prev_time = current_time - timedelta(hours=1)
-            
-            prev_data = StockMinuteData.query.filter(
-                StockMinuteData.ts_code == ts_code,
-                StockMinuteData.period_type == period_type,
-                StockMinuteData.datetime <= prev_time
-            ).order_by(desc(StockMinuteData.datetime)).first()
-            
-            return prev_data.close if prev_data else None
-            
-        except Exception as e:
-            logger.error(f"获取 {ts_code} 前收盘价失败: {str(e)}")
+    DEFAULT_CODES = ['000001.SZ', '600519.SH', '300750.SZ']
+    MAX_CODES = 12
+    SUPPORTED_FREQS = {'1min', '5min', '15min', '30min', '60min'}
+
+    @classmethod
+    def normalize_ts_code(cls, value: str) -> str:
+        code = (value or '').strip().upper()
+        if not code:
+            return ''
+        if '.' in code:
+            return code
+        if code.startswith(('6', '9')):
+            return f'{code}.SH'
+        if code.startswith(('0', '2', '3')):
+            return f'{code}.SZ'
+        if code.startswith(('4', '8')):
+            return f'{code}.BJ'
+        return code
+
+    @classmethod
+    def parse_codes(cls, raw_codes: str) -> List[str]:
+        if not raw_codes:
+            return []
+        normalized: List[str] = []
+        for chunk in str(raw_codes).replace('，', ',').replace(';', ',').replace('\n', ',').split(','):
+            code = cls.normalize_ts_code(chunk)
+            if code and code not in normalized:
+                normalized.append(code)
+            if len(normalized) >= cls.MAX_CODES:
+                break
+        return normalized
+
+    @classmethod
+    def _create_tushare_client(cls):
+        DatabaseUtils.reload_from_env()
+        return DatabaseUtils.init_tushare_api()
+
+    @staticmethod
+    def _safe_float(value: Any, digits: Optional[int] = 2) -> Optional[float]:
+        if value in (None, ''):
             return None
-    
-    def _calculate_volume_ratio(self, ts_code: str, current_time: datetime, period_type: str) -> float:
-        """计算成交量比"""
         try:
-            # 获取最近20个周期的平均成交量
-            start_time = current_time - timedelta(hours=20)
-            
-            avg_volume = StockMinuteData.query.filter(
-                StockMinuteData.ts_code == ts_code,
-                StockMinuteData.period_type == period_type,
-                StockMinuteData.datetime >= start_time,
-                StockMinuteData.datetime < current_time
-            ).with_entities(
-                func.avg(StockMinuteData.volume)
-            ).scalar()
-            
-            if not avg_volume or avg_volume == 0:
-                return 1.0
-            
-            # 获取当前成交量
-            current_data = StockMinuteData.query.filter(
-                StockMinuteData.ts_code == ts_code,
-                StockMinuteData.period_type == period_type,
-                StockMinuteData.datetime == current_time
-            ).first()
-            
-            if not current_data:
-                return 1.0
-            
-            return current_data.volume / avg_volume
-            
-        except Exception as e:
-            logger.error(f"计算 {ts_code} 成交量比失败: {str(e)}")
-            return 1.0
-    
-    def _calculate_turnover_rate(self, ts_code: str, volume: float) -> float:
-        """计算换手率（简化版本）"""
+            number = float(value)
+            return round(number, digits) if digits is not None else number
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _safe_text(value: Any) -> str:
+        return '' if value is None else str(value).strip()
+
+    @classmethod
+    def _get_name_map(cls, codes: List[str]) -> Dict[str, str]:
+        if not codes:
+            return {}
+        stocks = StockBasic.query.filter(StockBasic.ts_code.in_(codes)).all()
+        return {stock.ts_code: stock.name for stock in stocks}
+
+    @classmethod
+    def _get_user_watchlist(cls, user_id: Optional[int]) -> List[UserWatchlist]:
+        if not user_id:
+            return []
+        return (
+            UserWatchlist.query.filter_by(user_id=user_id)
+            .order_by(UserWatchlist.created_at.desc())
+            .limit(cls.MAX_CODES)
+            .all()
+        )
+
+    @classmethod
+    def _pick_codes(cls, user_id: Optional[int], raw_codes: str = '') -> List[str]:
+        requested_codes = cls.parse_codes(raw_codes)
+        if requested_codes:
+            return requested_codes
+        watchlist = cls._get_user_watchlist(user_id)
+        if watchlist:
+            return [item.ts_code for item in watchlist[: cls.MAX_CODES]]
+        return list(cls.DEFAULT_CODES)
+
+    @classmethod
+    def _first_value(cls, row: Dict[str, Any], *keys: str) -> Any:
+        for key in keys:
+            if key in row and row[key] not in (None, ''):
+                return row[key]
+        return None
+
+    @classmethod
+    def _build_quote_item(
+        cls,
+        ts_code: str,
+        name: str,
+        price: Any,
+        pre_close: Any,
+        open_price: Any,
+        high: Any,
+        low: Any,
+        volume: Any,
+        amount: Any,
+        trade_date: Any,
+        trade_time: Any,
+        turnover_rate: Any = None,
+        source: str = 'realtime_quote',
+    ) -> Dict[str, Any]:
+        price_value = cls._safe_float(price)
+        pre_close_value = cls._safe_float(pre_close)
+        open_value = cls._safe_float(open_price)
+        high_value = cls._safe_float(high)
+        low_value = cls._safe_float(low)
+        volume_value = cls._safe_float(volume, 0)
+        amount_value = cls._safe_float(amount, 0)
+        turnover_value = cls._safe_float(turnover_rate)
+
+        change = None
+        pct_chg = None
+        if price_value is not None and pre_close_value not in (None, 0):
+            change = round(price_value - pre_close_value, 2)
+            pct_chg = round(change / pre_close_value * 100, 2)
+
+        amplitude = None
+        if high_value is not None and low_value is not None and pre_close_value not in (None, 0):
+            amplitude = round((high_value - low_value) / pre_close_value * 100, 2)
+
+        return {
+            'ts_code': ts_code,
+            'name': name or ts_code,
+            'price': price_value,
+            'pre_close': pre_close_value,
+            'open': open_value,
+            'high': high_value,
+            'low': low_value,
+            'change': change,
+            'pct_chg': pct_chg,
+            'amplitude': amplitude,
+            'volume': volume_value,
+            'amount': amount_value,
+            'turnover_rate': turnover_value,
+            'trade_date': cls._safe_text(trade_date),
+            'trade_time': cls._safe_text(trade_time),
+            'source': source,
+        }
+
+    @classmethod
+    def _normalize_realtime_quotes(cls, rows: List[Dict[str, Any]], codes: List[str]) -> List[Dict[str, Any]]:
+        name_map = cls._get_name_map(codes)
+        row_map: Dict[str, Dict[str, Any]] = {}
+
+        for row in rows:
+            ts_code = cls._safe_text(cls._first_value(row, 'TS_CODE', 'ts_code'))
+            if not ts_code:
+                raw_code = cls._safe_text(cls._first_value(row, 'CODE', 'code', 'symbol'))
+                if raw_code:
+                    matched_code = next((code for code in codes if code.startswith(raw_code)), '')
+                    ts_code = matched_code or cls.normalize_ts_code(raw_code)
+            if not ts_code:
+                continue
+            row_map[ts_code] = row
+
+        quotes: List[Dict[str, Any]] = []
+        for code in codes:
+            row = row_map.get(code, {})
+            quotes.append(
+                cls._build_quote_item(
+                    ts_code=code,
+                    name=cls._safe_text(cls._first_value(row, 'NAME', 'name')) or name_map.get(code, code),
+                    price=cls._first_value(row, 'PRICE', 'price', 'current'),
+                    pre_close=cls._first_value(row, 'PRE_CLOSE', 'pre_close', 'close_yesterday'),
+                    open_price=cls._first_value(row, 'OPEN', 'open'),
+                    high=cls._first_value(row, 'HIGH', 'high'),
+                    low=cls._first_value(row, 'LOW', 'low'),
+                    volume=cls._first_value(row, 'VOLUME', 'volume', 'vol'),
+                    amount=cls._first_value(row, 'AMOUNT', 'amount'),
+                    trade_date=cls._first_value(row, 'DATE', 'date', 'trade_date'),
+                    trade_time=cls._first_value(row, 'TIME', 'time', 'trade_time'),
+                    turnover_rate=cls._first_value(row, 'TURNOVER_RATE', 'turnover_rate'),
+                    source='realtime_quote',
+                )
+            )
+        return quotes
+
+    @classmethod
+    def _load_realtime_quotes(cls, codes: List[str]) -> Dict[str, Any]:
+        if not codes:
+            return {'quotes': [], 'source': 'empty', 'message': 'No codes provided.'}
+
+        errors: List[str] = []
+        code_str = ','.join(codes)
+
         try:
-            # 这里应该根据股票的流通股本计算，简化处理返回一个估算值
-            # 实际应用中需要获取股票的流通股本数据
-            return min(20.0, volume / 1000000 * 0.1)  # 简化计算
-            
-        except Exception as e:
-            logger.error(f"计算 {ts_code} 换手率失败: {str(e)}")
-            return 0.0
-    
-    def _get_stock_name(self, ts_code: str) -> str:
-        """获取股票名称"""
+            pro = cls._create_tushare_client()
+            df = pro.realtime_quote(ts_code=code_str)
+            if df is not None and not df.empty:
+                quotes = cls._normalize_realtime_quotes(df.to_dict('records'), codes)
+                if any(item.get('price') is not None for item in quotes):
+                    return {
+                        'quotes': quotes,
+                        'source': 'realtime_quote',
+                        'message': '已通过 Tushare 实时行情接口加载数据。',
+                    }
+        except Exception as exc:
+            logger.warning(f'Realtime quote via pro failed: {exc}')
+            errors.append(str(exc))
+
         try:
-            stock_basic = StockBasic.query.filter_by(ts_code=ts_code).first()
-            return stock_basic.name if stock_basic else ts_code
-        except Exception as e:
-            logger.error(f"获取 {ts_code} 股票名称失败: {str(e)}")
-            return ts_code
-    
-    def _check_price_breakout(self, ts_code: str, latest_data) -> bool:
-        """检查价格突破（简化版本）"""
+            DatabaseUtils.reload_from_env()
+            ts.set_token(DatabaseUtils._tushare_token)
+            pro = ts.pro_api()
+            if DatabaseUtils._tushare_proxy_url:
+                pro._DataApi__http_url = DatabaseUtils._tushare_proxy_url
+            df = ts.realtime_quote(ts_code=code_str)
+            if df is not None and not df.empty:
+                quotes = cls._normalize_realtime_quotes(df.to_dict('records'), codes)
+                if any(item.get('price') is not None for item in quotes):
+                    return {
+                        'quotes': quotes,
+                        'source': 'realtime_quote',
+                        'message': '已通过 Tushare 实时行情接口加载数据。',
+                    }
+        except Exception as exc:
+            logger.warning(f'Realtime quote via module call failed: {exc}')
+            errors.append(str(exc))
+
+        fallback = cls._load_latest_trade_quotes(codes)
+        fallback_message = '实时接口暂不可用，已自动降级为最近交易日监控数据。'
+        if errors:
+            fallback_message = f"{fallback_message} 原因：{errors[-1]}"
+        fallback['message'] = fallback_message
+        return fallback
+
+    @classmethod
+    def _load_latest_trade_quotes(cls, codes: List[str]) -> Dict[str, Any]:
+        name_map = cls._get_name_map(codes)
+        quotes: List[Dict[str, Any]] = []
+
         try:
-            # 获取最近20个周期的最高价和最低价
-            start_time = latest_data.datetime - timedelta(hours=20)
-            
-            price_data = StockMinuteData.query.filter(
-                StockMinuteData.ts_code == ts_code,
-                StockMinuteData.datetime >= start_time,
-                StockMinuteData.datetime < latest_data.datetime
-            ).with_entities(
-                func.max(StockMinuteData.high).label('max_high'),
-                func.min(StockMinuteData.low).label('min_low')
-            ).first()
-            
-            if not price_data or not price_data.max_high or not price_data.min_low:
-                return False
-            
-            # 检查是否突破最高价或最低价
-            return (latest_data.high > price_data.max_high * 1.01 or 
-                   latest_data.low < price_data.min_low * 0.99)
-            
-        except Exception as e:
-            logger.error(f"检查 {ts_code} 价格突破失败: {str(e)}")
-            return False
-    
-    def _calculate_anomaly_score(self, change_pct: float, volume_ratio: float) -> float:
-        """计算异动评分"""
+            pro = cls._create_tushare_client()
+            end_date = datetime.now().strftime('%Y%m%d')
+            start_date = (datetime.now() - timedelta(days=20)).strftime('%Y%m%d')
+
+            for code in codes:
+                daily_df = pro.daily(ts_code=code, start_date=start_date, end_date=end_date)
+                if daily_df is None or daily_df.empty:
+                    quotes.append(cls._build_quote_item(code, name_map.get(code, code), None, None, None, None, None, None, None, None, None, source='latest_trade_day'))
+                    continue
+
+                daily_df = daily_df.sort_values('trade_date', ascending=False)
+                latest = daily_df.iloc[0]
+                turnover_rate = None
+                latest_trade_date = cls._safe_text(latest.get('trade_date'))
+                try:
+                    basic_df = pro.daily_basic(ts_code=code, trade_date=latest_trade_date)
+                    if basic_df is not None and not basic_df.empty:
+                        turnover_rate = basic_df.iloc[0].get('turnover_rate')
+                except Exception as exc:
+                    logger.warning(f'Daily basic fetch failed for {code}: {exc}')
+
+                quotes.append(
+                    cls._build_quote_item(
+                        ts_code=code,
+                        name=name_map.get(code, code),
+                        price=latest.get('close'),
+                        pre_close=latest.get('pre_close'),
+                        open_price=latest.get('open'),
+                        high=latest.get('high'),
+                        low=latest.get('low'),
+                        volume=latest.get('vol'),
+                        amount=latest.get('amount'),
+                        trade_date=latest_trade_date,
+                        trade_time='latest_trade_day',
+                        turnover_rate=turnover_rate,
+                        source='latest_trade_day',
+                    )
+                )
+
+            return {
+                'quotes': quotes,
+                'source': 'latest_trade_day',
+                'message': '已切换到最近交易日数据。',
+            }
+        except Exception as exc:
+            logger.warning(f'Latest trade quote via Tushare failed: {exc}')
+
+        for code in codes:
+            history = StockService.get_daily_history(code, limit=1)
+            latest = history[0] if history else {}
+            quotes.append(
+                cls._build_quote_item(
+                    ts_code=code,
+                    name=name_map.get(code, code),
+                    price=latest.get('close'),
+                    pre_close=latest.get('pre_close'),
+                    open_price=latest.get('open'),
+                    high=latest.get('high'),
+                    low=latest.get('low'),
+                    volume=latest.get('vol') or latest.get('volume'),
+                    amount=latest.get('amount'),
+                    trade_date=latest.get('trade_date'),
+                    trade_time='local_cache',
+                    source='local_cache',
+                )
+            )
+
+        return {
+            'quotes': quotes,
+            'source': 'local_cache',
+            'message': 'Tushare 接口暂不可用，已切换到本地缓存数据。',
+        }
+
+    @classmethod
+    def build_signals(cls, quote: Dict[str, Any]) -> List[Dict[str, str]]:
+        pct_chg = quote.get('pct_chg') or 0
+        amplitude = quote.get('amplitude') or 0
+        open_price = quote.get('open')
+        price = quote.get('price')
+        pre_close = quote.get('pre_close') or 0
+        turnover_rate = quote.get('turnover_rate') or 0
+
+        price_level = 'neutral'
+        price_status = '震荡观察'
+        price_text = '价格波动相对温和，适合继续观察盘口变化。'
+        if pct_chg >= 5:
+            price_level = 'bullish'
+            price_status = '强势拉升'
+            price_text = '涨幅超过 5%，短线情绪较强，注意是否伴随放量。'
+        elif pct_chg >= 2:
+            price_level = 'bullish'
+            price_status = '偏强运行'
+            price_text = '当前处于明显上涨区间，可继续关注持续性。'
+        elif pct_chg <= -5:
+            price_level = 'bearish'
+            price_status = '快速走弱'
+            price_text = '跌幅较大，建议优先观察承接与止跌信号。'
+        elif pct_chg <= -2:
+            price_level = 'warning'
+            price_status = '偏弱回落'
+            price_text = '价格走弱，需留意是否跌破关键支撑位。'
+
+        gap_status = '平开附近'
+        gap_level = 'neutral'
+        gap_text = '开盘价与昨收较接近，市场分歧尚不明显。'
+        if open_price not in (None, 0) and pre_close not in (None, 0):
+            gap_pct = round((open_price - pre_close) / pre_close * 100, 2)
+            if gap_pct >= 2:
+                gap_status = '高开关注'
+                gap_level = 'bullish'
+                gap_text = f'今开较昨收高开 {gap_pct}%，适合观察开盘后的量价承接。'
+            elif gap_pct <= -2:
+                gap_status = '低开承压'
+                gap_level = 'warning'
+                gap_text = f'今开较昨收低开 {abs(gap_pct)}%，需关注是否继续走弱。'
+
+        active_level = 'neutral'
+        active_status = '交投平稳'
+        active_text = '当前换手与振幅水平中性，可继续跟踪。'
+        if amplitude >= 6 or turnover_rate >= 8:
+            active_level = 'bullish'
+            active_status = '高活跃度'
+            active_text = '振幅或换手偏高，说明市场关注度提升，适合重点盯盘。'
+        elif amplitude >= 3 or turnover_rate >= 3:
+            active_level = 'warning'
+            active_status = '活跃升温'
+            active_text = '价格波动开始放大，建议结合成交额变化观察。'
+
+        trend_level = 'neutral'
+        trend_status = '日内均衡'
+        trend_text = '当前价格围绕开盘价波动，趋势尚未完全展开。'
+        if price is not None and open_price not in (None, 0):
+            intraday_pct = round((price - open_price) / open_price * 100, 2)
+            if intraday_pct >= 2:
+                trend_level = 'bullish'
+                trend_status = '日内走强'
+                trend_text = f'现价较开盘上涨 {intraday_pct}%，日内趋势偏强。'
+            elif intraday_pct <= -2:
+                trend_level = 'bearish'
+                trend_status = '日内回落'
+                trend_text = f'现价较开盘回落 {abs(intraday_pct)}%，需关注下方支撑。'
+
+        return [
+            {'title': '涨跌状态', 'status': price_status, 'text': price_text, 'level': price_level},
+            {'title': '开盘信号', 'status': gap_status, 'text': gap_text, 'level': gap_level},
+            {'title': '活跃度', 'status': active_status, 'text': active_text, 'level': active_level},
+            {'title': '日内趋势', 'status': trend_status, 'text': trend_text, 'level': trend_level},
+        ]
+
+    @classmethod
+    def _normalize_series(cls, raw_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        items: List[Dict[str, Any]] = []
+        for row in raw_rows:
+            label = cls._safe_text(cls._first_value(row, 'trade_time', 'TRADE_TIME', 'datetime', 'trade_date', 'DATE'))
+            items.append(
+                {
+                    'label': label,
+                    'open': cls._safe_float(cls._first_value(row, 'open', 'OPEN')),
+                    'high': cls._safe_float(cls._first_value(row, 'high', 'HIGH')),
+                    'low': cls._safe_float(cls._first_value(row, 'low', 'LOW')),
+                    'price': cls._safe_float(cls._first_value(row, 'close', 'CLOSE', 'price', 'PRICE')),
+                    'volume': cls._safe_float(cls._first_value(row, 'vol', 'volume', 'VOLUME'), 0),
+                    'amount': cls._safe_float(cls._first_value(row, 'amount', 'AMOUNT'), 0),
+                }
+            )
+        return [item for item in items if item.get('price') is not None]
+
+    @classmethod
+    def get_price_series(cls, ts_code: str, freq: str = '1min') -> Dict[str, Any]:
+        # 支持的频率：分钟级（1min/5min/15min/30min/60min）或更高粒度（日/周/月）
+        minute_freqs = {'1min', '5min', '15min', '30min', '60min'}
+        higher_freqs = {'daily', 'weekly', 'monthly'}
+        f = (freq or '1min').strip()
+
         try:
-            # 综合价格变动和成交量变动计算异动评分
-            price_score = min(50, abs(change_pct) * 5)  # 价格变动评分
-            volume_score = min(50, (volume_ratio - 1) * 10)  # 成交量变动评分
-            
-            return price_score + volume_score
-            
-        except Exception as e:
-            logger.error(f"计算异动评分失败: {str(e)}")
-            return 0.0
-    
-    def _calculate_data_delay(self, latest_time: datetime) -> int:
-        """计算数据延迟（分钟）"""
-        try:
-            now = datetime.now()
-            delay = (now - latest_time).total_seconds() / 60
-            return int(delay)
-        except Exception as e:
-            logger.error(f"计算数据延迟失败: {str(e)}")
-            return 0 
+            pro = cls._create_tushare_client()
+
+            # 1) 分钟级优先：先按指定分钟级取，不行则自动退到 60min
+            if f in minute_freqs:
+                try:
+                    df = pro.stk_mins(ts_code=ts_code, freq=f, limit=120)
+                    if df is not None and not df.empty:
+                        df = df.sort_values('trade_time', ascending=True)
+                        return {
+                            'series': cls._normalize_series(df.to_dict('records')),
+                            'mode': 'minute',
+                            'source': 'stk_mins',
+                            'message': '分钟级走势已加载。',
+                        }
+                except Exception as exc_minute:
+                    logger.warning(f'Minute data fetch failed for {ts_code}({f}): {exc_minute}')
+                    # 尝试 60min 作为降级
+                    if f != '60min':
+                        try:
+                            df60 = pro.stk_mins(ts_code=ts_code, freq='60min', limit=120)
+                            if df60 is not None and not df60.empty:
+                                df60 = df60.sort_values('trade_time', ascending=True)
+                                return {
+                                    'series': cls._normalize_series(df60.to_dict('records')),
+                                    'mode': 'minute',
+                                    'source': 'stk_mins',
+                                    'message': f'{f} 接口不可用，已降级为 60min 走势。{exc_minute}',
+                                }
+                        except Exception as exc60:
+                            logger.warning(f'60min fallback failed for {ts_code}: {exc60}')
+
+            # 2) 更高粒度：daily/weekly/monthly
+            if f in higher_freqs:
+                if f == 'daily':
+                    ddf = pro.daily(ts_code=ts_code)
+                elif f == 'weekly':
+                    ddf = pro.weekly(ts_code=ts_code)
+                else:  # 'monthly'
+                    ddf = pro.monthly(ts_code=ts_code)
+
+                if ddf is not None and not ddf.empty:
+                    ddf = ddf.sort_values('trade_date', ascending=True)
+                    return {
+                        'series': cls._normalize_series(ddf.to_dict('records')),
+                        'mode': f,
+                        'source': f'tushare_{f}',
+                        'message': f'{f} 级走势已加载。',
+                    }
+        except Exception as exc:
+            logger.warning(f'Price series fetch failed for {ts_code}({f}): {exc}')
+            minute_error = str(exc)
+        else:
+            minute_error = ''
+
+        # 3) 最终降级：使用本地日线历史（数据库/缓存）
+        history = list(reversed(StockService.get_daily_history(ts_code, limit=30)))
+        return {
+            'series': cls._normalize_series(history),
+            'mode': 'daily',
+            'source': 'stock_daily_history',
+            'message': f'分钟级接口暂不可用，已降级为日线走势。{minute_error}'.strip(),
+        }
+
+
+    @classmethod
+    def get_dashboard(cls, user_id: Optional[int], raw_codes: str = '') -> Dict[str, Any]:
+        codes = cls._pick_codes(user_id, raw_codes)
+        watchlist_items = [item.to_dict() for item in cls._get_user_watchlist(user_id)]
+        quote_payload = cls._load_realtime_quotes(codes)
+        market_overview = MarketOverviewService.get_market_overview()
+
+        return {
+            'codes': codes,
+            'quotes': quote_payload.get('quotes', []),
+            'quote_source': quote_payload.get('source'),
+            'quote_message': quote_payload.get('message'),
+            'selected_ts_code': quote_payload.get('quotes', [{}])[0].get('ts_code') if quote_payload.get('quotes') else '',
+            'market_overview': market_overview,
+            'watchlist_items': watchlist_items,
+            'watchlist_count': len(watchlist_items),
+            'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        }
+
+    @classmethod
+    def get_stock_detail(cls, user_id: Optional[int], ts_code: str, freq: str = '1min') -> Dict[str, Any]:
+        normalized_code = cls.normalize_ts_code(ts_code)
+        if not normalized_code:
+            raise ValueError('Invalid ts_code')
+
+        quote_payload = cls._load_realtime_quotes([normalized_code])
+        quote = (quote_payload.get('quotes') or [{}])[0]
+        series_payload = cls.get_price_series(normalized_code, freq=freq)
+        watch_codes = {item.ts_code for item in cls._get_user_watchlist(user_id)}
+
+        return {
+            'quote': quote,
+            'quote_source': quote_payload.get('source'),
+            'quote_message': quote_payload.get('message'),
+            'series': series_payload.get('series', []),
+            'series_mode': series_payload.get('mode'),
+            'series_source': series_payload.get('source'),
+            'series_message': series_payload.get('message'),
+            'signals': cls.build_signals(quote),
+            'stock_info': StockService.get_stock_info(normalized_code),
+            'is_watchlist': normalized_code in watch_codes,
+            'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        }

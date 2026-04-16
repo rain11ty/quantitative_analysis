@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}用户详情 - 管理后台{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/account-admin.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="workspace-shell">
+        <section class="workspace-hero">
+            <span class="workspace-kicker">用户明细</span>
+            <h1 class="workspace-title">{{ user.username }}</h1>
+            <p class="workspace-subtitle">查看该用户的基础资料、登录信息，以及最近的自选股、分析记录和 AI 问答。</p>
+            <div class="workspace-actions">
+                <a class="btn btn-light" href="{{ url_for('admin.users') }}">返回用户管理</a>
+                <a class="btn btn-outline-light" href="{{ url_for('admin.dashboard') }}">后台首页</a>
+            </div>
+        </section>
+
+        <div class="workspace-panel">
+            <div class="workspace-meta-grid">
+                <div class="workspace-meta-item">
+                    <div class="workspace-meta-label">邮箱</div>
+                    <div class="workspace-meta-value">{{ user.email }}</div>
+                </div>
+                <div class="workspace-meta-item">
+                    <div class="workspace-meta-label">角色</div>
+                    <div class="workspace-meta-value">{{ user.role }}</div>
+                </div>
+                <div class="workspace-meta-item">
+                    <div class="workspace-meta-label">状态</div>
+                    <div class="workspace-meta-value">{{ user.status }}</div>
+                </div>
+                <div class="workspace-meta-item">
+                    <div class="workspace-meta-label">注册时间</div>
+                    <div class="workspace-meta-value">{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else '-' }}</div>
+                </div>
+                <div class="workspace-meta-item">
+                    <div class="workspace-meta-label">最后登录</div>
+                    <div class="workspace-meta-value">{{ user.last_login_at.strftime('%Y-%m-%d %H:%M') if user.last_login_at else '-' }}</div>
+                </div>
+                <div class="workspace-meta-item">
+                    <div class="workspace-meta-label">最后登录 IP</div>
+                    <div class="workspace-meta-value">{{ user.last_login_ip or '-' }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="workspace-subgrid">
+            <div class="workspace-panel">
+                <div class="workspace-panel-header">
+                    <div>
+                        <h2 class="workspace-panel-title">最近自选股</h2>
+                        <p class="workspace-panel-desc">展示该用户最近关注的股票。</p>
+                    </div>
+                </div>
+                {% if watchlist_items %}
+                {% for item in watchlist_items %}
+                <div class="workspace-list-item">
+                    <div class="fw-semibold">{{ item.stock_name }}</div>
+                    <div class="small text-muted">{{ item.ts_code }}</div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="workspace-empty">暂无自选股记录。</div>
+                {% endif %}
+            </div>
+
+            <div class="workspace-panel">
+                <div class="workspace-panel-header">
+                    <div>
+                        <h2 class="workspace-panel-title">最近分析记录</h2>
+                        <p class="workspace-panel-desc">记录用户近期的研究行为。</p>
+                    </div>
+                </div>
+                {% if analysis_records %}
+                {% for item in analysis_records %}
+                <div class="workspace-list-item">
+                    <div class="fw-semibold">{{ item.module_name }}</div>
+                    <div class="small text-muted">{{ item.summary[:60] }}{% if item.summary|length > 60 %}...{% endif %}</div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="workspace-empty">暂无分析记录。</div>
+                {% endif %}
+            </div>
+
+            <div class="workspace-panel">
+                <div class="workspace-panel-header">
+                    <div>
+                        <h2 class="workspace-panel-title">最近 AI 问答</h2>
+                        <p class="workspace-panel-desc">查看该用户最近与 AI 助手的互动主题。</p>
+                    </div>
+                </div>
+                {% if chat_records %}
+                {% for item in chat_records %}
+                <div class="workspace-list-item">
+                    <div class="fw-semibold text-dark">{{ item.question[:56] }}{% if item.question|length > 56 %}...{% endif %}</div>
+                    <div class="small text-muted mt-1">{{ item.answer[:78] }}{% if item.answer|length > 78 %}...{% endif %}</div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="workspace-empty">暂无 AI 问答记录。</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
