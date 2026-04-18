@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from app.extensions import db
 from sqlalchemy import Column, String, Date
 

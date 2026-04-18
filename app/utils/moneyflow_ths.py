@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from db_utils import DatabaseUtils
 import pandas as pd
 

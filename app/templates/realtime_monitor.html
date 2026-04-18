@@ -531,6 +531,28 @@ function getSignalClass(level) {
     return `level-${level || 'neutral'}`;
 }
 
+function formatSourceLabel(source) {
+    const sourceMap = {
+        realtime_quote: 'Tushare 实时行情',
+        latest_trade_day: '最近交易日数据',
+        local_cache: '本地缓存数据',
+        stock_daily_history: '本地日线历史',
+        stk_mins: '分钟级走势',
+        empty: '暂无数据'
+    };
+    return sourceMap[source] || source || '未知来源';
+}
+
+function formatSeriesModeLabel(mode) {
+    const modeMap = {
+        minute: '分钟级走势',
+        daily: '日线降级走势',
+        weekly: '周线走势',
+        monthly: '月线走势'
+    };
+    return modeMap[mode] || mode || '走势数据';
+}
+
 async function fetchDashboard(rawCodes = '') {
     const query = rawCodes ? `?ts_codes=${encodeURIComponent(rawCodes)}` : '';
     return apiRequest(`/monitor/dashboard${query}`);
@@ -593,7 +615,7 @@ function renderQuoteList(data) {
     updatedAt.textContent = data?.updated_at || '--';
     sourceBanner.innerHTML = `
         <div>
-            <strong>${escapeHtml(data?.quote_source || 'unknown')}</strong>
+            <strong>${escapeHtml(formatSourceLabel(data?.quote_source))}</strong>
             <span>${escapeHtml(data?.quote_message || '已完成行情加载。')}</span>
         </div>
         <span>${escapeHtml(data?.updated_at || '--')}</span>
@@ -612,7 +634,7 @@ function renderQuoteList(data) {
                 <div class="quote-header">
                     <div>
                         <div class="quote-name">${escapeHtml(item.name || item.ts_code)}</div>
-                        <div class="quote-code">${escapeHtml(item.ts_code)} · ${escapeHtml(item.source || '--')}</div>
+                        <div class="quote-code">${escapeHtml(item.ts_code)} · ${escapeHtml(formatSourceLabel(item.source || '--'))}</div>
                     </div>
                     <div class="text-end">
                         <div class="quote-price">${formatNumber(item.price, 2)}</div>
@@ -661,7 +683,7 @@ function renderDetail(data) {
         <div class="d-flex flex-column gap-3">
             <div class="source-banner">
                 <div>
-                    <strong>${escapeHtml(data?.quote_source || 'unknown')}</strong>
+                    <strong>${escapeHtml(formatSourceLabel(data?.quote_source))}</strong>
                     <span>${escapeHtml(data?.quote_message || '已加载监控详情。')}</span>
                 </div>
                 <span>${escapeHtml(data?.updated_at || '--')}</span>
@@ -673,7 +695,7 @@ function renderDetail(data) {
                     <div class="detail-subtitle">${escapeHtml(quote.ts_code || selectedCode)} · ${escapeHtml(stockInfo.industry || '行业待补充')} · ${escapeHtml(stockInfo.area || '地域待补充')}</div>
                     <div class="mt-2 d-flex flex-wrap gap-2">
                         <span class="small-badge">${data?.is_watchlist ? '已在自选股中' : '临时监控股票'}</span>
-                        <span class="small-badge">${escapeHtml(data?.series_mode === 'minute' ? '分钟级走势' : '日线降级走势')}</span>
+                        <span class="small-badge">${escapeHtml(formatSeriesModeLabel(data?.series_mode))}</span>
                     </div>
                 </div>
                 <div class="detail-price">

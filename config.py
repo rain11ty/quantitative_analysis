@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 from dotenv import load_dotenv
 
@@ -22,7 +23,23 @@ class Config:
         'pool_pre_ping': True
     }
     
-    SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key-here')
+    # --- 安全配置 ---
+    # 生产环境必须通过 .env 设置 SECRET_KEY，禁止使用弱默认值
+    _secret_key = os.getenv('SECRET_KEY', '')
+    if not _secret_key or _secret_key == 'your-secret-key-here':
+        import sys
+        if os.getenv('FLASK_ENV') == 'production' or os.getenv('DEBUG', '').lower() == 'false':
+            print(
+                '[FATAL] SECRET_KEY 未设置或使用了不安全的默认值！'
+                '请在 .env 中设置：SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")',
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        else:
+            print('[WARNING] 使用默认 SECRET_KEY（仅限开发环境），生产环境必须设置！', file=sys.stderr)
+            _secret_key = 'dev-secret-key-for-testing-only'
+    SECRET_KEY = _secret_key
+
     DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
     
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
@@ -66,6 +83,17 @@ class DevelopmentConfig(Config):
 
 class ProductionConfig(Config):
     DEBUG = False
+
+    # --- Session Cookie 安全配置 ---
+    # Secure: 仅 HTTPS 传输（Nginx 做 SSL 终结时，后端 Gunicorn 是 HTTP，需视情况调整）
+    # HttpOnly: 禁止 JavaScript 读取 Cookie（防 XSS 窃取）
+    # SameSite=Lax: 跨站请求不携带 Cookie，防止 CSRF
+    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    REMEMBER_COOKIE_SECURE = True
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = 'Lax'
 
 config = {
     'development': DevelopmentConfig,

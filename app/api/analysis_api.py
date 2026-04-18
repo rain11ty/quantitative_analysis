@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from flask import request, jsonify
 from app.api import api_bp
 from app.services.stock_service import StockService

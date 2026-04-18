@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 大模型服务
 支持本地ollama和OpenAI等多种大模型提供商

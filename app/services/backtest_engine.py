@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import pandas as pd
 import numpy as np
 from typing import List, Dict, Any, Optional, Tuple
@@ -6,46 +7,46 @@ from loguru import logger
 import warnings
 warnings.filterwarnings('ignore')
 
-from app.extensions import db
-from app.models import StockDailyHistory, FactorValues, MLPredictions
-from app.services.factor_engine import FactorEngine
-from app.services.ml_models import MLModelManager
-from app.services.stock_scoring import StockScoringEngine
-from app.services.portfolio_optimizer import PortfolioOptimizer
+# --- 预留接口（以下模块属于高级量化投研流水线，当前版本未实现）---
+# FactorValues / MLPredictions    → 因子值 & ML预测结果 ORM 模型
+# FactorEngine                     → 因子计算引擎
+# MLModelManager                   → ML模型管理器
+# StockScoringEngine               → 综合评分引擎
+# PortfolioOptimizer               → 投资组合优化器
+# 如需启用高级回测，需先实现上述模块并取消下方注释
+from app.models import StockDailyHistory
 
 
 class BacktestEngine:
-    """回测验证引擎"""
+    """回测验证引擎（高级版：支持多因子选股 + ML增强 + 组合优化）
+    
+    注意：当前版本核心回测功能使用 analysis_api.py 内置的简化版 BacktestEngine。
+    本类为高级扩展接口，依赖 FactorEngine / MLModelManager / StockScoringEngine /
+    PortfolioOptimizer 等尚未实现的模块。待相关模块实现后可启用完整功能。
+    """
     
     def __init__(self):
+        # 预留属性，高级模块实现后启用
         self.factor_engine = None
         self.ml_manager = None
         self.scoring_engine = None
         self.portfolio_optimizer = None
     
     def _get_factor_engine(self):
-        """延迟初始化因子引擎"""
-        if self.factor_engine is None:
-            self.factor_engine = FactorEngine()
-        return self.factor_engine
+        """延迟初始化因子引擎（预留接口）"""
+        raise NotImplementedError("FactorEngine 尚未实现，属于高级量化投研流水线预留模块")
     
     def _get_ml_manager(self):
-        """延迟初始化ML管理器"""
-        if self.ml_manager is None:
-            self.ml_manager = MLModelManager()
-        return self.ml_manager
+        """延迟初始化ML管理器（预留接口）"""
+        raise NotImplementedError("MLModelManager 尚未实现，属于高级量化投研流水线预留模块")
     
     def _get_scoring_engine(self):
-        """延迟初始化评分引擎"""
-        if self.scoring_engine is None:
-            self.scoring_engine = StockScoringEngine()
-        return self.scoring_engine
+        """延迟初始化评分引擎（预留接口）"""
+        raise NotImplementedError("StockScoringEngine 尚未实现，属于高级量化投研流水线预留模块")
     
     def _get_portfolio_optimizer(self):
-        """延迟初始化投资组合优化器"""
-        if self.portfolio_optimizer is None:
-            self.portfolio_optimizer = PortfolioOptimizer()
-        return self.portfolio_optimizer
+        """延迟初始化投资组合优化器（预留接口）"""
+        raise NotImplementedError("PortfolioOptimizer 尚未实现，属于高级量化投研流水线预留模块")
         
     def run_backtest(self, strategy_config: Dict[str, Any], 
                     start_date: str, end_date: str,
@@ -204,37 +205,15 @@ class BacktestEngine:
     
     def _get_stock_selection(self, strategy_config: Dict[str, Any], 
                            trade_date: str) -> List[Dict[str, Any]]:
-        """获取股票选择结果"""
+        """获取股票选择结果（预留接口，需 StockScoringEngine 实现后可用）"""
         try:
             selection_method = strategy_config.get('selection_method', 'factor_based')
-            top_n = strategy_config.get('top_n', 50)
             
-            if selection_method == 'ml_based':
-                model_ids = strategy_config.get('model_ids', [])
-                if not model_ids:
-                    return []
-                
-                return self._get_scoring_engine().ml_based_selection(
-                    trade_date, model_ids, top_n, 'average'
-                )
-            else:
-                factor_list = strategy_config.get('factor_list', [])
-                if not factor_list:
-                    return []
-                
-                factor_scores = self._get_scoring_engine().calculate_factor_scores(
-                    trade_date, factor_list
-                )
-                
-                if factor_scores.empty:
-                    return []
-                
-                weights_config = strategy_config.get('weights', {})
-                composite_scores = self._get_scoring_engine().calculate_composite_score(
-                    factor_scores, weights_config, 'equal_weight'
-                )
-                
-                return self._get_scoring_engine().rank_stocks(composite_scores, top_n)
+            logger.warning(
+                f"高级选股方法 '{selection_method}' 当前不可用，"
+                f"请使用 analysis_api.py 内置回测引擎（支持 MA/MACD/KDJ/RSI/布林带策略）"
+            )
+            return []
                 
         except Exception as e:
             logger.error(f"获取股票选择结果失败: {e}")
@@ -242,38 +221,17 @@ class BacktestEngine:
     
     def _get_target_weights(self, selected_stocks: List[Dict[str, Any]], 
                           optimization_config: Dict[str, Any]) -> Dict[str, float]:
-        """获取目标权重"""
+        """获取目标权重（预留接口，需 PortfolioOptimizer 实现后可用非等权优化）"""
         try:
-            method = optimization_config.get('method', 'equal_weight')
-            
-            if method == 'equal_weight':
-                # 等权重
-                weight = 1.0 / len(selected_stocks)
-                return {stock['ts_code']: weight for stock in selected_stocks}
-            else:
-                # 使用组合优化
-                expected_returns = pd.Series({
-                    stock['ts_code']: stock.get('composite_score', stock.get('ensemble_score', 0))
-                    for stock in selected_stocks
-                })
-                
-                result = self._get_portfolio_optimizer().optimize_portfolio(
-                    expected_returns,
-                    method=method,
-                    constraints=optimization_config.get('constraints')
-                )
-                
-                if 'error' in result:
-                    # 如果优化失败，使用等权重
-                    weight = 1.0 / len(selected_stocks)
-                    return {stock['ts_code']: weight for stock in selected_stocks}
-                
-                return result['weights']
+            # 当前仅支持等权重分配
+            if not selected_stocks:
+                return {}
+            weight = 1.0 / len(selected_stocks)
+            return {stock['ts_code']: weight for stock in selected_stocks}
                 
         except Exception as e:
             logger.error(f"获取目标权重失败: {e}")
-            # 默认等权重
-            weight = 1.0 / len(selected_stocks)
+            weight = 1.0 / len(selected_stocks) if selected_stocks else 1.0
             return {stock['ts_code']: weight for stock in selected_stocks}
     
     def _get_current_prices(self, trade_date: str, ts_codes: List[str]) -> Dict[str, float]:
@@ -421,11 +379,53 @@ class BacktestEngine:
             return {}
     
     def _get_benchmark_returns(self, start_date: str, end_date: str) -> List[Dict[str, Any]]:
-        """获取基准收益率 (使用沪深300指数)"""
+        """获取基准收益率（沪深300指数 / 买入持有基准）
+        
+        从 stock_daily_history 表查询指数日线数据，计算日收益率序列。
+        支持的基准代码：000300.SH（沪深300）、000001.SH（上证指数）、399001.SZ（深证成指）
+        
+        Args:
+            start_date: 回测起始日期
+            end_date: 回测结束日期
+            
+        Returns:
+            基准日收益率列表 [{'date': '2024-01-02', 'return': 0.005}, ...]
+        """
         try:
-            # 这里可以实现获取基准指数数据的逻辑
-            # 暂时返回空列表
-            return []
+            benchmark_code = '000300.SH'  # 默认使用沪深300指数作为基准
+            
+            # 查询基准指数在回测期间内的日线数据
+            query = db.session.query(
+                StockDailyHistory.trade_date,
+                StockDailyHistory.close,
+                StockDailyHistory.pct_chg
+            ).filter(
+                StockDailyHistory.ts_code == benchmark_code,
+                StockDailyHistory.trade_date >= start_date,
+                StockDailyHistory.trade_date <= end_date
+            ).order_by(StockDailyHistory.trade_date)
+            
+            records = query.all()
+            
+            if not records:
+                logger.warning(f"未找到基准指数 {benchmark_code} 在 {start_date} ~ {end_date} 的数据")
+                return []
+            
+            # 构建日期-收益率序列（pct_chg 字段为涨跌幅百分比，需除以100）
+            benchmark_returns = []
+            for row in records:
+                pct_change = float(row.pct_chg) if row.pct_chg is not None else 0.0
+                benchmark_returns.append({
+                    'date': str(row.trade_date),
+                    'close': float(row.close),
+                    'return': pct_change / 100.0  # 百分比转小数
+                })
+            
+            logger.info(
+                f"获取到 {benchmark_code} 基准数据 {len(benchmark_returns)} 条 "
+                f"({start_date} ~ {end_date})"
+            )
+            return benchmark_returns
             
         except Exception as e:
             logger.error(f"获取基准收益率失败: {e}")

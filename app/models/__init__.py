@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from .stock_basic import StockBasic
 from .stock_daily_history import StockDailyHistory
 from .stock_daily_basic import StockDailyBasic

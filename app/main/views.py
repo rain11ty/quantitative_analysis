@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from flask import render_template, request
 from app.main import main_bp
 from app.services.stock_service import StockService

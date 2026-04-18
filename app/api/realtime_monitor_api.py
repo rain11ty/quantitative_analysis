@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from flask import g, jsonify, request
 from loguru import logger
 

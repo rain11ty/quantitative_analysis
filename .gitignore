@@ -1,118 +1,111 @@
-# Python
+# -*- coding: utf-8 -*-
+# ============================================================
+#  Git 忽略文件配置
+#  列出的文件/文件夹不会被 Git 跟踪或上传
+# ============================================================
+
+# --- Python ---
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-*.manifest
-*.spec
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-
-# Environment variables
-.env
-.venv
-env/
 venv/
 ENV/
-env.bak/
-venv.bak/
+env/
+.venv/
 
-# IDEs
-.vscode/
+# --- 虚拟环境 ---
+.venv/
+venv/
+env/
+include/
+lib/
+bin/
+pip-selfcheck/*.json
+
+# --- IDE / 编辑器 ---
 .idea/
+.vscode/
 *.swp
 *.swo
 *~
+.project
+.pydevsettings
+.settings/
 
-# OS
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# --- 环境变量（含密钥，绝不能上传！）---
+.env
+.env.local
+.env.production
 
-# Logs
-*.log
+# --- 日志文件 ---
 logs/
+*.log
 
-# Database
+# --- 数据库文件 ---
+*.sql
+!init.sql
 *.db
 *.sqlite3
-stock_cursor.sql
 
+# --- Node.js ---
+node_modules/
+npm-debug.log*
 
-# Jupyter Notebook
-.ipynb_checkpoints
+# --- 操作系统 ---
+.DS_Store
+Thumbs.db
+Desktop.ini
 
-# Models and data
-models/
-data/
-*.pkl
-*.joblib
-*.h5
-*.model
+# --- Docker 数据卷 ---
+docker_data/
 
-# Reports and outputs
-reports/*.txt
-reports/*.json
-reports/*.png
-reports/*.html
-*.png
-*.jpg
-*.jpeg
-*.gif
-*.svg
+# --- 临时文件 ---
+*.tmp
+*.temp
+.cache/
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+.tox/
+dist/
+build/
+*.egg-info/
 
-# Temporary files
-tmp/
-temp/
-.tmp/
+# --- Jupyter Notebook ---
+.ipynb_checkpoints/
 
-# InfluxDB
-influxdb_data/
+# --- 打包文件 ---
+*.tar.gz
+*.zip
+*.rar
 
-# Redis
-dump.rdb
+# --- OS 生成的文件 ---
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
 
-# Celery
-celerybeat-schedule
-celerybeat.pid
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 
-# Local configuration
-config_local.py
-local_settings.py
+# Linux
+*~
+
+# --- 项目特定 ---
+# 备份文件
+*_backup*
+*_old*
+*_bak*
+
+# 扫描/验证临时脚本
+_verify_improvements.py
+_check_encoding.py
+
+# gunicorn pid 文件
+gunicorn.pid

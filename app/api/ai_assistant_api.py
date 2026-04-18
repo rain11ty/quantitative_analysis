@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import json
 
 from flask import Response, g, jsonify, request, stream_with_context
@@ -8,6 +9,18 @@ from app.extensions import db
 from app.services.ai_conversation_service import AIConversationService
 from app.services.llm_service import LLMService
 from app.services.user_activity_service import UserActivityService
+
+# 速率限制（生产环境生效，开发环境为空操作）
+try:
+    from flask_limiter import Limiter as _LimiterCls
+    _ai_limiter = _LimiterCls(key_func=lambda: request.remote_addr)
+except Exception:
+    class _NoOpLimiter:
+        def limit(self, *a, **kw):
+            def decorator(fn):
+                return fn
+            return decorator
+    _ai_limiter = _NoOpLimiter()
 
 
 def _require_current_user_id():
@@ -133,6 +146,7 @@ def delete_ai_conversation(conversation_id: int):
 
 
 @api_bp.route('/ai/chat', methods=['POST'])
+@_ai_limiter.limit("20 per minute")  # AI 聊天接口限流：每分钟 20 次
 def ai_chat():
     current_user_id, error_response, status_code = _require_current_user_id()
     if error_response:

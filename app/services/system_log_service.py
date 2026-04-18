@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from flask import request
 from app.extensions import db
 from app.models import SystemLog

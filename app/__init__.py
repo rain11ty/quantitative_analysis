@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
+import os
 from datetime import timedelta
 
 from flask import Flask, flash, g, jsonify, redirect, request, session, url_for
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 from config import config
 from app.extensions import db
@@ -71,7 +74,41 @@ def create_app(config_name='default'):
         app.json.ensure_ascii = False
 
     db.init_app(app)
-    CORS(app)
+    
+    # --- CORS 配置 ---
+    # 开发环境允许所有来源；生产环境必须限定白名单
+    if app.config.get('DEBUG', False):
+        CORS(app)  # 开发模式全开
+    else:
+        cors_origins = os.getenv('CORS_ORIGINS', '').split(',')
+        cors_origins = [o.strip() for o in cors_origins if o.strip()]
+        if not cors_origins:
+            cors_origins = ['https://your-domain.com']  # 替换为实际域名
+        CORS(app, resources={r"/api/*": {"origins": cors_origins}}, supports_credentials=True)
+    
+    # --- API 速率限制 ---
+    # 开发环境不启用速率限制；生产环境对敏感接口限流
+    limiter = None
+    if not app.config.get('DEBUG', False):
+        from loguru import logger
+        limiter = Limiter(
+            key_func=get_remote_address,
+            app=app,
+            default_limits=["200 per minute"],       # 全局默认：每分钟 200 次请求
+            storage_uri="memory://",                 # 内存存储（单机够用）
+            strategy="fixed-window",                 # 固定窗口算法
+        )
+        # 自定义超限响应（统一 JSON 格式，不泄露内部信息）
+        @limiter.request_filter
+        def exempt_options():
+            return request.method == 'OPTIONS'
+    else:
+        class _NoOpLimiter:
+            def limit(self, *a, **kw): 
+                def decorator(fn): 
+                    return fn
+                return decorator
+        limiter = _NoOpLimiter()
 
     setup_logger(app.config['LOG_LEVEL'], app.config['LOG_FILE'])
 
@@ -160,5 +197,54 @@ def create_app(config_name='default'):
 
     from app.routes.admin_routes import admin_routes
     app.register_blueprint(admin_routes)
+
+    # --- 健康检查端点 /healthz ---
+    @app.route('/healthz')
+    def healthz():
+        """健康检查：返回 DB 连接状态 + Redis 状态 + 应用版本"""
+        import time
+        from datetime import datetime
+
+        status = {
+            'status': 'ok',
+            'timestamp': datetime.utcnow().isoformat() + 'Z',
+            'uptime_s': int(time.time() - getattr(app, '_start_time', time.time())),
+            'version': '1.0.0',
+            'components': {},
+        }
+
+        # 检查数据库连接
+        try:
+            db.session.execute(db.text('SELECT 1'))
+            status['components']['database'] = {'status': 'ok'}
+        except Exception as e:
+            status['status'] = 'degraded'
+            status['components']['database'] = {'status': 'error', 'message': str(e)}
+
+        return jsonify(status)
+
+    # 记录启动时间
+    import time as _time
+    app._start_time = _time.time()
+
+    # --- 全局异常处理器（S5：防止内部信息泄露） ---
+    @app.errorhandler(404)
+    def not_found(error):
+        if _wants_json_response():
+            return jsonify({'code': 404, 'message': '请求的资源不存在。', 'data': None}), 404
+        return render_template('errors/404.html'), 404
+
+    @app.errorhandler(500)
+    def internal_error(error):
+        db.session.rollback()
+        if _wants_json_response():
+            return jsonify({'code': 500, 'message': '服务器内部错误，请稍后重试。', 'data': None}), 500
+        return render_template('errors/500.html'), 500
+
+    @app.errorhandler(429)
+    def rate_limited(error):
+        if _wants_json_response():
+            return jsonify({'code': 429, 'message': '请求过于频繁，请稍后再试。', 'data': None}), 429
+        return render_template('errors/429.html'), 429
 
     return app

@@ -1,0 +1,60 @@
+[Unit]
+Description=Stock Quantitative Analysis System (Flask + LLM)
+Documentation=https://github.com/your-repo/quantitative-analysis
+
+# 依赖服务：网络、MySQL、Redis
+After=network.target mysql.service redis.service
+Requires=mysql.service redis.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+
+# 项目工作目录
+WorkingDirectory=/opt/quantitative_analysis
+
+# 使用虚拟环境中的 Python 和 Gunicorn
+Environment="PATH=/opt/quantitative_analysis/venv/bin"
+Environment="FLASK_ENV=production"
+
+# 启动命令（使用已创建的 gunicorn.conf.py）
+ExecStart=/opt/quantitative_analysis/venv/bin/gunicorn \
+    -c /opt/quantitative_analysis/gunicorn.conf.py \
+    run:app
+
+# 重启策略：崩溃后自动重启
+Restart=always
+RestartSec=5
+
+# 资源限制（防内存泄漏）
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# 标准输出重定向到日志文件
+StandardOutput=append:/opt/quantitative_analysis/logs/systemd_stdout.log
+StandardError=append:/opt/quantitative_analysis/logs/systemd_stderr.log
+
+# 安全加固
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+
+
+# ============================================================
+#  使用说明：
+#  1. 复制到系统目录：
+#     sudo cp deploy/stock-analysis.service /etc/systemd/system/
+#  2. 创建日志目录并授权：
+#     sudo mkdir -p /opt/quantitative_analysis/logs
+#     sudo chown -R www-data:www-data /opt/quantitative_analysis
+#  3. 注册并启动：
+#     sudo systemctl daemon-reload
+#     sudo systemctl enable stock-analysis
+#     sudo systemctl start stock-analysis
+#  4. 查看状态/日志：
+#     sudo systemctl status stock-analysis
+#     journalctl -u stock-analysis -f --no-pager
+# ============================================================

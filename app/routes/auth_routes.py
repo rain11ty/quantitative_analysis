@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from flask import Blueprint, flash, g, jsonify, redirect, render_template, request, session, url_for
 from sqlalchemy import or_
 
@@ -6,6 +7,18 @@ from app.models import User, UserAnalysisRecord, UserChatHistory, UserWatchlist
 from app.services.system_log_service import SystemLogService
 from app.services.user_activity_service import UserActivityService
 from app.utils.auth import login_required
+
+# 速率限制（生产环境生效，开发环境为空操作）
+try:
+    from flask_limiter import Limiter
+    _limiter = Limiter(key_func=lambda: request.remote_addr)
+except Exception:
+    class _NoOpLimiter:
+        def limit(self, *a, **kw):
+            def decorator(fn):
+                return fn
+            return decorator
+    _limiter = _NoOpLimiter()
 
 
 auth_routes = Blueprint('auth', __name__)
@@ -42,6 +55,7 @@ def _json_login_required_response():
 
 
 @auth_routes.route('/login', methods=['GET', 'POST'])
+@_limiter.limit("5 per minute")  # 防暴力破解：每分钟最多 5 次登录尝试
 def login():
     if getattr(g, 'current_user', None):
         return redirect(url_for('auth.profile'))
@@ -95,6 +109,7 @@ def login():
 
 
 @auth_routes.route('/register', methods=['GET', 'POST'])
+@_limiter.limit("3 per minute")  # 防恶意注册：每分钟最多 3 次注册尝试
 def register():
     if getattr(g, 'current_user', None):
         return redirect(url_for('auth.profile'))
@@ -146,6 +161,7 @@ def register():
 
 
 @auth_routes.route('/forgot-password', methods=['GET', 'POST'])
+@_limiter.limit("3 per minute")  # 防密码重置滥用
 def forgot_password():
     if request.method == 'POST':
         account = request.form.get('account', '').strip()

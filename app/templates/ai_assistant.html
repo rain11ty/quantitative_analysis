@@ -1,1176 +1,2438 @@
 {% extends "base.html" %}
+
 {% block title %}AI金融助手 - 股票量化分析系统{% endblock %}
 
+
+
 {% block extra_css %}
+
 <style>
+
 .assistant-toolbar {
+
   display: flex;
+
   align-items: center;
+
   justify-content: space-between;
+
   gap: 1rem;
+
   padding: 1.15rem 1.35rem;
+
   margin-bottom: 1.1rem;
+
   border-radius: 22px;
+
   border: 1px solid rgba(148, 163, 184, 0.16);
+
   background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(37, 99, 235, 0.92));
+
   color: #ffffff;
+
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
-}
-.toolbar-main {
-  min-width: 0;
-}
-.toolbar-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.32rem 0.72rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  font-size: 0.78rem;
-  font-weight: 600;
-  margin-bottom: 0.65rem;
-}
-.toolbar-title {
-  margin: 0;
-  font-size: clamp(1.4rem, 2vw, 1.9rem);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-.toolbar-subtitle {
-  margin: 0.35rem 0 0;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 0.92rem;
-}
-.toolbar-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  justify-content: flex-end;
-}
-.toolbar-badge {
-  padding: 0.55rem 0.85rem;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  font-size: 0.84rem;
-  color: rgba(255, 255, 255, 0.92);
+
 }
 
-.assistant-layout {
-  display: grid;
-  grid-template-columns: 340px minmax(0, 1fr);
-  gap: 1.25rem;
-  align-items: stretch;
-}
-.sidebar-card,
-.chat-card {
-  border-radius: 24px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(255,255,255,0.96);
-  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.06);
-}
-.sidebar-card {
-  display: flex;
-  flex-direction: column;
-  min-height: calc(100vh - 265px);
-  overflow: hidden;
-}
-.sidebar-header {
-  padding: 1.15rem 1.15rem 1rem;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.92);
-}
-.sidebar-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.9rem;
-}
-.sidebar-title {
-  font-size: 1rem;
-  font-weight: 700;
-  margin: 0;
-}
-.sidebar-subtitle {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 0.88rem;
-  line-height: 1.6;
-}
-.count-pill {
-  min-width: 30px;
-  padding: 0.2rem 0.55rem;
-  border-radius: 999px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-align: center;
-}
-.sidebar-search {
-  position: relative;
-}
-.sidebar-search input {
-  width: 100%;
-  border-radius: 14px;
-  border: 1px solid #dbe3ef;
-  padding: 0.78rem 0.95rem;
-  background: #f8fafc;
-  transition: var(--transition-smooth);
-}
-.sidebar-search input:focus {
-  outline: none;
-  border-color: #93c5fd;
-  background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
-}
-.conversation-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
-  background: linear-gradient(180deg, rgba(248,250,252,0.96), rgba(255,255,255,0.94));
-}
-.conversation-item {
-  padding: 0.95rem 0.95rem 0.9rem;
-  border: 1px solid rgba(226, 232, 240, 0.92);
-  border-radius: 18px;
-  background: #ffffff;
-  cursor: pointer;
-  transition: var(--transition-smooth);
-}
-.conversation-item:hover {
-  transform: translateY(-1px);
-  border-color: rgba(59, 130, 246, 0.28);
-  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.08);
-}
-.conversation-item.active {
-  border-color: rgba(37, 99, 235, 0.34);
-  background: linear-gradient(180deg, #ffffff 0%, #eff6ff 100%);
-  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.14);
-}
-.conversation-item-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.45rem;
-}
-.conversation-title {
-  font-size: 0.97rem;
-  font-weight: 700;
-  color: #0f172a;
-  word-break: break-word;
-}
-.conversation-time {
-  flex-shrink: 0;
-  font-size: 0.76rem;
-  color: #64748b;
-}
-.conversation-summary {
-  color: #64748b;
-  font-size: 0.84rem;
-  line-height: 1.55;
-  margin-bottom: 0.65rem;
-  min-height: 2.6em;
-}
-.conversation-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.45rem;
-}
-.ghost-icon-btn {
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 10px;
-  background: #f8fafc;
-  color: #475569;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: var(--transition-smooth);
-}
-.ghost-icon-btn:hover {
-  background: #e2e8f0;
-  color: #0f172a;
-}
-.ghost-icon-btn.danger:hover {
-  background: #fee2e2;
-  color: #b91c1c;
-}
-.sidebar-empty {
-  padding: 2rem 1.25rem;
-  text-align: center;
-  color: #64748b;
-}
-.chat-card {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-height: calc(100vh - 265px);
-}
-.chat-header {
-  padding: 1.1rem 1.35rem;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.92);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  background: linear-gradient(180deg, rgba(248,250,252,0.96), #ffffff);
-}
-.chat-header-main {
+.toolbar-main {
+
   min-width: 0;
+
 }
-.chat-title {
-  margin: 0 0 0.3rem;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #0f172a;
-}
-.chat-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.7rem;
-  color: #64748b;
-  font-size: 0.84rem;
-}
-.status-badge {
+
+.toolbar-chip {
+
   display: inline-flex;
+
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.36rem 0.8rem;
+
+  padding: 0.32rem 0.72rem;
+
   border-radius: 999px;
-  background: #ecfeff;
-  color: #0f766e;
-  font-weight: 600;
-}
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: currentColor;
-}
-.chat-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1.3rem 1.35rem 1.1rem;
-  background:
-    radial-gradient(circle at top right, rgba(59,130,246,0.08), rgba(59,130,246,0) 24%),
-    linear-gradient(180deg, rgba(248,250,252,0.72), rgba(255,255,255,0.98));
-}
-.chat-empty {
-  max-width: 760px;
-  margin: 2rem auto;
-  padding: 2rem;
-  border: 1px dashed rgba(148,163,184,0.45);
-  border-radius: 24px;
-  background: rgba(255,255,255,0.88);
-  text-align: center;
-}
-.chat-empty h3 {
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin-bottom: 0.8rem;
-}
-.chat-empty p {
-  color: #64748b;
-  line-height: 1.7;
-}
-.suggestion-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem;
-  margin-top: 1.2rem;
-}
-.suggestion-card {
-  text-align: left;
-  padding: 1rem 1.05rem;
-  border-radius: 18px;
-  border: 1px solid rgba(226,232,240,0.92);
-  background: #ffffff;
-  cursor: pointer;
-  transition: var(--transition-smooth);
-}
-.suggestion-card:hover {
-  border-color: rgba(59,130,246,0.28);
-  transform: translateY(-1px);
-  box-shadow: 0 14px 26px rgba(59,130,246,0.08);
-}
-.suggestion-title {
-  font-weight: 700;
-  color: #0f172a;
-  margin-bottom: 0.3rem;
-}
-.suggestion-desc {
-  color: #64748b;
-  font-size: 0.88rem;
-  line-height: 1.6;
-}
-.message {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 1rem;
-}
-.message.user {
-  align-items: flex-end;
-}
-.message.assistant {
-  align-items: flex-start;
-}
-.message-card {
-  max-width: min(820px, 92%);
-  border-radius: 22px;
-  padding: 0.95rem 1rem;
-  box-shadow: 0 14px 26px rgba(15, 23, 42, 0.05);
-}
-.message.user .message-card {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: #ffffff;
-  border-bottom-right-radius: 8px;
-}
-.message.assistant .message-card {
-  background: #ffffff;
-  color: #0f172a;
-  border: 1px solid rgba(226,232,240,0.96);
-  border-bottom-left-radius: 8px;
-}
-.message-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
+
+  background: rgba(255, 255, 255, 0.12);
+
+  border: 1px solid rgba(255, 255, 255, 0.14);
+
   font-size: 0.78rem;
-  margin-bottom: 0.45rem;
-  opacity: 0.9;
-}
-.message.user .message-meta {
-  justify-content: flex-end;
-  color: rgba(255,255,255,0.82);
-}
-.message.assistant .message-meta {
-  color: #64748b;
-}
-.message-name {
-  font-weight: 700;
-}
-.message-status {
-  padding: 0.16rem 0.46rem;
-  border-radius: 999px;
-  background: rgba(148,163,184,0.14);
-  font-size: 0.72rem;
-}
-.message-content {
-  line-height: 1.75;
-  word-break: break-word;
-}
-.message-content p:last-child {
-  margin-bottom: 0;
-}
-.message-content pre {
-  background: #0b1220;
-  color: #e5e7eb;
-  padding: 0.9rem;
-  border-radius: 16px;
-  overflow-x: auto;
-  border: 1px solid rgba(9, 30, 66, 0.12);
-}
-.message-content code {
-  background: rgba(148,163,184,0.16);
-  padding: 0.12rem 0.3rem;
-  border-radius: 6px;
-}
-.message-content table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.message-content table th,
-.message-content table td {
-  border: 1px solid #e2e8f0;
-  padding: 0.5rem 0.65rem;
-}
-.typing-indicator {
-  display: inline-flex;
-  gap: 0.4rem;
-  align-items: center;
-}
-.typing-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #94a3b8;
-  animation: blink 1.2s infinite both;
-}
-.typing-dot:nth-child(2) { animation-delay: 0.18s; }
-.typing-dot:nth-child(3) { animation-delay: 0.36s; }
-@keyframes blink {
-  0%, 80%, 100% { opacity: 0.2; transform: translateY(0); }
-  40% { opacity: 1; transform: translateY(-2px); }
-}
-.chat-footer {
-  padding: 1rem 1.2rem 1.1rem;
-  border-top: 1px solid rgba(226, 232, 240, 0.92);
-  background: rgba(255,255,255,0.98);
-}
-.composer-shell {
-  border: 1px solid rgba(203, 213, 225, 0.9);
-  border-radius: 22px;
-  background: #ffffff;
-  padding: 0.9rem;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
-}
-.composer-shell:focus-within {
-  border-color: rgba(59, 130, 246, 0.42);
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.10);
-}
-.composer-textarea {
-  width: 100%;
-  min-height: 92px;
-  max-height: 220px;
-  resize: none;
-  border: none;
-  outline: none;
-  box-shadow: none;
-  font-size: 0.98rem;
-  line-height: 1.75;
-  color: #0f172a;
-}
-.composer-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-top: 0.7rem;
-}
-.composer-hint {
-  color: #64748b;
-  font-size: 0.83rem;
-}
-.composer-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-}
-.btn-soft {
-  border: none;
-  border-radius: 12px;
-  background: #eef2ff;
-  color: #3730a3;
-  padding: 0.62rem 0.95rem;
+
   font-weight: 600;
+
+  margin-bottom: 0.65rem;
+
 }
-.btn-soft:hover {
-  background: #e0e7ff;
+
+.toolbar-title {
+
+  margin: 0;
+
+  font-size: clamp(1.4rem, 2vw, 1.9rem);
+
+  font-weight: 700;
+
+  letter-spacing: -0.02em;
+
 }
-.btn-send {
-  min-width: 118px;
+
+.toolbar-subtitle {
+
+  margin: 0.35rem 0 0;
+
+  color: rgba(255, 255, 255, 0.8);
+
+  font-size: 0.92rem;
+
 }
-.loading-inline,
-.error-inline {
-  padding: 1rem 1.1rem;
-  border-radius: 16px;
-  background: rgba(255,255,255,0.88);
-  color: #64748b;
+
+.toolbar-badges {
+
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 0.6rem;
+
+  justify-content: flex-end;
+
+}
+
+.toolbar-badge {
+
+  padding: 0.55rem 0.85rem;
+
+  border-radius: 14px;
+
+  background: rgba(255, 255, 255, 0.1);
+
+  border: 1px solid rgba(255, 255, 255, 0.12);
+
+  font-size: 0.84rem;
+
+  color: rgba(255, 255, 255, 0.92);
+
+}
+
+
+
+.assistant-layout {
+
+  display: grid;
+
+  grid-template-columns: 340px minmax(0, 1fr);
+
+  gap: 1.25rem;
+
+  align-items: stretch;
+
+}
+
+.sidebar-card,
+
+.chat-card {
+
+  border-radius: 24px;
+
+  border: 1px solid rgba(148, 163, 184, 0.16);
+
+  background: rgba(255,255,255,0.96);
+
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.06);
+
+}
+
+.sidebar-card {
+
+  display: flex;
+
+  flex-direction: column;
+
+  min-height: calc(100vh - 265px);
+
+  overflow: hidden;
+
+}
+
+.sidebar-header {
+
+  padding: 1.15rem 1.15rem 1rem;
+
+  border-bottom: 1px solid rgba(226, 232, 240, 0.92);
+
+}
+
+.sidebar-title-row {
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap: 0.75rem;
+
+  margin-bottom: 0.9rem;
+
+}
+
+.sidebar-title {
+
+  font-size: 1rem;
+
+  font-weight: 700;
+
+  margin: 0;
+
+}
+
+.sidebar-subtitle {
+
+  margin: 0;
+
+  color: var(--text-muted);
+
+  font-size: 0.88rem;
+
+  line-height: 1.6;
+
+}
+
+.count-pill {
+
+  min-width: 30px;
+
+  padding: 0.2rem 0.55rem;
+
+  border-radius: 999px;
+
+  background: #eff6ff;
+
+  color: #1d4ed8;
+
+  font-size: 0.78rem;
+
+  font-weight: 700;
+
   text-align: center;
+
 }
-.error-inline {
+
+.sidebar-search {
+
+  position: relative;
+
+}
+
+.sidebar-search input {
+
+  width: 100%;
+
+  border-radius: 14px;
+
+  border: 1px solid #dbe3ef;
+
+  padding: 0.78rem 0.95rem;
+
+  background: #f8fafc;
+
+  transition: var(--transition-smooth);
+
+}
+
+.sidebar-search input:focus {
+
+  outline: none;
+
+  border-color: #93c5fd;
+
+  background: #ffffff;
+
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+
+}
+
+.conversation-list {
+
+  flex: 1;
+
+  min-height: 0;
+  overflow-y: auto;
+
+  padding: 1rem;
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 0.8rem;
+
+  background: linear-gradient(180deg, rgba(248,250,252,0.96), rgba(255,255,255,0.94));
+
+overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.conversation-item {
+
+  padding: 0.95rem 0.95rem 0.9rem;
+
+  border: 1px solid rgba(226, 232, 240, 0.92);
+
+  border-radius: 18px;
+
+  background: #ffffff;
+
+  cursor: pointer;
+
+  transition: var(--transition-smooth);
+
+}
+
+.conversation-item:hover {
+
+  transform: translateY(-1px);
+
+  border-color: rgba(59, 130, 246, 0.28);
+
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.08);
+
+}
+
+.conversation-item.active {
+
+  border-color: rgba(37, 99, 235, 0.34);
+
+  background: linear-gradient(180deg, #ffffff 0%, #eff6ff 100%);
+
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.14);
+
+}
+
+.conversation-item-top {
+
+  display: flex;
+
+  align-items: flex-start;
+
+  justify-content: space-between;
+
+  gap: 0.75rem;
+
+  margin-bottom: 0.45rem;
+
+}
+
+.conversation-title {
+
+  font-size: 0.97rem;
+
+  font-weight: 700;
+
+  color: #0f172a;
+
+  word-break: break-word;
+
+}
+
+.conversation-time {
+
+  flex-shrink: 0;
+
+  font-size: 0.76rem;
+
+  color: #64748b;
+
+}
+
+.conversation-summary {
+
+  color: #64748b;
+
+  font-size: 0.84rem;
+
+  line-height: 1.55;
+
+  margin-bottom: 0.65rem;
+
+  min-height: 2.6em;
+
+}
+
+.conversation-actions {
+
+  display: flex;
+
+  justify-content: flex-end;
+
+  gap: 0.45rem;
+
+}
+
+.ghost-icon-btn {
+
+  width: 32px;
+
+  height: 32px;
+
+  border: none;
+
+  border-radius: 10px;
+
+  background: #f8fafc;
+
+  color: #475569;
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  transition: var(--transition-smooth);
+
+}
+
+.ghost-icon-btn:hover {
+
+  background: #e2e8f0;
+
+  color: #0f172a;
+
+}
+
+.ghost-icon-btn.danger:hover {
+
+  background: #fee2e2;
+
   color: #b91c1c;
+
+}
+
+.sidebar-empty {
+
+  padding: 2rem 1.25rem;
+
+  text-align: center;
+
+  color: #64748b;
+
+}
+
+.chat-card {
+
+  display: flex;
+
+  flex-direction: column;
+
+  overflow: hidden;
+
+  min-height: calc(100vh - 265px);
+
+}
+
+.chat-header {
+
+  padding: 1.1rem 1.35rem;
+
+  border-bottom: 1px solid rgba(226, 232, 240, 0.92);
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap: 1rem;
+
+  background: linear-gradient(180deg, rgba(248,250,252,0.96), #ffffff);
+
+}
+
+.chat-header-main {
+
+  min-width: 0;
+
+}
+
+.chat-title {
+
+  margin: 0 0 0.3rem;
+
+  font-size: 1.1rem;
+
+  font-weight: 700;
+
+  color: #0f172a;
+
+}
+
+.chat-meta {
+
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 0.7rem;
+
+  color: #64748b;
+
+  font-size: 0.84rem;
+
+}
+
+.status-badge {
+
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 0.45rem;
+
+  padding: 0.36rem 0.8rem;
+
+  border-radius: 999px;
+
+  background: #ecfeff;
+
+  color: #0f766e;
+
+  font-weight: 600;
+
+}
+
+.status-dot {
+
+  width: 8px;
+
+  height: 8px;
+
+  border-radius: 50%;
+
+  background: currentColor;
+
+}
+
+.chat-body {
+
+  flex: 1;
+
+  min-height: 0;
+
+  overflow-y: auto;
+
+  padding: 1.3rem 1.35rem 1.1rem;
+
+  background:
+
+    radial-gradient(circle at top right, rgba(59,130,246,0.08), rgba(59,130,246,0) 24%),
+
+    linear-gradient(180deg, rgba(248,250,252,0.72), rgba(255,255,255,0.98));
+
+  overscroll-behavior: contain;
+
+  scrollbar-gutter: stable;
+
+  scroll-behavior: smooth;
+
+}
+
+
+
+.conversation-list,
+
+.chat-body {
+
+  scrollbar-width: thin;
+
+  scrollbar-color: rgba(148, 163, 184, 0.9) transparent;
+
+}
+
+
+
+.conversation-list::-webkit-scrollbar,
+
+.chat-body::-webkit-scrollbar {
+
+  width: 10px;
+
+}
+
+
+
+.conversation-list::-webkit-scrollbar-track,
+
+.chat-body::-webkit-scrollbar-track {
+
+  background: transparent;
+
+}
+
+
+
+.conversation-list::-webkit-scrollbar-thumb,
+
+.chat-body::-webkit-scrollbar-thumb {
+
+  background: rgba(148, 163, 184, 0.68);
+
+  border-radius: 999px;
+
+  border: 2px solid transparent;
+
+  background-clip: padding-box;
+
+}
+
+
+
+.conversation-list::-webkit-scrollbar-thumb:hover,
+
+.chat-body::-webkit-scrollbar-thumb:hover {
+
+  background: rgba(100, 116, 139, 0.82);
+
+  background-clip: padding-box;
+
+}
+
+.chat-empty {
+
+  max-width: 760px;
+
+  margin: 2rem auto;
+
+  padding: 2rem;
+
+  border: 1px dashed rgba(148,163,184,0.45);
+
+  border-radius: 24px;
+
+  background: rgba(255,255,255,0.88);
+
+  text-align: center;
+
+}
+
+.chat-empty h3 {
+
+  font-size: 1.25rem;
+
+  font-weight: 700;
+
+  margin-bottom: 0.8rem;
+
+}
+
+.chat-empty p {
+
+  color: #64748b;
+
+  line-height: 1.7;
+
+}
+
+.suggestion-list {
+
+  display: grid;
+
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  gap: 0.85rem;
+
+  margin-top: 1.2rem;
+
+}
+
+.suggestion-card {
+
+  text-align: left;
+
+  padding: 1rem 1.05rem;
+
+  border-radius: 18px;
+
+  border: 1px solid rgba(226,232,240,0.92);
+
+  background: #ffffff;
+
+  cursor: pointer;
+
+  transition: var(--transition-smooth);
+
+}
+
+.suggestion-card:hover {
+
+  border-color: rgba(59,130,246,0.28);
+
+  transform: translateY(-1px);
+
+  box-shadow: 0 14px 26px rgba(59,130,246,0.08);
+
+}
+
+.suggestion-title {
+
+  font-weight: 700;
+
+  color: #0f172a;
+
+  margin-bottom: 0.3rem;
+
+}
+
+.suggestion-desc {
+
+  color: #64748b;
+
+  font-size: 0.88rem;
+
+  line-height: 1.6;
+
+}
+
+.message {
+
+  display: flex;
+
+  flex-direction: column;
+
+  margin-bottom: 1rem;
+
+}
+
+.message.user {
+
+  align-items: flex-end;
+
+}
+
+.message.assistant {
+
+  align-items: flex-start;
+
+}
+
+.message-card {
+
+  max-width: min(820px, 92%);
+
+  border-radius: 22px;
+
+  padding: 0.95rem 1rem;
+
+  box-shadow: 0 14px 26px rgba(15, 23, 42, 0.05);
+
+}
+
+.message.user .message-card {
+
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+
+  color: #ffffff;
+
+  border-bottom-right-radius: 8px;
+
+}
+
+.message.assistant .message-card {
+
+  background: #ffffff;
+
+  color: #0f172a;
+
+  border: 1px solid rgba(226,232,240,0.96);
+
+  border-bottom-left-radius: 8px;
+
+}
+
+.message-meta {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 0.55rem;
+
+  font-size: 0.78rem;
+
+  margin-bottom: 0.45rem;
+
+  opacity: 0.9;
+
+}
+
+.message.user .message-meta {
+
+  justify-content: flex-end;
+
+  color: rgba(255,255,255,0.82);
+
+}
+
+.message.assistant .message-meta {
+
+  color: #64748b;
+
+}
+
+.message-name {
+
+  font-weight: 700;
+
+}
+
+.message-status {
+
+  padding: 0.16rem 0.46rem;
+
+  border-radius: 999px;
+
+  background: rgba(148,163,184,0.14);
+
+  font-size: 0.72rem;
+
+}
+
+.message-content {
+
+  line-height: 1.75;
+
+  word-break: break-word;
+
+}
+
+.message-content p:last-child {
+
+  margin-bottom: 0;
+
+}
+
+.message-content pre {
+
+  background: #0b1220;
+
+  color: #e5e7eb;
+
+  padding: 0.9rem;
+
+  border-radius: 16px;
+
+  overflow-x: auto;
+
+  border: 1px solid rgba(9, 30, 66, 0.12);
+
+}
+
+.message-content code {
+
+  background: rgba(148,163,184,0.16);
+
+  padding: 0.12rem 0.3rem;
+
+  border-radius: 6px;
+
+}
+
+.message-content table {
+
+  width: 100%;
+
+  border-collapse: collapse;
+
+}
+
+.message-content table th,
+
+.message-content table td {
+
+  border: 1px solid #e2e8f0;
+
+  padding: 0.5rem 0.65rem;
+
+}
+
+.typing-indicator {
+
+  display: inline-flex;
+
+  gap: 0.4rem;
+
+  align-items: center;
+
+}
+
+.typing-dot {
+
+  width: 8px;
+
+  height: 8px;
+
+  border-radius: 999px;
+
+  background: #94a3b8;
+
+  animation: blink 1.2s infinite both;
+
+}
+
+.typing-dot:nth-child(2) { animation-delay: 0.18s; }
+
+.typing-dot:nth-child(3) { animation-delay: 0.36s; }
+
+@keyframes blink {
+
+  0%, 80%, 100% { opacity: 0.2; transform: translateY(0); }
+
+  40% { opacity: 1; transform: translateY(-2px); }
+
+}
+
+.chat-footer {
+
+  padding: 1rem 1.2rem 1.1rem;
+
+  border-top: 1px solid rgba(226, 232, 240, 0.92);
+
+  background: rgba(255,255,255,0.98);
+
+}
+
+.composer-shell {
+
+  border: 1px solid rgba(203, 213, 225, 0.9);
+
+  border-radius: 22px;
+
+  background: #ffffff;
+
+  padding: 0.9rem;
+
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+
+}
+
+.composer-shell:focus-within {
+
+  border-color: rgba(59, 130, 246, 0.42);
+
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.10);
+
+}
+
+.composer-textarea {
+
+  width: 100%;
+
+  min-height: 92px;
+
+  max-height: 220px;
+
+  resize: none;
+
+  border: none;
+
+  outline: none;
+
+  box-shadow: none;
+
+  font-size: 0.98rem;
+
+  line-height: 1.75;
+
+  color: #0f172a;
+
+}
+
+.composer-toolbar {
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap: 1rem;
+
+  margin-top: 0.7rem;
+
+}
+
+.composer-hint {
+
+  color: #64748b;
+
+  font-size: 0.83rem;
+
+}
+
+.composer-actions {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 0.65rem;
+
+}
+
+.btn-soft {
+
+  border: none;
+
+  border-radius: 12px;
+
+  background: #eef2ff;
+
+  color: #3730a3;
+
+  padding: 0.62rem 0.95rem;
+
+  font-weight: 600;
+
+}
+
+.btn-soft:hover {
+
+  background: #e0e7ff;
+
+}
+
+.btn-send {
+
+  min-width: 118px;
+
+}
+
+.loading-inline,
+
+.error-inline {
+
+  padding: 1rem 1.1rem;
+
+  border-radius: 16px;
+
+  background: rgba(255,255,255,0.88);
+
+  color: #64748b;
+
+  text-align: center;
+
+}
+
+.error-inline {
+
+  color: #b91c1c;
+
   background: #fef2f2;
+
 }
-@media (max-width: 1199.98px) {
+
+@media (min-width: 992px) {
   .assistant-layout {
-    grid-template-columns: 300px minmax(0, 1fr);
-  }
-}
-@media (max-width: 991.98px) {
-  .assistant-toolbar {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .toolbar-badges,
-  .suggestion-list {
-    justify-content: flex-start;
-    grid-template-columns: 1fr;
-  }
-  .assistant-layout {
-    grid-template-columns: 1fr;
+    align-items: start;
   }
   .sidebar-card,
   .chat-card {
-    min-height: auto;
-  }
-  .conversation-list {
-    max-height: 360px;
-  }
-  .message-card {
-    max-width: 100%;
+    position: sticky;
+    top: 104px;
+    height: calc(100vh - 128px);
+    max-height: calc(100vh - 128px);
   }
 }
+@media (max-width: 1199.98px) {
+
+  .assistant-layout {
+
+    grid-template-columns: 300px minmax(0, 1fr);
+
+  }
+
+}
+
+@media (max-width: 991.98px) {
+
+  .assistant-toolbar {
+
+    flex-direction: column;
+
+    align-items: flex-start;
+
+  }
+
+  .toolbar-badges,
+
+  .suggestion-list {
+
+    justify-content: flex-start;
+
+    grid-template-columns: 1fr;
+
+  }
+
+  .assistant-layout {
+
+    grid-template-columns: 1fr;
+
+  }
+
+  .sidebar-card,
+
+  .chat-card {
+
+    min-height: auto;
+
+  position: static;
+    height: auto;
+    max-height: none;
+  }
+
+  .conversation-list {
+
+    max-height: 360px;
+
+  }
+
+  .message-card {
+
+    max-width: 100%;
+
+  }
+
+}
+
+
 
 </style>
+
 {% endblock %}
 
+
+
 {% block content %}
+
 <div class="assistant-toolbar">
+
   <div class="toolbar-main">
+
     <div class="toolbar-chip">AI 金融助手</div>
+
     <h1 class="toolbar-title">你好，{{ current_user.nickname or current_user.username }}，直接开始提问即可</h1>
+
     <p class="toolbar-subtitle">支持多会话连续追问，适合分析个股、指标、策略与风险。</p>
+
   </div>
+
   <div class="toolbar-badges">
+
     <span class="toolbar-badge">多轮上下文</span>
+
     <span class="toolbar-badge">流式回复</span>
+
     <span class="toolbar-badge">仅供学习研究</span>
+
   </div>
+
 </div>
+
+
+
 
 
 <div class="assistant-layout">
+
   <aside class="sidebar-card">
+
     <div class="sidebar-header">
+
       <div class="sidebar-title-row">
+
         <div>
+
           <h2 class="sidebar-title">历史对话</h2>
+
           <p class="sidebar-subtitle">切换历史对话，或新建一个会话。</p>
 
+
+
         </div>
+
         <span class="count-pill" id="conversation-count">0</span>
+
       </div>
+
       <div class="d-flex gap-2 mb-3">
+
         <button id="new-conversation-btn" class="btn btn-modern btn-modern-primary flex-grow-1" type="button">+ 新建对话</button>
+
       </div>
+
       <div class="sidebar-search">
+
         <input id="conversation-search" type="text" placeholder="搜索对话标题或摘要" />
+
       </div>
+
     </div>
+
     <div class="conversation-list" id="conversation-list">
+
       <div class="loading-inline">正在加载对话列表...</div>
+
     </div>
+
   </aside>
 
+
+
   <section class="chat-card">
+
     <div class="chat-header">
+
       <div class="chat-header-main">
+
         <h2 class="chat-title" id="current-conversation-title">新对话</h2>
+
         <div class="chat-meta">
+
           <span class="status-badge"><span class="status-dot"></span>实时流式回复已启用</span>
+
           <span id="current-conversation-meta">选择历史对话或开始新的提问</span>
+
         </div>
+
       </div>
+
       <div class="d-flex gap-2 flex-wrap">
+
         <button id="rename-conversation-btn" type="button" class="btn btn-light">重命名</button>
+
         <button id="delete-conversation-btn" type="button" class="btn btn-outline-danger">删除对话</button>
+
       </div>
+
     </div>
+
+
 
     <div class="chat-body" id="chat-body"></div>
 
+
+
     <div class="chat-footer">
+
       <form id="chat-form">
+
         <div class="composer-shell">
+
           <textarea id="user-input" class="composer-textarea" placeholder="输入你的问题，例如：请结合 MACD、RSI 和成交量，分析一只股票是否处于趋势启动阶段。"></textarea>
+
           <div class="composer-toolbar">
+
             <div class="composer-hint">按 <strong>Enter</strong> 发送，按 <strong>Shift + Enter</strong> 换行。回答仅供学习研究和辅助分析，不构成任何投资建议。</div>
+
             <div class="composer-actions">
+
               <button id="reset-draft-btn" class="btn-soft" type="button">清空输入</button>
+
               <button id="send-btn" class="btn btn-modern btn-modern-primary btn-send" type="submit">发送</button>
+
             </div>
+
           </div>
+
         </div>
+
       </form>
+
     </div>
+
   </section>
+
 </div>
+
 {% endblock %}
 
+
+
 {% block extra_js %}
+
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
 <script>
+
 const state = {
+
   conversations: [],
+
   activeConversationId: null,
+
   messagesByConversation: {},
+
   isSending: false,
+
   searchKeyword: '',
+
 };
 
+
+
 const chatBody = document.getElementById('chat-body');
+
 const chatForm = document.getElementById('chat-form');
+
 const userInput = document.getElementById('user-input');
+
 const sendBtn = document.getElementById('send-btn');
+
 const newConversationBtn = document.getElementById('new-conversation-btn');
+
 const conversationListEl = document.getElementById('conversation-list');
+
 const conversationCountEl = document.getElementById('conversation-count');
+
 const currentConversationTitleEl = document.getElementById('current-conversation-title');
+
 const currentConversationMetaEl = document.getElementById('current-conversation-meta');
+
 const renameConversationBtn = document.getElementById('rename-conversation-btn');
+
 const deleteConversationBtn = document.getElementById('delete-conversation-btn');
+
 const resetDraftBtn = document.getElementById('reset-draft-btn');
+
 const conversationSearchInput = document.getElementById('conversation-search');
+
+
 
 marked.setOptions({ breaks: true, gfm: true });
 
+
+
 function escapeHtml(value) {
+
   return (value || '').replace(/[&<>"']/g, char => ({
+
     '&': '&amp;',
+
     '<': '&lt;',
+
     '>': '&gt;',
+
     '"': '&quot;',
+
     "'": '&#39;'
+
   }[char]));
+
 }
+
+
 
 function formatDateTime(value) {
+
   if (!value) return '刚刚';
+
   const date = new Date(value);
+
   if (Number.isNaN(date.getTime())) return '刚刚';
+
   const now = new Date();
+
   const diff = now.getTime() - date.getTime();
+
   const minute = 60 * 1000;
+
   const hour = 60 * minute;
+
   if (diff < minute) return '刚刚';
+
   if (diff < hour) return `${Math.max(1, Math.floor(diff / minute))} 分钟前`;
+
   const isSameDay = date.toDateString() === now.toDateString();
+
   if (isSameDay) {
+
     return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+
   }
+
   return `${date.getMonth() + 1}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+
 }
+
+
 
 function sortConversations() {
+
   state.conversations.sort((left, right) => {
+
     const leftTime = new Date(left.last_message_at || left.updated_at || left.created_at || 0).getTime();
+
     const rightTime = new Date(right.last_message_at || right.updated_at || right.created_at || 0).getTime();
+
     return rightTime - leftTime || right.id - left.id;
+
   });
+
 }
+
+
 
 function getConversationById(conversationId) {
+
   return state.conversations.find(item => Number(item.id) === Number(conversationId)) || null;
+
 }
+
+
 
 function getActiveConversation() {
+
   return getConversationById(state.activeConversationId);
+
 }
+
+
 
 function getActiveMessages() {
+
   if (!state.activeConversationId) return [];
+
   return state.messagesByConversation[state.activeConversationId] || [];
+
 }
+
+
 
 function setComposerDisabled(disabled) {
+
   state.isSending = disabled;
+
   userInput.disabled = disabled;
+
   sendBtn.disabled = disabled;
+
   newConversationBtn.disabled = disabled;
+
 }
+
+
 
 function autosizeTextarea() {
+
   userInput.style.height = 'auto';
+
   userInput.style.height = `${Math.min(userInput.scrollHeight, 220)}px`;
+
 }
+
+
 
 function scrollChatToBottom() {
+
   requestAnimationFrame(() => {
+
     chatBody.scrollTop = chatBody.scrollHeight;
+
   });
+
 }
+
+
 
 function renderConversationHeader() {
+
   const activeConversation = getActiveConversation();
+
   currentConversationTitleEl.textContent = activeConversation?.title || '新对话';
+
   if (!activeConversation) {
+
     currentConversationMetaEl.textContent = '创建一个新会话后，你可以围绕同一只股票、同一套策略持续追问。';
+
     renameConversationBtn.disabled = true;
+
     deleteConversationBtn.disabled = true;
+
     return;
+
   }
+
+
 
   const messageCount = getActiveMessages().length;
+
   const latestTime = activeConversation.last_message_at || activeConversation.updated_at || activeConversation.created_at;
+
   currentConversationMetaEl.textContent = `共 ${messageCount} 条消息 · 最近更新 ${formatDateTime(latestTime)}`;
+
   renameConversationBtn.disabled = false;
+
   deleteConversationBtn.disabled = false;
+
 }
+
+
 
 function renderConversationList() {
+
   sortConversations();
+
   conversationCountEl.textContent = String(state.conversations.length);
 
+
+
   if (!state.conversations.length) {
+
     conversationListEl.innerHTML = `
+
       <div class="sidebar-empty">
+
         <div class="mb-2 fw-semibold">还没有历史对话</div>
+
         <div class="small mb-3">点击上方“新建对话”，开始你的第一轮金融问答。</div>
+
         <button class="btn btn-modern btn-modern-primary" type="button" onclick="createConversation()">现在开始</button>
+
       </div>
+
     `;
+
     renderConversationHeader();
+
     return;
+
   }
+
+
 
   const filtered = state.searchKeyword
+
     ? state.conversations.filter(item => `${item.title || ''} ${item.summary || ''}`.toLowerCase().includes(state.searchKeyword.toLowerCase()))
+
     : state.conversations;
 
+
+
   if (!filtered.length) {
+
     conversationListEl.innerHTML = `<div class="sidebar-empty">没有匹配到相关对话，试试更换关键词。</div>`;
+
     renderConversationHeader();
+
     return;
+
   }
+
+
 
   conversationListEl.innerHTML = filtered.map(item => {
+
     const activeClass = Number(item.id) === Number(state.activeConversationId) ? 'active' : '';
+
     return `
+
       <article class="conversation-item ${activeClass}" data-conversation-id="${item.id}">
+
         <div class="conversation-item-top">
+
           <div class="conversation-title">${escapeHtml(item.title || '新对话')}</div>
+
           <div class="conversation-time">${escapeHtml(formatDateTime(item.last_message_at || item.updated_at || item.created_at))}</div>
+
         </div>
+
         <div class="conversation-summary">${escapeHtml(item.summary || '开始新的金融问答')}</div>
+
         <div class="conversation-actions">
-          <button class="ghost-icon-btn" type="button" data-action="rename" data-id="${item.id}" title="重命名">??</button>
-          <button class="ghost-icon-btn danger" type="button" data-action="delete" data-id="${item.id}" title="删除">??</button>
+
+          <button class="ghost-icon-btn" type="button" data-action="rename" data-id="${item.id}" title="重命名">重</button>
+
+          <button class="ghost-icon-btn danger" type="button" data-action="delete" data-id="${item.id}" title="删除">删</button>
+
         </div>
+
       </article>
+
     `;
+
   }).join('');
 
+
+
   renderConversationHeader();
+
 }
+
+
 
 function renderEmptyChatState() {
+
   chatBody.innerHTML = `
+
     <div class="chat-empty">
+
       <h3>开始新的对话</h3>
+
       <p>可以直接提问个股、指标、策略或风险控制问题。</p>
 
+
+
       <div class="suggestion-list">
+
         <button class="suggestion-card" type="button" data-suggestion="请解释 MACD、RSI 和布林带在趋势研判中的配合方式。">
+
           <div class="suggestion-title">指标联动分析</div>
+
           <div class="suggestion-desc">让助手解释多个技术指标如何组合判断趋势与买卖点。</div>
+
         </button>
+
         <button class="suggestion-card" type="button" data-suggestion="如果我想做一套低回撤的量化策略，应该优先控制哪些风险指标？">
+
           <div class="suggestion-title">策略风控设计</div>
+
           <div class="suggestion-desc">讨论回撤控制、仓位管理、止损规则和胜率/盈亏比平衡。</div>
+
         </button>
+
         <button class="suggestion-card" type="button" data-suggestion="请分析高换手放量上涨背后的市场含义，以及后续应关注哪些确认信号。">
+
           <div class="suggestion-title">盘口与成交量</div>
+
           <div class="suggestion-desc">理解放量、缩量、换手率与主力行为的关系。</div>
+
         </button>
+
         <button class="suggestion-card" type="button" data-suggestion="请给我一个适合学习用的股票择时分析框架，包含趋势、量能和情绪三个维度。">
+
           <div class="suggestion-title">搭建分析框架</div>
+
           <div class="suggestion-desc">让助手给出可重复使用的结构化分析流程。</div>
+
         </button>
+
       </div>
+
     </div>
+
   `;
+
 }
+
+
 
 function createTypingContent() {
+
   return '<span class="typing-indicator"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>';
+
 }
+
+
 
 function renderMessages() {
+
   const messages = getActiveMessages();
+
   renderConversationHeader();
 
+
+
   if (!messages.length) {
+
     renderEmptyChatState();
+
     return;
+
   }
+
+
 
   chatBody.innerHTML = messages.map(message => {
+
     const isAssistant = message.role === 'assistant';
+
     const metaTime = message.created_at || message.updated_at;
+
     const status = message.status === 'streaming' ? '生成中' : message.status === 'failed' ? '失败' : '';
+
     const content = isAssistant
+
       ? (message.status === 'streaming' && !message.content ? createTypingContent() : marked.parse(message.content || ''))
+
       : escapeHtml(message.content || '').replace(/\n/g, '<br>');
 
+
+
     return `
+
       <div class="message ${isAssistant ? 'assistant' : 'user'}" data-message-id="${message.id}">
+
         <div class="message-card">
+
           <div class="message-meta">
+
             <span class="message-name">${isAssistant ? 'AI 助手' : '你'}</span>
+
             <span>${escapeHtml(formatDateTime(metaTime))}</span>
+
             ${status ? `<span class="message-status">${escapeHtml(status)}</span>` : ''}
+
           </div>
+
           <div class="message-content">${content}</div>
+
         </div>
+
       </div>
+
     `;
+
   }).join('');
 
+
+
   scrollChatToBottom();
+
 }
+
+
 
 function upsertConversation(conversation) {
+
   if (!conversation || !conversation.id) return;
+
   const index = state.conversations.findIndex(item => Number(item.id) === Number(conversation.id));
+
   if (index >= 0) {
+
     state.conversations[index] = { ...state.conversations[index], ...conversation };
+
   } else {
+
     state.conversations.unshift(conversation);
+
   }
+
   sortConversations();
+
   renderConversationList();
+
 }
+
+
 
 function removeConversationFromState(conversationId) {
+
   const id = Number(conversationId);
+
   state.conversations = state.conversations.filter(item => Number(item.id) !== id);
+
   delete state.messagesByConversation[id];
+
   if (Number(state.activeConversationId) === id) {
+
     state.activeConversationId = state.conversations[0]?.id || null;
+
   }
+
   renderConversationList();
+
 }
+
+
 
 function ensureConversationCache(conversationId) {
+
   if (!state.messagesByConversation[conversationId]) {
+
     state.messagesByConversation[conversationId] = [];
+
   }
+
   return state.messagesByConversation[conversationId];
+
 }
+
+
 
 function replaceOrAppendMessage(conversationId, tempId, newMessage) {
+
   const list = ensureConversationCache(conversationId);
+
   const tempIndex = list.findIndex(item => String(item.id) === String(tempId));
+
   if (tempIndex >= 0) {
+
     list[tempIndex] = { ...list[tempIndex], ...newMessage };
+
   } else {
+
     const existingIndex = list.findIndex(item => String(item.id) === String(newMessage.id));
+
     if (existingIndex >= 0) {
+
       list[existingIndex] = { ...list[existingIndex], ...newMessage };
+
     } else {
+
       list.push(newMessage);
+
     }
+
   }
+
 }
+
+
 
 function updateAssistantDraft(conversationId, messageId, content, status = 'streaming') {
+
   const list = ensureConversationCache(conversationId);
+
   const target = list.find(item => String(item.id) === String(messageId));
+
   if (!target) return;
+
   target.content = content;
+
   target.status = status;
+
   target.updated_at = new Date().toISOString();
+
 }
+
+
 
 async function loadConversations(preferredConversationId = null) {
+
   conversationListEl.innerHTML = '<div class="loading-inline">正在加载对话列表...</div>';
+
   try {
+
     const payload = await apiRequest('/ai/conversations');
+
     state.conversations = payload.data?.items || [];
+
     sortConversations();
+
     renderConversationList();
 
+
+
     if (!state.conversations.length) {
+
       await createConversation(true);
+
       return;
+
     }
+
+
 
     const nextId = preferredConversationId && getConversationById(preferredConversationId)
+
       ? preferredConversationId
+
       : state.activeConversationId && getConversationById(state.activeConversationId)
+
         ? state.activeConversationId
+
         : state.conversations[0].id;
+
     await openConversation(nextId);
+
   } catch (error) {
+
     console.error('Failed to load conversations:', error);
+
     conversationListEl.innerHTML = `<div class="error-inline">加载对话列表失败：${escapeHtml(error?.message || '未知错误')}</div>`;
+
   }
+
 }
+
+
 
 async function createConversation(activate = true) {
+
   const payload = await apiRequest('/ai/conversations', { method: 'POST', data: {} });
+
   const conversation = payload.data?.conversation;
+
   if (!conversation) {
+
     throw new Error('新建对话失败');
+
   }
+
   state.messagesByConversation[conversation.id] = [];
+
   upsertConversation(conversation);
+
   if (activate) {
+
     state.activeConversationId = conversation.id;
+
     renderConversationList();
+
     renderMessages();
+
   }
+
   return conversation;
+
 }
+
+
 
 async function openConversation(conversationId) {
+
   const id = Number(conversationId);
+
   if (!id) return;
+
   state.activeConversationId = id;
+
   renderConversationList();
+
   chatBody.innerHTML = '<div class="loading-inline">正在加载对话内容...</div>';
 
+
+
   try {
+
     const payload = await apiRequest(`/ai/conversations/${id}/messages`);
+
     const conversation = payload.data?.conversation;
+
     const messages = payload.data?.messages || [];
+
     if (conversation) {
+
       upsertConversation(conversation);
+
     }
+
     state.messagesByConversation[id] = messages;
+
     renderMessages();
+
   } catch (error) {
+
     console.error('Failed to open conversation:', error);
+
     chatBody.innerHTML = `<div class="error-inline">加载对话失败：${escapeHtml(error?.message || '未知错误')}</div>`;
+
   }
+
 }
+
+
 
 async function renameConversation(conversationId) {
+
   const conversation = getConversationById(conversationId);
+
   if (!conversation) return;
+
   const nextTitle = window.prompt('请输入新的对话标题：', conversation.title || '新对话');
+
   if (nextTitle === null) return;
+
   const title = nextTitle.trim();
+
   if (!title) return;
 
+
+
   try {
+
     const payload = await apiRequest(`/ai/conversations/${conversationId}`, { method: 'PATCH', data: { title } });
+
     upsertConversation(payload.data?.conversation);
+
     if (Number(state.activeConversationId) === Number(conversationId)) {
+
       renderMessages();
+
     }
+
   } catch (error) {
+
     window.alert(error?.message || '重命名失败，请稍后重试。');
+
   }
+
 }
+
+
 
 async function deleteConversation(conversationId) {
+
   const conversation = getConversationById(conversationId);
+
   if (!conversation) return;
+
   const confirmed = window.confirm(`确定删除对话“${conversation.title || '新对话'}”吗？删除后将无法恢复。`);
+
   if (!confirmed) return;
 
+
+
   try {
+
     await apiRequest(`/ai/conversations/${conversationId}`, { method: 'DELETE' });
+
     removeConversationFromState(conversationId);
+
     if (!state.conversations.length) {
+
       await createConversation(true);
+
     } else if (state.activeConversationId) {
+
       await openConversation(state.activeConversationId);
+
     }
+
   } catch (error) {
+
     window.alert(error?.message || '删除失败，请稍后重试。');
+
   }
+
 }
+
+
 
 async function requestNormalAnswer(question, conversationId) {
+
   const response = await fetch('/api/ai/chat', {
+
     method: 'POST',
+
     headers: { 'Content-Type': 'application/json' },
+
     body: JSON.stringify({ question, conversation_id: conversationId, stream: false })
+
   });
+
   const payload = await response.json().catch(() => ({}));
+
   if (!response.ok || payload.code !== 200) {
+
     throw new Error(payload.message || 'AI 请求失败');
+
   }
+
   return payload.data;
+
 }
+
+
 
 async function sendMessage(event) {
+
   event.preventDefault();
+
   if (state.isSending) return;
 
+
+
   const question = (userInput.value || '').trim();
+
   if (!question) return;
 
+
+
   try {
+
     if (!state.activeConversationId) {
+
       const conversation = await createConversation(true);
+
       state.activeConversationId = conversation.id;
+
     }
+
+
 
     const conversationId = state.activeConversationId;
+
     const cache = ensureConversationCache(conversationId);
+
     const tempUserId = `temp-user-${Date.now()}`;
+
     const tempAssistantId = `temp-ai-${Date.now()}`;
+
     const now = new Date().toISOString();
+
     let streamInitialized = false;
+
     let fullContent = '';
 
+
+
     cache.push({ id: tempUserId, role: 'user', content: question, status: 'completed', created_at: now, updated_at: now });
+
     cache.push({ id: tempAssistantId, role: 'assistant', content: '', status: 'streaming', created_at: now, updated_at: now });
+
     renderMessages();
+
     userInput.value = '';
+
     autosizeTextarea();
+
     setComposerDisabled(true);
 
+
+
     const response = await fetch('/api/ai/chat', {
+
       method: 'POST',
+
       headers: { 'Content-Type': 'application/json' },
+
       body: JSON.stringify({ question, conversation_id: conversationId, stream: true })
+
     });
 
+
+
     if (!response.ok) {
+
       const errorPayload = await response.json().catch(() => ({}));
+
       throw new Error(errorPayload.message || '请求失败');
+
     }
+
+
 
     if (!response.body || typeof response.body.getReader !== 'function') {
+
       throw new Error('流式响应不可用');
+
     }
+
+
 
     const reader = response.body.getReader();
+
     const decoder = new TextDecoder();
+
     let buffer = '';
+
     let activeAssistantId = tempAssistantId;
 
+
+
     while (true) {
+
       const { done, value } = await reader.read();
+
       if (done) break;
+
       buffer += decoder.decode(value, { stream: true });
+
       const lines = buffer.split('\n');
+
       buffer = lines.pop() || '';
 
+
+
       for (const line of lines) {
+
         const trimmed = line.trim();
+
         if (!trimmed || trimmed.startsWith(':') || !trimmed.startsWith('data: ')) continue;
+
         const payload = JSON.parse(trimmed.slice(6));
 
+
+
         if (payload.error) {
+
           throw new Error(payload.error);
+
         }
+
+
 
         if (payload.conversation) {
+
           streamInitialized = true;
+
           state.activeConversationId = payload.conversation.id;
+
           upsertConversation(payload.conversation);
+
         }
+
+
 
         if (payload.user_message) {
+
           replaceOrAppendMessage(state.activeConversationId, tempUserId, payload.user_message);
+
         }
+
+
 
         if (payload.assistant_message) {
+
           activeAssistantId = payload.assistant_message.id;
+
           replaceOrAppendMessage(state.activeConversationId, tempAssistantId, payload.assistant_message);
+
         }
+
+
 
         if (payload.content) {
+
           fullContent += payload.content;
+
           updateAssistantDraft(state.activeConversationId, activeAssistantId, fullContent, 'streaming');
+
         }
+
+
 
         if (payload.done && payload.assistant_message) {
+
           replaceOrAppendMessage(state.activeConversationId, activeAssistantId, payload.assistant_message);
+
           upsertConversation(payload.conversation);
+
         }
 
+
+
         renderMessages();
+
       }
+
     }
+
+
 
     if (!fullContent.trim() && !streamInitialized) {
+
       const fallback = await requestNormalAnswer(question, conversationId);
+
       if (fallback.conversation) {
+
         state.activeConversationId = fallback.conversation.id;
+
         upsertConversation(fallback.conversation);
+
       }
+
       if (fallback.user_message) {
+
         replaceOrAppendMessage(state.activeConversationId, tempUserId, fallback.user_message);
+
       }
+
       if (fallback.assistant_message) {
+
         replaceOrAppendMessage(state.activeConversationId, tempAssistantId, fallback.assistant_message);
+
       }
+
       renderMessages();
+
     }
+
   } catch (error) {
+
     console.error('Failed to send message:', error);
+
     const messages = getActiveMessages();
+
     const lastAssistant = [...messages].reverse().find(item => item.role === 'assistant' && item.status === 'streaming');
+
     if (lastAssistant) {
+
       lastAssistant.status = 'failed';
+
       lastAssistant.content = lastAssistant.content || `抱歉，这次回复中断了：${error.message || '未知错误'}`;
+
     }
+
     renderMessages();
+
   } finally {
+
     setComposerDisabled(false);
+
     userInput.focus();
+
   }
+
 }
 
+
+
 conversationListEl.addEventListener('click', async event => {
+
   const actionButton = event.target.closest('[data-action]');
+
   if (actionButton) {
+
     event.stopPropagation();
+
     const conversationId = Number(actionButton.dataset.id);
+
     const action = actionButton.dataset.action;
+
     if (action === 'rename') {
+
       await renameConversation(conversationId);
+
     } else if (action === 'delete') {
+
       await deleteConversation(conversationId);
+
     }
+
     return;
+
   }
+
+
 
   const item = event.target.closest('[data-conversation-id]');
+
   if (!item) return;
+
   const conversationId = Number(item.dataset.conversationId);
+
   if (!conversationId || Number(state.activeConversationId) === conversationId) return;
+
   await openConversation(conversationId);
+
 });
+
+
 
 chatBody.addEventListener('click', async event => {
+
   const suggestion = event.target.closest('[data-suggestion]');
+
   if (!suggestion) return;
+
   userInput.value = suggestion.dataset.suggestion || '';
+
   autosizeTextarea();
+
   userInput.focus();
+
 });
+
+
 
 newConversationBtn.addEventListener('click', async () => {
+
   try {
+
     await createConversation(true);
+
     userInput.focus();
+
   } catch (error) {
+
     window.alert(error?.message || '新建对话失败，请稍后重试。');
+
   }
+
 });
+
+
 
 renameConversationBtn.addEventListener('click', async () => {
+
   if (state.activeConversationId) {
+
     await renameConversation(state.activeConversationId);
+
   }
+
 });
+
+
 
 deleteConversationBtn.addEventListener('click', async () => {
+
   if (state.activeConversationId) {
+
     await deleteConversation(state.activeConversationId);
+
   }
+
 });
+
+
 
 resetDraftBtn.addEventListener('click', () => {
+
   userInput.value = '';
+
   autosizeTextarea();
+
   userInput.focus();
+
 });
+
+
 
 conversationSearchInput.addEventListener('input', event => {
+
   state.searchKeyword = (event.target.value || '').trim();
+
   renderConversationList();
+
 });
 
+
+
 userInput.addEventListener('input', autosizeTextarea);
+
 userInput.addEventListener('keydown', event => {
+
   if (event.key === 'Enter' && !event.shiftKey) {
+
     event.preventDefault();
+
     chatForm.requestSubmit();
+
   }
+
 });
+
+
 
 chatForm.addEventListener('submit', sendMessage);
 
+
+
 document.addEventListener('DOMContentLoaded', async () => {
+
   autosizeTextarea();
+
   renderConversationHeader();
+
   await loadConversations();
+
   userInput.focus();
+
 });
+
 </script>
+
 {% endblock %}
+

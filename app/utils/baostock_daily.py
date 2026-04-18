@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import baostock as bs
 import pandas as pd
 from db_utils import DatabaseUtils
