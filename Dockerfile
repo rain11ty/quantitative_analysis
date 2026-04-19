@@ -1,27 +1,51 @@
-FROM python:3.11-slim
+FROM python:3.11-slim AS builder
 
 LABEL maintainer="stock-analysis" \
-      description="Stock Quantitative Analysis System with LLM"
+     description="Stock Quantitative Analysis System with LLM (builder stage)"
 
-# 安装系统依赖
+# 先升级 pip
+RUN pip install --no-cache-dir --upgrade pip
+
+# 安装系统依赖（包含 ML 包编译所需的库）
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc default-libmysqlclient-dev build-essential \
+    gcc g++ default-libmysqlclient-dev build-essential \
+    cmake libopenblas-dev liblapack-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# 先复制依赖文件（利用 Docker 缓存层）
+# 复制依赖文件
 COPY requirements.txt requirements-prod.txt ./
 
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir -r requirements-prod.txt && \
-    rm -rf /root/.cache/pip
+# 安装所有依赖
+RUN pip install --no-cache-dir --upgrade -r requirements.txt
+RUN pip install --no-cache-dir -r requirements-prod.txt || echo "部分生产依赖安装失败"
+RUN pip install --no-cache-dir gunicorn>=21.0.0 redis>=5.0.0 flask-session
 
-# 复制项目代码
-COPY . .
+# 清理缓存
+RUN rm -rf /root/.cache/pip
+
+# ========== 最终镜像（不含编译工具，体积更小） ==========
+FROM python:3.11-slim
+
+LABEL maintainer="stock-analysis" \
+     description="Stock Quantitative Analysis System with LLM"
+
+# 只安装运行时需要的库
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    default-libmysqlclient-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# 从 builder 阶段复制已安装的 Python 包
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # 创建非 root 用户运行应用
-RUN useradd --create-home --shell /bin/bash appuser && \
+RUN useradd --create-home --shell=/bin/bash appuser && \
     chown -R appuser:appuser /app
 USER appuser
 

@@ -930,6 +930,8 @@
 
 <option value="250">250天</option>
 
+<option value="1000">全部数据</option>
+
 </select>
 
 </div>
@@ -3779,9 +3781,15 @@ function formatNumber(num, decimals = 2) {
 
  const sign = num >= 0 ? '+' : '';
 
- return sign + Number(num).toFixed(2) + '%';
-
-}
-
-</script>
-{% endblock %}
+ return sign + Number(num).toFixed(2) + '%';
+
+
+
+}
+
+
+
+</script>
+
+{% endblock %}
+

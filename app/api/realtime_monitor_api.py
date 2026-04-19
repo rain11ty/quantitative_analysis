@@ -4,20 +4,18 @@ from loguru import logger
 
 from app.api import api_bp
 from app.services.realtime_monitor_service import RealtimeMonitorService
+from app.utils.api_helpers import api_error_handler
 
 
 @api_bp.route('/monitor/dashboard', methods=['GET'])
+@api_error_handler(default_message='获取监控面板数据失败')
 def get_monitor_dashboard():
-    try:
-        raw_codes = (request.args.get('ts_codes') or '').strip()
-        result = RealtimeMonitorService.get_dashboard(
-            user_id=getattr(getattr(g, 'current_user', None), 'id', None),
-            raw_codes=raw_codes,
-        )
-        return jsonify({'code': 200, 'message': 'success', 'data': result})
-    except Exception as exc:
-        logger.error(f'Get monitor dashboard failed: {exc}')
-        return jsonify({'code': 500, 'message': f'server error: {exc}', 'data': None}), 500
+    raw_codes = (request.args.get('ts_codes') or '').strip()
+    result = RealtimeMonitorService.get_dashboard(
+        user_id=getattr(getattr(g, 'current_user', None), 'id', None),
+        raw_codes=raw_codes,
+    )
+    return jsonify({'code': 200, 'message': 'success', 'data': result})
 
 
 @api_bp.route('/monitor/stocks/<ts_code>', methods=['GET'])
@@ -30,8 +28,11 @@ def get_monitor_stock_detail(ts_code):
             freq=freq,
         )
         return jsonify({'code': 200, 'message': 'success', 'data': result})
-    except ValueError as exc:
-        return jsonify({'code': 400, 'message': str(exc), 'data': None}), 400
+    except ValueError as e:
+        return jsonify({'code': 400, 'message': str(e), 'data': None}), 400
     except Exception as exc:
+        from config import Config
+        is_debug = getattr(Config, 'DEBUG', False)
         logger.error(f'Get monitor stock detail failed: {ts_code}, {exc}')
-        return jsonify({'code': 500, 'message': f'server error: {exc}', 'data': None}), 500
+        message = f'server error: {exc}' if is_debug else '获取股票详情失败，请稍后重试'
+        return jsonify({'code': 500, 'message': message, 'data': None}), 500

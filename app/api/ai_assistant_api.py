@@ -9,6 +9,7 @@ from app.extensions import db
 from app.services.ai_conversation_service import AIConversationService
 from app.services.llm_service import LLMService
 from app.services.user_activity_service import UserActivityService
+from app.utils.api_helpers import api_error_handler
 
 # 速率限制（生产环境生效，开发环境为空操作）
 try:
@@ -37,6 +38,17 @@ def _conversation_payload(conversation, messages=None):
     return payload
 
 
+def _safe_error(message_zh='操作失败'):
+    """统一构建安全错误响应"""
+    from config import Config
+    is_debug = getattr(Config, 'DEBUG', False)
+    if is_debug:
+        return message_zh  # 开发环境返回原始信息（由调用方传入具体异常）
+    else:
+        # 生产环境返回通用提示，按场景区分消息
+        return '\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002'
+
+
 @api_bp.route('/ai/conversations', methods=['GET'])
 def ai_conversations():
     current_user_id, error_response, status_code = _require_current_user_id()
@@ -57,7 +69,8 @@ def ai_conversations():
         })
     except Exception as exc:
         logger.error(f'AI conversation list error: {exc}')
-        return jsonify({'code': 500, 'message': f'\u52a0\u8f7d\u5bf9\u8bdd\u5217\u8868\u5931\u8d25: {exc}', 'data': None}), 500
+        msg = _safe_error(f'\u52a0\u8f7d\u5bf9\u8bdd\u5217\u8868\u5931\u8d25: {exc}')
+        return jsonify({'code': 500, 'message': msg, 'data': None}), 500
 
 
 @api_bp.route('/ai/conversations', methods=['POST'])
@@ -80,7 +93,8 @@ def create_ai_conversation():
     except Exception as exc:
         db.session.rollback()
         logger.error(f'AI conversation create error: {exc}')
-        return jsonify({'code': 500, 'message': f'\u65b0\u5efa\u5bf9\u8bdd\u5931\u8d25: {exc}', 'data': None}), 500
+        msg = _safe_error(f'\u65b0\u5efa\u5bf9\u8bdd\u5931\u8d25: {exc}')
+        return jsonify({'code': 500, 'message': msg, 'data': None}), 500
 
 
 @api_bp.route('/ai/conversations/<int:conversation_id>/messages', methods=['GET'])
@@ -101,7 +115,8 @@ def ai_conversation_messages(conversation_id: int):
         return jsonify({'code': 404, 'message': str(exc), 'data': None}), 404
     except Exception as exc:
         logger.error(f'AI conversation messages error: {exc}')
-        return jsonify({'code': 500, 'message': f'\u52a0\u8f7d\u5bf9\u8bdd\u5931\u8d25: {exc}', 'data': None}), 500
+        msg = _safe_error(f'\u52a0\u8f7d\u5bf9\u8bdd\u5931\u8d25: {exc}')
+        return jsonify({'code': 500, 'message': msg, 'data': None}), 500
 
 
 @api_bp.route('/ai/conversations/<int:conversation_id>', methods=['PATCH'])
@@ -124,7 +139,8 @@ def rename_ai_conversation(conversation_id: int):
     except Exception as exc:
         db.session.rollback()
         logger.error(f'AI conversation rename error: {exc}')
-        return jsonify({'code': 500, 'message': f'\u91cd\u547d\u540d\u5bf9\u8bdd\u5931\u8d25: {exc}', 'data': None}), 500
+        msg = _safe_error(f'\u91cd\u547d\u540d\u5bf9\u8bdd\u5931\u8d25: {exc}')
+        return jsonify({'code': 500, 'message': msg, 'data': None}), 500
 
 
 @api_bp.route('/ai/conversations/<int:conversation_id>', methods=['DELETE'])
@@ -142,7 +158,8 @@ def delete_ai_conversation(conversation_id: int):
     except Exception as exc:
         db.session.rollback()
         logger.error(f'AI conversation delete error: {exc}')
-        return jsonify({'code': 500, 'message': f'\u5220\u9664\u5bf9\u8bdd\u5931\u8d25: {exc}', 'data': None}), 500
+        msg = _safe_error(f'\u5220\u9664\u5bf9\u8bdd\u5931\u8d25: {exc}')
+        return jsonify({'code': 500, 'message': msg, 'data': None}), 500
 
 
 @api_bp.route('/ai/chat', methods=['POST'])
@@ -225,7 +242,10 @@ def ai_chat():
                         db.session.rollback()
                         logger.error(f'Failed to mark ai stream error state: {save_exc}')
                     logger.error(f'Streaming response error: {exc}')
-                    yield f"data: {json.dumps({'error': str(exc)}, ensure_ascii=False)}\n\n"
+                    from config import Config
+                    is_debug = getattr(Config, 'DEBUG', False)
+                    err_msg = str(exc) if is_debug else '\u6d41\u5f0f\u54cd\u5e94\u51fa\u9519'
+                    yield f"data: {json.dumps({'error': err_msg}, ensure_ascii=False)}\n\n"
 
             response = Response(stream_with_context(generate()), mimetype='text/event-stream')
             response.headers['Cache-Control'] = 'no-cache'
@@ -265,23 +285,17 @@ def ai_chat():
     except Exception as exc:
         db.session.rollback()
         logger.error(f'AI chat API error: {exc}')
-        return jsonify({'code': 500, 'message': f'\u670d\u52a1\u5668\u9519\u8bef: {str(exc)}', 'data': None}), 500
+        msg = _safe_error(f'\u670d\u52a1\u5668\u9519\u8bef: {str(exc)}')
+        return jsonify({'code': 500, 'message': msg, 'data': None}), 500
 
 
 @api_bp.route('/ai/status', methods=['GET'])
+@api_error_handler(default_message='检测AI服务状态失败')
 def ai_status():
-    try:
-        llm = LLMService()
-        status = llm.check_service_status()
-        return jsonify({
-            'code': 200,
-            'message': '\u6210\u529f',
-            'data': status
-        })
-    except Exception as exc:
-        logger.error(f'AI status API error: {exc}')
-        return jsonify({
-            'code': 500,
-            'message': f'\u670d\u52a1\u5668\u9519\u8bef: {str(exc)}',
-            'data': None
-        }), 500
+    llm = LLMService()
+    status = llm.check_service_status()
+    return jsonify({
+        'code': 200,
+        'message': '\u6210\u529f',
+        'data': status
+    })

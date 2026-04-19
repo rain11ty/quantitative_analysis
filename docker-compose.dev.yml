@@ -1,0 +1,95 @@
+# ============================================================
+#  本地开发用 Docker Compose（不含 Nginx）
+#  用法：docker compose -f docker-compose.dev.yml up -d --build
+#  访问：http://localhost:5001
+# ============================================================
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stock-analysis-web
+    ports:
+      - "5001:5001"
+    environment:
+      # 容器间通信使用 Docker 服务名
+      - DB_HOST=mysql
+      - DB_USER=${DB_USER:-root}
+      - DB_PASSWORD=${DB_PASSWORD:-123456}
+      - DB_NAME=${DB_NAME:-stock_cursor}
+      - SECRET_KEY=dev-secret-key-for-docker-local
+      - DEBUG=True
+      - REDIS_HOST=redis
+      - TUSHARE_TOKEN=${TUSHARE_TOKEN}
+      - TUSHARE_PROXY_URL=${TUSHARE_PROXY_URL:-http://tsy.xiaodefa.cn}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-chat}
+      - LLM_PROVIDER=${LLM_PROVIDER:-deepseek}
+      - FLASK_ENV=development
+      - GUNICORN_DAEMON=False
+    volumes:
+      - ./app:/app/app                    # 挂载 app 目录（代码热更新！）
+      - ./config.py:/app/config.py:ro     # 挂载配置文件
+      - ./logs:/app/logs
+      - ./data:/app/data
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    container_name: stock-analysis-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-123456}
+      MYSQL_DATABASE: ${DB_NAME:-stock_cursor}
+      # 注意：不设置 MYSQL_USER（因为 DB_USER=root 时会冲突）
+      # 如果 DB_USER 不是 root，取消下面的注释并注释掉上面的 MYSQL_ROOT_PASSWORD
+      # MYSQL_USER: ${DB_USER}
+      # MYSQL_PASSWORD: ${DB_PASSWORD}
+      # MySQL 8 默认用 caching_sha2_password，PyMySQL 可能不兼容
+      MYSQL_AUTHENTICATION_PLUGIN: mysql_native_password
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_dev_data:/var/lib/mysql
+      # 注意：stock_cursor.sql 有 2.2GB，直接自动导入会 OOM
+      # 改为手动导入方式，见下方说明
+      # - ./stock_cursor.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+      - --bind-address=0.0.0.0
+      - --max-allowed-packet=256M
+      - --innodb-buffer-pool-size=256M
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    container_name: stock-analysis-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_dev_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  mysql_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local

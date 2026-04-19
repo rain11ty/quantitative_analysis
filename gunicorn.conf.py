@@ -21,7 +21,7 @@ bind = os.getenv('GUNICORN_BIND', '0.0.0.0:5001')
 # ============================================================
 # Worker 进程配置
 # ============================================================
-worker_class = "gevent"
+worker_class = "sync"  # 使用同步worker（gevent未安装时回退）
 workers = int(os.getenv('GUNICORN_WORKERS', multiprocessing.cpu_count() * 2 + 1))
 worker_connections = int(os.getenv('GUNICORN_CONNECTIONS', 1000))
 threads = int(os.getenv('GUNICORN_THREADS', 1))

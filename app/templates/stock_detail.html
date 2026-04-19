@@ -54,6 +54,7 @@
 <button type="button" class="btn btn-outline-primary" onclick="loadHistoryData(30)">30天</button>
 <button type="button" class="btn btn-outline-primary active" onclick="loadHistoryData(60)">60天</button>
 <button type="button" class="btn btn-outline-primary" onclick="loadHistoryData(120)">120天</button>
+<button type="button" class="btn btn-outline-primary" onclick="loadHistoryData(500)">500天</button>
 </div>
 </div>
 </div>
@@ -120,9 +121,37 @@
 <script>const tsCode = '{{ ts_code }}';
 
 let stockInfo = null;
- // 页面加载完成后初始化
+
+// ECharts 实例管理（防止内存泄漏）
+const _chartInstances = {};
+
+function _safeInitChart(id) {
+    if (_chartInstances[id]) {
+        _chartInstances[id].dispose();
+    }
+    const el = document.getElementById(id);
+    if (!el) return null;
+    _chartInstances[id] = echarts.init(el);
+    return _chartInstances[id];
+}
+
+// 页面加载完成后初始化
 
 document.addEventListener('DOMContentLoaded', function() {
+ // 全局 resize：只绑定一次，处理所有 ECharts 实例
+ window.addEventListener('resize', function() {
+     Object.values(_chartInstances).forEach(chart => {
+         if (chart && !chart.isDisposed()) chart.resize();
+     });
+ });
+
+ // 页面卸载时释放所有 ECharts 实例
+ window.addEventListener('beforeunload', function() {
+     Object.values(_chartInstances).forEach(chart => {
+         if (chart && !chart.isDisposed()) chart.dispose();
+     });
+ });
+
  loadStockInfo();
  loadHistoryData(60); // 默认加载60天数据
  // 绑定标签页切换事件
@@ -202,7 +231,7 @@ function renderStockInfo(stock) {
 <div class="col-md-6">
 <div class="d-flex justify-content-between">
 <span class="text-muted">市场:</span>
-<span class="badge ${stock.ts_code.includes('SH') ? 'bg-danger' : 'bg-success'}"> ${stock.ts_code.includes('SH') ? '上海' : '深圳'}
+<span class="badge ${stock.ts_code.includes('SH') ? 'bg-danger' : stock.ts_code.includes('BJ') ? 'bg-warning' : 'bg-success'}"> ${stock.ts_code.includes('SH') ? '上海' : stock.ts_code.includes('BJ') ? '北交所' : '深圳'}
   </span>
 </div>
 </div>
@@ -228,6 +257,15 @@ function renderStockInfo(stock) {
  // 加载历史数据
 
 async function loadHistoryData(days = 60) {
+ // 切换按钮 active 状态
+ document.querySelectorAll('.btn-group[role="group"] .btn').forEach(btn => {
+     btn.classList.remove('active');
+ });
+ // 找到被点击的按钮（通过 onclick 中的天数匹配）
+ const btnClicked = Array.from(document.querySelectorAll('.btn-group[role="group"] .btn'))
+     .find(btn => btn.getAttribute('onclick') === `loadHistoryData(${days})`);
+ if (btnClicked) btnClicked.classList.add('active');
+
  showLoading('history-content');
  try {
  const response = await apiRequest(`/stocks/${tsCode}/history?limit=${days}`);
@@ -250,13 +288,20 @@ function renderHistoryData(data, days) {
  container.innerHTML = '<div class="text-center py-4"><p class="text-muted">暂无历史数据</p></div>';
  return;
  }
+
+ const PAGE_SIZE = 30;
+ const totalRows = data.length;
+ // 始终只渲染第一页，避免大量 DOM 导致卡顿
+ const displayData = data.slice(0, PAGE_SIZE);
+
  const html = `
-  <div class="mb-3">
-<small class="text-muted">最近 ${days} 天的历史数据，共 ${data.length} 条记录（按时间倒序，最新数据在前）</small>
+  <div class="mb-3 d-flex justify-content-between align-items-center">
+<small class="text-muted mb-0">最近 ${days} 天的历史数据，共 ${totalRows} 条记录（按时间倒序）</small>
+<span id="history-page-info" class="text-muted small">显示 1-${Math.min(PAGE_SIZE, totalRows)} / ${totalRows}</span>
 </div>
-<div class="table-responsive">
-<table class="table table-sm table-hover">
-<thead>
+<div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+<table class="table table-sm table-hover table-striped mb-0" style="min-width: 700px;">
+<thead class="sticky-top">
 <tr>
 <th>日期</th>
 <th>开盘价</th>
@@ -268,7 +313,7 @@ function renderHistoryData(data, days) {
 <th>涨跌幅</th>
 </tr>
 </thead>
-<tbody> ${data.slice(0, 20).map(item => `
+<tbody id="history-tbody"> ${displayData.map(item => `
   <tr>
 <td><strong>${item.trade_date || '--'}</strong></td>
 <td>${formatNumber(item.open, 2)}</td>
@@ -283,10 +328,67 @@ function renderHistoryData(data, days) {
 </tr> `).join('')}
   </tbody>
 </table>
-</div> ${data.length > 20 ? `<div class="text-center"><small class="text-muted">仅显示前20条记录</small></div>` : ''}
+</div> ${totalRows > PAGE_SIZE ? `
+<div class="d-flex justify-content-center gap-2 mt-3" id="history-pagination">
+<button class="btn btn-sm btn-outline-primary" id="history-load-more" onclick="_loadMoreHistory(${PAGE_SIZE})">加载更多 (${PAGE_SIZE}/${totalRows})</button>
+<button class="btn btn-sm btn-outline-secondary" onclick="_scrollToHistoryTop()">回到顶部</button>
+</div>` : ''}
  `;
  container.innerHTML = html;
 
+ // 将剩余数据挂载到按钮上供分页使用
+ window._historyAllData = data;
+ window._historyCurrentPage = 1;
+
+}
+
+// 分页加载更多
+function _loadMoreHistory(pageSize) {
+ const allData = window._historyAllData;
+ if (!allData) return;
+ window._historyCurrentPage++;
+ const page = window._historyCurrentPage;
+ const start = (page - 1) * pageSize;
+ const end = start + pageSize;
+ const chunk = allData.slice(start, end);
+ const tbody = document.getElementById('history-tbody');
+ if (!tbody) return;
+
+ const newRows = chunk.map(item => `
+<tr>
+<td><strong>${item.trade_date || '--'}</strong></td>
+<td>${formatNumber(item.open, 2)}</td>
+<td class="text-danger">${formatNumber(item.high, 2)}</td>
+<td class="text-success">${formatNumber(item.low, 2)}</td>
+<td class="text-primary"><strong>${formatNumber(item.close, 2)}</strong></td>
+<td>${formatNumber((item.vol || 0) / 10000, 1)}</td>
+<td>${formatNumber((item.amount || 0) / 10000, 0)}</td>
+<td class="${(item.pct_chg || 0) >= 0 ? 'text-danger' : 'text-success'}">
+<strong>${formatPercent(item.pct_chg || 0)}</strong>
+</td>
+</tr>`).join('');
+ tbody.insertAdjacentHTML('beforeend', newRows);
+
+ // 更新分页信息和按钮
+ const shown = Math.min(end, allData.length);
+ const pageInfo = document.getElementById('history-page-info');
+ if (pageInfo) pageInfo.textContent = `显示 1-${shown} / ${allData.length}`;
+
+ const loadMoreBtn = document.getElementById('history-load-more');
+ if (loadMoreBtn) {
+     if (shown >= allData.length) {
+         loadMoreBtn.textContent = '已全部加载';
+         loadMoreBtn.disabled = true;
+         loadMoreBtn.classList.replace('btn-outline-primary', 'btn-secondary');
+     } else {
+         loadMoreBtn.textContent = `加载更多 (${shown}/${allData.length})`;
+     }
+ }
+}
+
+function _scrollToHistoryTop() {
+ const scrollContainer = document.querySelector('.table-responsive[style*="max-height"]');
+ if (scrollContainer) scrollContainer.scrollTop = 0;
 }
  // 加载技术因子数据
 
@@ -358,7 +460,7 @@ function renderFactorsData(data) {
 <th>CCI</th>
 </tr>
 </thead>
-<tbody> ${data.slice(0, 20).map(item => `
+<tbody> ${data.slice(0, 50).map(item => `
   <tr>
 <td><strong>${item.trade_date || '--'}</strong></td>
 <td class="text-primary"><strong>${formatNumber(item.close, 2)}</strong></td>
@@ -378,7 +480,7 @@ function renderFactorsData(data) {
 </tr> `).join('')}
   </tbody>
 </table>
-</div> ${data.length > 20 ? `<div class="text-center mt-3"><small class="text-muted">仅显示前20条记录</small></div>` : ''}
+</div> ${data.length > 50 ? `<div class="text-center mt-3"><small class="text-muted">显示前50条，共${data.length}条记录</small></div>` : ''}
   </div>
 </div> `;
  container.innerHTML = html;
@@ -389,8 +491,8 @@ function renderFactorsData(data) {
  // 渲染技术指标图表
 
 function renderFactorsChart(data) {
- const factorsChart = echarts.init(document.getElementById('factors-chart'));
- // 数据需要反转，因为ECharts期望时间正序
+ const factorsChart = _safeInitChart('factors-chart');
+ if (!factorsChart) return; // 渲染技术指标图表
  const reversedData = [...data].reverse();
  const dates = reversedData.map(item => item.trade_date);
  const factorsOption = {
@@ -523,12 +625,8 @@ function renderFactorsChart(data) {
  ]
  };
  factorsChart.setOption(factorsOption);
- // 响应式调整
- window.addEventListener('resize', function() {
- factorsChart.resize();
- });
-
 }
+
  // 加载资金流向数据
 
 async function loadMoneyflowData() {
@@ -619,7 +717,7 @@ function renderMoneyflowData(data) {
 <th>小单卖出</th>
 </tr>
 </thead>
-<tbody> ${data.slice(0, 10).map(item => `
+<tbody> ${data.slice(0, 30).map(item => `
   <tr>
 <td>${item.trade_date || '--'}</td>
 <td class="${(item.net_mf_amount || 0) >= 0 ? 'text-danger' : 'text-success'}">
@@ -648,7 +746,8 @@ function renderMoneyflowData(data) {
 
 function renderMoneyflowCharts(data) {
  // 分单资金买卖对比图
- const moneyflowChart = echarts.init(document.getElementById('moneyflow-chart'));
+ const moneyflowChart = _safeInitChart('moneyflow-chart');
+ if (!moneyflowChart) return;
  const dates = data.map(item => item.trade_date).reverse();
  const latestData = data[0]; // 最新一天的数据
  // 分单买卖对比（最新一天）
@@ -725,7 +824,8 @@ function renderMoneyflowCharts(data) {
  };
  moneyflowChart.setOption(moneyflowOption);
  // 净流入趋势图
- const netflowChart = echarts.init(document.getElementById('netflow-chart'));
+ const netflowChart = _safeInitChart('netflow-chart');
+ if (!netflowChart) return;
  const netflowOption = {
  title: {
  text: '净流入趋势',
@@ -785,13 +885,8 @@ function renderMoneyflowCharts(data) {
  netflowChart.setOption(netflowOption);
  // 渲染资金形态指标
  renderMoneyIndicators(latestData);
- // 响应式调整
- window.addEventListener('resize', function() {
- moneyflowChart.resize();
- netflowChart.resize();
- });
-
 }
+
  // 渲染资金形态指标
 
 function renderMoneyIndicators(data) {
@@ -922,7 +1017,7 @@ function renderCyqData(data) {
 <th>胜率</th>
 </tr>
 </thead>
-<tbody> ${data.slice(0, 10).map(item => `
+<tbody> ${data.slice(0, 30).map(item => `
   <tr>
 <td>${item.trade_date || '--'}</td>
 <td class="text-success">${formatNumber(item.his_low, 2)}</td>
@@ -951,7 +1046,8 @@ function renderCyqData(data) {
 
 function renderCyqCharts(data) {
  // 成本分位曲线图
- const costChart = echarts.init(document.getElementById('cost-distribution-chart'));
+ const costChart = _safeInitChart('cost-distribution-chart');
+ if (!costChart) return;
  const dates = data.map(item => item.trade_date).reverse();
  const costOption = {
  title: {
@@ -1036,7 +1132,8 @@ function renderCyqCharts(data) {
  };
  costChart.setOption(costOption);
  // 胜率变化图
- const winnerChart = echarts.init(document.getElementById('winner-rate-chart'));
+ const winnerChart = _safeInitChart('winner-rate-chart');
+ if (!winnerChart) return;
  const winnerOption = {
  title: {
  text: '胜率变化',
@@ -1107,13 +1204,9 @@ function renderCyqCharts(data) {
  winnerChart.setOption(winnerOption);
  // 渲染筹码分析指标
  renderCyqIndicators(data[0]); // 最新数据
- // 响应式调整
- window.addEventListener('resize', function() {
- costChart.resize();
- winnerChart.resize();
- });
-
 }
+
+
  // 渲染筹码分析指标
 
 function renderCyqIndicators(data) {
@@ -1155,9 +1248,48 @@ function renderCyqIndicators(data) {
 }
  // 快速操作函数
 
-function addToWatchlist() {
- alert(`已将 ${stockInfo?.name || tsCode} 加入自选股`);
+async function addToWatchlist() {
+ try {
+ const btn = event.target;
+ const originalText = btn.innerHTML;
+ btn.disabled = true;
+ btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>添加中...';
 
+ const response = await apiRequest(`/api/watchlist/${tsCode}`, { method: 'POST' });
+ if (response.code === 200) {
+ // 切换按钮状态为已选中
+ btn.className = 'btn btn-sm btn-outline-danger';
+ btn.innerHTML = ' 已取消自选';
+ btn.onclick = removeFromWatchlist;
+ alert(response.message || '已加入自选');
+ } else {
+ alert((response.message || '操作失败'));
+ }
+ } catch (error) {
+ console.error('加入自选失败:', error);
+ alert('操作失败，请稍后重试');
+ }
+}
+
+ async function removeFromWatchlist() {
+ try {
+ const btn = event.target;
+ btn.disabled = true;
+ btn.innerHTML = '移除中...';
+
+ const response = await apiRequest(`/api/watchlist/${tsCode}`, { method: 'DELETE' });
+ if (response.code === 200) {
+ btn.className = 'btn btn-primary btn-sm';
+ btn.innerHTML = ' 加入自选';
+ btn.onclick = addToWatchlist;
+ alert(response.message || '已从自选移除');
+ } else {
+ alert((response.message || '操作失败'));
+ }
+ } catch (error) {
+ console.error('移除自选失败:', error);
+ alert('操作失败，请稍后重试');
+ }
 }
  function openAnalysis() {
  window.open(`/analysis?stock=${tsCode}`, '_blank');

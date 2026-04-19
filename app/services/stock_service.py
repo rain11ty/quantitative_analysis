@@ -18,6 +18,29 @@ import numpy as np
 class StockService:
     """股票数据服务类"""
     
+    # 动态查询字段白名单：仅允许在 screen_stocks 动态条件中使用的 StockBusiness 字段
+    # 防止用户传入恶意字段名导致非预期数据访问
+    _SCREEN_ALLOWED_FIELDS = frozenset({
+        # 估值指标
+        'pe', 'pe_ttm', 'pb', 'ps', 'ps_ttm', 'dv_ratio', 'dv_ttm',
+        # 市值指标
+        'total_mv', 'circ_mv', 'total_share', 'float_share', 'free_share',
+        # 交易指标
+        'turnover_rate', 'turnover_rate_f', 'volume_ratio',
+        # 技术因子
+        'factor_macd_dif', 'factor_macd_dea', 'factor_macd',
+        'factor_kdj_k', 'factor_kdj_d', 'factor_kdj_j',
+        'factor_rsi_6', 'factor_rsi_12', 'factor_rsi_24',
+        'factor_cci', 'factor_boll_upper', 'factor_boll_mid', 'factor_boll_lower',
+        # 资金流向
+        'moneyflow_net_amount', 'moneyflow_net_d5_amount',
+        'moneyflow_buy_lg_amount_rate', 'moneyflow_buy_md_amount_rate', 'moneyflow_buy_sm_amount_rate',
+        # 均线
+        'ma5', 'ma10', 'ma20', 'ma30', 'ma60', 'ma120',
+        # 价格/涨跌
+        'daily_close', 'factor_open', 'factor_high', 'factor_low', 'factor_pct_change',
+    })
+    
     @staticmethod
     def get_stock_list(industry=None, area=None, search=None, page=1, page_size=20):
         """获取股票列表，支持代码、简称与拼音检索。"""
@@ -34,9 +57,26 @@ class StockService:
             if search:
                 keyword = (search or '').strip()
                 if StockService._needs_pinyin_match(keyword):
-                    stocks = query.order_by(asc(StockBasic.symbol)).all()
-                    matched_stocks = [stock for stock in stocks if StockService._matches_stock_search(stock, keyword)]
-                    total = len(matched_stocks)
+                    # === 拼音搜索优化：先尝试 SQL 前缀匹配，再内存过滤 ===
+                    # 策略1：如果关键词是纯字母，先尝试用 symbol 前缀匹配（SQL索引命中）
+                    sql_matches = query.filter(
+                        StockBasic.symbol.ilike(f'{keyword}%')
+                    ).order_by(asc(StockBasic.symbol)).limit(page_size * 3).all()  # 多取一些做二次过滤
+                    
+                    matched_stocks = [stock for stock in sql_matches if StockService._matches_stock_search(stock, keyword)]
+                    
+                    # 如果SQL前缀匹配结果不足，再回退到全表扫描（仅取需要的数据量）
+                    if len(matched_stocks) < page_size:
+                        all_stocks = query.order_by(asc(StockBasic.symbol)).all()
+                        seen_codes = {s.ts_code for s in matched_stocks}
+                        for stock in all_stocks:
+                            if stock.ts_code not in seen_codes and StockService._matches_stock_search(stock, keyword):
+                                matched_stocks.append(stock)
+                                seen_codes.add(stock.ts_code)
+                                if len(matched_stocks) >= page_size * 2:
+                                    break
+                    
+                    total = len(matched_stocks)  # 注意：全量总数在此模式下可能不精确（性能换准确）
                     page_stocks = matched_stocks[offset: offset + page_size]
                     return {
                         'stocks': [stock.to_dict() for stock in page_stocks],
@@ -427,6 +467,16 @@ class StockService:
                 if not field_a or not operator:
                     continue
                 
+                # === 安全校验：字段白名单 ===
+                # field_a 必须在允许列表中
+                if field_a not in StockService._SCREEN_ALLOWED_FIELDS:
+                    logger.warning(f"screen_stocks 动态条件字段被拒绝(不在白名单): field_a={field_a}")
+                    continue
+                # 如果是字段间比较，field_b 也必须在白名单中
+                if field_b and field_b not in StockService._SCREEN_ALLOWED_FIELDS:
+                    logger.warning(f"screen_stocks 动态条件字段被拒绝(不在白名单): field_b={field_b}")
+                    continue
+                
                 # 构建动态条件
                 if field_b:
                     # 字段间比较
@@ -469,8 +519,17 @@ class StockService:
                             logger.warning(f"动态条件值转换失败: {value}")
                             continue
             
-            # 执行查询
-            results = query.all()
+            # 分页参数
+            page = criteria.get('page', 1)
+            page_size = min(criteria.get('page_size', 50), 200)  # 单次最多200条
+            
+            # 执行查询（先取总数，再分页）
+            from sqlalchemy import func
+            count_query = db.session.query(func.count()).select_from(query.subquery())
+            total_count = count_query.scalar()
+            
+            offset_val = max(page - 1, 0) * page_size
+            results = query.offset(offset_val).limit(page_size).all()
             
             # 转换为字典列表，合并StockBusiness和StockBasic的数据
             stocks = []
@@ -486,21 +545,15 @@ class StockService:
                 })
                 stocks.append(stock_dict)
             
-            # 限制返回数量，避免数据过多
-            max_results = 200
-            total_count = len(stocks)
-            has_more = total_count > max_results
-            
-            if has_more:
-                stocks = stocks[:max_results]
-            
-            logger.info(f"股票筛选完成，共找到 {total_count} 只股票，返回 {len(stocks)} 只")
+            logger.info(f"股票筛选完成，共找到 {total_count} 只股票（第{page}页，每页{page_size}条）")
             
             return {
                 'stocks': stocks,
                 'total': total_count,
                 'criteria': criteria,
-                'has_more': has_more
+                'has_more': (offset_val + page_size) < total_count,
+                'page': page,
+                'page_size': page_size
             }
             
         except Exception as e:
@@ -516,7 +569,7 @@ class StockService:
     
     @staticmethod
     def _calculate_technical_indicators(history_data: List[Dict]) -> List[Dict]:
-        """基于历史数据计算技术指标"""
+        """基于历史数据计算技术指标（向量化优化版，O(n) 复杂度）"""
         try:
             import pandas as pd
             import numpy as np
@@ -525,15 +578,60 @@ class StockService:
                 logger.warning("历史数据不足，无法计算技术指标")
                 return []
             
-            # 转换为DataFrame
+            # 转换为DataFrame并按日期排序
             df = pd.DataFrame(history_data)
             df['trade_date'] = pd.to_datetime(df['trade_date'])
-            df = df.sort_values('trade_date')
+            df = df.sort_values('trade_date').reset_index(drop=True)
             
-            # 计算技术指标
+            close = pd.Series(df['close'], dtype=float)
+            high = pd.Series(df['high'], dtype=float)
+            low = pd.Series(df['low'], dtype=float)
+            
+            # ========== 向量化计算所有指标（一次性完成）==========
+            
+            # --- MACD ---
+            ema_fast = close.ewm(span=12).mean()
+            ema_slow = close.ewm(span=26).mean()
+            macd_dif = (ema_fast - ema_slow)
+            macd_dea = macd_dif.ewm(span=9).mean()
+            macd_val = (macd_dif - macd_dea) * 2
+            
+            # --- KDJ ---
+            low_min_n = low.rolling(window=9).min()
+            high_max_n = high.rolling(window=9).max()
+            rsv = (close - low_min_n) / (high_max_n - low_min_n.replace(0, np.nan)) * 100
+            kdj_k = rsv.ewm(alpha=1/3).mean()
+            kdj_d = kdj_k.ewm(alpha=1/3).mean()
+            kdj_j = 3 * kdj_k - 2 * kdj_d
+            
+            # --- RSI(6, 12, 24) ---
+            delta = close.diff()
+            gain = delta.where(delta > 0, 0.0)
+            loss = (-delta.where(delta < 0, 0.0))
+            
+            def calc_rsi(series, period):
+                avg_gain = gain.rolling(window=period).mean()
+                avg_loss = loss.rolling(window=period).mean()
+                rs = avg_gain / avg_loss.replace(0, np.nan)
+                return 100 - (100 / (1 + rs))
+            
+            rsi_6 = calc_rsi(close, 6)
+            rsi_12 = calc_rsi(close, 12)
+            rsi_24 = calc_rsi(close, 24)
+            
+            # --- 布林带 ---
+            boll_mid = close.rolling(window=20).mean()
+            boll_std = close.rolling(window=20).std()
+            boll_upper = boll_mid + (boll_std * 2)
+            boll_lower = boll_mid - (boll_std * 2)
+            
+            # --- 组装结果 ---
             result = []
-            
-            for i, row in df.iterrows():
+            for i in range(len(df)):
+                if i < 12:  # 前12天数据不足，跳过
+                    continue
+                    
+                row = df.iloc[i]
                 factor_data = {
                     'ts_code': row['ts_code'],
                     'trade_date': row['trade_date'].strftime('%Y-%m-%d'),
@@ -545,29 +643,22 @@ class StockService:
                     'amount': row['amount']
                 }
                 
-                # 获取当前位置之前的数据用于计算指标
-                current_data = df.iloc[:i+1]
+                # 直接取预计算好的向量结果
+                factor_data['macd_dif'] = round(float(macd_dif.iloc[i]) if not pd.isna(macd_dif.iloc[i]) else 0, 4)
+                factor_data['macd_dea'] = round(float(macd_dea.iloc[i]) if not pd.isna(macd_dea.iloc[i]) else 0, 4)
+                factor_data['macd'] = round(float(macd_val.iloc[i]) if not pd.isna(macd_val.iloc[i]) else 0, 4)
                 
-                if len(current_data) >= 12:  # 至少需要12天数据
-                    # 计算MACD
-                    macd_data = StockService._calculate_macd(current_data['close'])
-                    if macd_data:
-                        factor_data.update(macd_data)
-                    
-                    # 计算KDJ
-                    kdj_data = StockService._calculate_kdj(current_data)
-                    if kdj_data:
-                        factor_data.update(kdj_data)
-                    
-                    # 计算RSI
-                    rsi_data = StockService._calculate_rsi(current_data['close'])
-                    if rsi_data:
-                        factor_data.update(rsi_data)
-                    
-                    # 计算布林带
-                    boll_data = StockService._calculate_bollinger_bands(current_data['close'])
-                    if boll_data:
-                        factor_data.update(boll_data)
+                factor_data['kdj_k'] = round(float(kdj_k.iloc[i]) if not pd.isna(kdj_k.iloc[i]) else 0, 2)
+                factor_data['kdj_d'] = round(float(kdj_d.iloc[i]) if not pd.isna(kdj_d.iloc[i]) else 0, 2)
+                factor_data['kdj_j'] = round(float(kdj_j.iloc[i]) if not pd.isna(kdj_j.iloc[i]) else 0, 2)
+                
+                factor_data['rsi_6'] = round(float(rsi_6.iloc[i]) if not pd.isna(rsi_6.iloc[i]) else 0, 2)
+                factor_data['rsi_12'] = round(float(rsi_12.iloc[i]) if not pd.isna(rsi_12.iloc[i]) else 0, 2)
+                factor_data['rsi_24'] = round(float(rsi_24.iloc[i]) if not pd.isna(rsi_24.iloc[i]) else 0, 2)
+                
+                factor_data['boll_upper'] = round(float(boll_upper.iloc[i]) if not pd.isna(boll_upper.iloc[i]) else 0, 2)
+                factor_data['boll_mid'] = round(float(boll_mid.iloc[i]) if not pd.isna(boll_mid.iloc[i]) else 0, 2)
+                factor_data['boll_lower'] = round(float(boll_lower.iloc[i]) if not pd.isna(boll_lower.iloc[i]) else 0, 2)
                 
                 result.append(factor_data)
             

@@ -1,0 +1,124 @@
+# ============================================================
+#  Docker 构建忽略文件（类似 .gitignore）
+#  列出的文件/文件夹不会被打包进 Docker 构建上下文
+#  没有 .dockerignore → 你的1.5GB+上传就是因为缺少它！
+# ============================================================
+
+# --- 版本控制 ---
+.git/
+.gitignore
+
+# --- Python 虚拟环境 & 编译缓存 ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+ENV/
+env/
+.venv/
+include/
+lib/
+bin/
+
+# --- Node.js（通常几百MB，完全不需要！）---
+node_modules/
+
+# --- IDE / 编辑器 ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# --- 环境变量（密钥！不能进镜像）---
+.env
+.env.local
+.env.production
+.docker-daemon-config.json
+
+# --- 日志 ---
+logs/
+*.log
+*.err
+*.out
+
+# --- 数据库文件（大！）---
+*.sql
+*.db
+*.sqlite3
+stock_cursor.sql
+stock_analysis.db
+
+# --- 数据目录 ---
+data/
+
+# --- 模型文件（可能很大）---
+models/
+
+# --- 操作系统 ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+Microsoft/
+
+# --- Docker 相关 ---
+docker_data/
+docker-compose.yml
+docker-compose.dev.yml
+Dockerfile
+
+# --- 临时/测试文件 ---
+*.tmp
+*.temp
+.cache/
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+.tox/
+dist/
+build/
+*.egg-info/
+*.csv
+tk.csv
+tool_calls.txt
+git-push.err.txt
+git-push.out.txt
+db_schema_dump.json
+
+# --- 文档（镜像里不需要）---
+*.md
+!README.md
+docs/
+awesome-design-md/
+
+# --- 图片资源（如果前端已构建好静态文件则不需要源图）---
+# images/   # 取决你是否需要镜像里的图片，注释掉可保留
+
+# --- Windows 特殊 ---
+$RECYCLE.BIN/
+
+# --- 项目特定临时脚本（保留运行所需文件！）---
+_verify_improvements.py
+_check_encoding.py
+check.py
+convert.py
+convert2.py
+dump_db.py
+extract.py
+fix_encoding.py
+fix_screen.py
+gen_doc.py
+gen_md.py
+inspect_db.py
+restore.py
+# runtime_encoding.py  ← 不能排除！run.py 需要它
+test_market.py
+test_market2.py
+test_tushare_connection.py
+quick_start.py
+gunicorn.pid
+start.bat

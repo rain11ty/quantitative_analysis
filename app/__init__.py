@@ -74,23 +74,33 @@ def create_app(config_name='default'):
         app.json.ensure_ascii = False
 
     db.init_app(app)
-    
+
+    from loguru import logger
+
     # --- CORS 配置 ---
     # 开发环境允许所有来源；生产环境必须限定白名单
     if app.config.get('DEBUG', False):
         CORS(app)  # 开发模式全开
+        logger.info("[CORS] 开发模式：允许所有来源")
     else:
         cors_origins = os.getenv('CORS_ORIGINS', '').split(',')
         cors_origins = [o.strip() for o in cors_origins if o.strip()]
         if not cors_origins:
-            cors_origins = ['https://your-domain.com']  # 替换为实际域名
-        CORS(app, resources={r"/api/*": {"origins": cors_origins}}, supports_credentials=True)
+            cors_origins = []  # 空白名单，仅允许同源
+            logger.warning("[CORS] 生产环境未设置 CORS_ORIGINS 环境变量，将仅允许同源请求！"
+                        " 请通过环境变量配置：CORS_ORIGINS=https://your-domain.com,https://app.your-domain.com")
+        else:
+            logger.info(f"[CORS] 生产模式允许来源: {cors_origins}")
+        if cors_origins:
+            CORS(app, resources={r"/api/*": {"origins": cors_origins}}, supports_credentials=True)
+        else:
+            # 不注册 CORS，默认仅同源
+            pass
     
     # --- API 速率限制 ---
     # 开发环境不启用速率限制；生产环境对敏感接口限流
     limiter = None
     if not app.config.get('DEBUG', False):
-        from loguru import logger
         limiter = Limiter(
             key_func=get_remote_address,
             app=app,
