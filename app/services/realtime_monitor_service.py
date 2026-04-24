@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -210,10 +211,23 @@ class RealtimeMonitorService:
 
     @classmethod
     def _load_realtime_quotes(cls, codes: List[str]) -> Dict[str, Any]:
-        """获取实时行情（Akshare优先 → Tushare降级 → 本地缓存兜底）"""
+        """获取实时行情（Akshare优先 → Tushare降级 → 本地缓存兜底），带缓存"""
         if not codes:
             return {'quotes': [], 'source': 'empty', 'message': 'No codes provided.'}
 
+        # 缓存键：按代码列表排序后生成，避免顺序不同导致重复请求
+        cache_key = f'realtime_quotes_{",".join(sorted(codes))}'
+        cached = _cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        result = cls._do_load_realtime_quotes(codes)
+        _cache.set(cache_key, result, ttl=cls.CACHE_TTL_QUOTES)
+        return result
+
+    @classmethod
+    def _do_load_realtime_quotes(cls, codes: List[str]) -> Dict[str, Any]:
+        """实际获取实时行情（内部方法，不走缓存）"""
         # ========== ① 优先：Akshare（免费、实时、无需积分） ==========
         try:
             ak_result = AkshareService.get_realtime_quotes(codes)
@@ -319,6 +333,15 @@ class RealtimeMonitorService:
 
                     # 按日期批量获取全市场日线
                     daily_df = pro.daily(trade_date=latest_date)
+                    # 批量获取换手率（全市场一次请求）
+                    turnover_map = {}
+                    try:
+                        basic_df = pro.daily_basic(trade_date=latest_date, fields='ts_code,turnover_rate')
+                        if basic_df is not None and not basic_df.empty:
+                            turnover_map = dict(zip(basic_df['ts_code'], basic_df['turnover_rate']))
+                    except Exception as exc:
+                        logger.warning(f'Batch daily_basic fetch failed: {exc}')
+
                     if daily_df is not None and not daily_df.empty:
                         code_set = set(stock_codes_list)
                         filtered = daily_df[daily_df['ts_code'].isin(code_set)]
@@ -326,14 +349,7 @@ class RealtimeMonitorService:
                             row_df = filtered[filtered['ts_code'] == code]
                             if not row_df.empty:
                                 latest = row_df.iloc[0]
-                                turnover_rate = None
-                                try:
-                                    basic_df = pro.daily_basic(ts_code=code, trade_date=latest_date, fields='ts_code,turnover_rate')
-                                    if basic_df is not None and not basic_df.empty:
-                                        turnover_rate = basic_df.iloc[0].get('turnover_rate')
-                                except Exception:
-                                    pass
-
+                                turnover_rate = turnover_map.get(code)
                                 quotes.append(
                                     cls._build_quote_item(
                                         ts_code=code,
@@ -477,7 +493,7 @@ class RealtimeMonitorService:
         cls,
         ts_code: str,
         realtime_quote: Optional[Dict[str, Any]] = None,
-        limit: int = 60,
+        limit: int = 750,
     ) -> Dict[str, Any]:
         # 指数使用 index_daily 接口或本地数据库
         index_ts_map = {item['ts_code']: item['name'] for item in MarketOverviewService.INDEX_ITEMS}
@@ -819,8 +835,13 @@ class RealtimeMonitorService:
 
 
     @classmethod
-    def get_dashboard(cls, user_id: Optional[int], raw_codes: str = '') -> Dict[str, Any]:
-        """获取监控面板数据，包含市场指数和自选股"""
+    def get_dashboard(cls, user_id: Optional[int], raw_codes: str = '', include_detail: bool = False) -> Dict[str, Any]:
+        """获取监控面板数据，包含市场指数和自选股
+
+        优化：
+        1. 行情和指数并发获取，market_overview 异步加载（不阻塞）
+        2. 支持 include_detail 参数，直接包含选中股票的详情，减少二次请求
+        """
         watchlist = cls._get_user_watchlist(user_id)
         watchlist_items = [item.to_dict() for item in watchlist]
         codes = cls._pick_codes(user_id, raw_codes)
@@ -830,26 +851,53 @@ class RealtimeMonitorService:
             f'watchlist_count={len(watchlist)}, picked_codes={codes}'
         )
 
-        # 获取自选股行情
-        quote_payload = cls._load_realtime_quotes(codes)
+        # 并发获取行情和指数（快速，<1秒），market_overview 由前端单独请求
+        quote_payload = {'quotes': [], 'source': 'empty', 'message': ''}
+        market_quotes = []
 
-        # 获取市场指数行情
-        market_quotes = cls._load_market_index_quotes()
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            future_quotes = executor.submit(cls._load_realtime_quotes, codes)
+            future_market = executor.submit(cls._load_market_index_quotes)
 
-        market_overview = MarketOverviewService.get_market_overview()
+            try:
+                quote_payload = future_quotes.result(timeout=15)
+            except Exception as exc:
+                logger.warning(f'[Dashboard] Quotes fetch failed: {exc}')
 
-        return {
+            try:
+                market_quotes = future_market.result(timeout=15)
+            except Exception as exc:
+                logger.warning(f'[Dashboard] Market index quotes failed: {exc}')
+
+        selected_ts_code = quote_payload.get('quotes', [{}])[0].get('ts_code') if quote_payload.get('quotes') else ''
+
+        result = {
             'codes': codes,
             'quotes': quote_payload.get('quotes', []),
             'quote_source': quote_payload.get('source'),
             'quote_message': quote_payload.get('message'),
-            'selected_ts_code': quote_payload.get('quotes', [{}])[0].get('ts_code') if quote_payload.get('quotes') else '',
+            'selected_ts_code': selected_ts_code,
             'market_quotes': market_quotes,
-            'market_overview': market_overview,
+            'market_overview': {},  # 前端单独请求 /api/market/overview
             'watchlist_items': watchlist_items,
             'watchlist_count': len(watchlist_items),
             'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         }
+
+        # 可选：直接包含选中股票的详情，避免前端二次请求
+        if include_detail and selected_ts_code:
+            try:
+                detail = cls.get_stock_detail(
+                    user_id=user_id,
+                    ts_code=selected_ts_code,
+                    freq='daily',
+                    preloaded_quotes=quote_payload.get('quotes', []),
+                )
+                result['stock_detail'] = detail
+            except Exception as exc:
+                logger.warning(f'[Dashboard] Stock detail inclusion failed: {exc}')
+
+        return result
 
     @classmethod
     def _load_market_index_quotes(cls) -> List[Dict[str, Any]]:
@@ -1027,14 +1075,23 @@ class RealtimeMonitorService:
 
                     if records:
                         pre_close = cls._safe_float(records[0].get('open'))
-                        # 尝试从实时行情获取更准确的昨收价
-                        try:
-                            quote_payload = cls._load_realtime_quotes([normalized_code])
-                            quote = (quote_payload.get('quotes') or [{}])[0]
-                            if quote.get('pre_close') is not None:
-                                pre_close = quote['pre_close']
-                        except Exception:
-                            pass
+                        # 尝试从缓存获取更准确的昨收价（避免再次网络请求）
+                        cache_key = f'realtime_quotes_{normalized_code}'
+                        cached_quotes = _cache.get(cache_key)
+                        if cached_quotes:
+                            cached_quote = (cached_quotes.get('quotes') or [{}])[0]
+                            if cached_quote.get('pre_close') is not None:
+                                pre_close = cached_quote['pre_close']
+                        else:
+                            # 缓存中没有，尝试从行情缓存中获取
+                            for ck in [f'realtime_quotes_{normalized_code}',
+                                       f'realtime_quotes_{",".join(sorted([normalized_code]))}']:
+                                cached_data = _cache.get(ck)
+                                if cached_data:
+                                    cached_quote = (cached_data.get('quotes') or [{}])[0]
+                                    if cached_quote.get('pre_close') is not None:
+                                        pre_close = cached_quote['pre_close']
+                                        break
 
                         result = {
                             'intraday': records,
@@ -1047,6 +1104,36 @@ class RealtimeMonitorService:
                 logger.warning(f'Tushare stk_mins failed for {normalized_code}: {exc}')
 
         if not result:
+            # ========== ③ 最终降级：从数据库日线回退 ==========
+            try:
+                from app import db
+                from app.models.stock import StockDaily
+                latest_daily = db.session.query(StockDaily).filter(
+                    StockDaily.ts_code == normalized_code
+                ).order_by(StockDaily.trade_date.desc()).first()
+
+                if latest_daily:
+                    pre_close = cls._safe_float(latest_daily.pre_close)
+                    records = [{
+                        'time': '09:30',
+                        'open': cls._safe_float(latest_daily.open),
+                        'high': cls._safe_float(latest_daily.high),
+                        'low': cls._safe_float(latest_daily.low),
+                        'close': cls._safe_float(latest_daily.close),
+                        'volume': cls._safe_float(latest_daily.vol, 0),
+                        'amount': cls._safe_float(latest_daily.amount, 0),
+                    }]
+                    result = {
+                        'intraday': records,
+                        'pre_close': pre_close or cls._safe_float(latest_daily.open),
+                        'date': cls._safe_text(latest_daily.trade_date),
+                        'source': 'daily_fallback',
+                        'message': f'非交易时间，展示最近交易日({cls._safe_text(latest_daily.trade_date)})数据',
+                    }
+            except Exception as exc:
+                logger.warning(f'Daily fallback failed for {normalized_code}: {exc}')
+
+        if not result:
             result = {
                 'intraday': [],
                 'pre_close': None,
@@ -1055,18 +1142,38 @@ class RealtimeMonitorService:
                 'message': '分时数据暂不可用，请检查网络或在交易时间段重试。',
             }
 
-        _cache.set(cache_key, result, ttl=15)
+        # 收盘后缓存到次日8:30（约12小时），盘中15秒刷新
+        from datetime import datetime, time as dt_time
+        now = datetime.now()
+        market_close_time = dt_time(15, 30)
+        if now.time() > market_close_time or now.weekday() >= 5:
+            cache_ttl = 43200  # 12小时
+        else:
+            cache_ttl = 15
+        _cache.set(cache_key, result, ttl=cache_ttl)
         return result
 
     @classmethod
-    def get_stock_detail(cls, user_id: Optional[int], ts_code: str, freq: str = 'daily') -> Dict[str, Any]:
+    def get_stock_detail(cls, user_id: Optional[int], ts_code: str, freq: str = 'daily',
+                         preloaded_quotes: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         normalized_code = cls.normalize_ts_code(ts_code)
         if not normalized_code:
             raise ValueError('Invalid ts_code')
 
         normalized_freq = 'daily'
-        quote_payload = cls._load_realtime_quotes([normalized_code])
-        quote = (quote_payload.get('quotes') or [{}])[0]
+
+        # 优先从已加载行情中查找，避免重复请求
+        quote = None
+        if preloaded_quotes:
+            quote = next((q for q in preloaded_quotes if q.get('ts_code') == normalized_code), None)
+
+        quote_payload = None
+        if quote is None:
+            quote_payload = cls._load_realtime_quotes([normalized_code])
+            quote = (quote_payload.get('quotes') or [{}])[0]
+        else:
+            quote_payload = {'quotes': [quote], 'source': quote.get('source', 'preloaded'), 'message': '复用已加载行情'}
+
         series_payload = cls.get_price_series(normalized_code, freq=normalized_freq, realtime_quote=quote)
         watch_codes = {item.ts_code for item in cls._get_user_watchlist(user_id)}
 

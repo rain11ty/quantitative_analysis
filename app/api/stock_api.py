@@ -60,6 +60,10 @@ def get_stock_detail(ts_code):
     result = StockService.get_stock_info(ts_code)
     if result is None:
         return jsonify({'code': 404, 'message': 'stock not found', 'data': None}), 404
+    # 附带最新日线基本数据（估值/市值/换手率等）
+    daily_basic = StockService.get_daily_basic(ts_code)
+    if daily_basic:
+        result['daily_basic'] = daily_basic
     return jsonify({'code': 200, 'message': 'success', 'data': result})
 
 
@@ -139,6 +143,21 @@ def get_stock_cyq(ts_code):
         start_date=start_date,
         end_date=end_date,
         limit=limit,
+    )
+    return jsonify({'code': 200, 'message': 'success', 'data': result})
+
+
+@api_bp.route('/stocks/<path:ts_code>/cyq_chips', methods=['GET'])
+@api_error_handler(default_message='获取筹码分布详情失败')
+def get_stock_cyq_chips(ts_code):
+    """获取股票每日筹码分布详情（各价位占比）"""
+    trade_date = request.args.get('trade_date')
+    limit_days = min(max(int(request.args.get('limit_days', 1)), 1), 30)
+
+    result = StockService.get_cyq_chips(
+        ts_code=ts_code,
+        trade_date=trade_date,
+        limit_days=limit_days,
     )
     return jsonify({'code': 200, 'message': 'success', 'data': result})
 

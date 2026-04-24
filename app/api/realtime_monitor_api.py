@@ -11,10 +11,12 @@ from app.utils.api_helpers import api_error_handler
 @api_error_handler(default_message='获取监控面板数据失败')
 def get_monitor_dashboard():
     raw_codes = (request.args.get('ts_codes') or '').strip()
+    include_detail = request.args.get('include_detail', '0').strip() in ('1', 'true', 'yes')
     user_id = getattr(getattr(g, 'current_user', None), 'id', None)
     result = RealtimeMonitorService.get_dashboard(
         user_id=user_id,
         raw_codes=raw_codes,
+        include_detail=include_detail,
     )
     # 注入诊断信息，方便前端排查
     result['debug'] = {
@@ -70,3 +72,25 @@ def get_monitor_intraday(ts_code):
         period = '1'
     result = RealtimeMonitorService.get_intraday_series(ts_code=ts_code, period=period)
     return jsonify({'code': 200, 'message': 'success', 'data': result})
+
+
+@api_bp.route('/monitor/shock', methods=['GET'])
+@api_error_handler(default_message='获取异常波动数据失败')
+def get_stock_shock():
+    """获取个股异常波动数据"""
+    from app.models.stock_shock import StockShock
+    from sqlalchemy import desc
+
+    ts_code = (request.args.get('ts_code') or '').strip()
+    limit = min(int(request.args.get('limit', 20)), 100)
+
+    query = StockShock.query
+    if ts_code:
+        query = query.filter_by(ts_code=ts_code)
+    records = query.order_by(desc(StockShock.trade_date)).limit(limit).all()
+    return jsonify({
+        'code': 200,
+        'message': 'success',
+        'data': [r.to_dict() for r in records],
+        'count': len(records),
+    })

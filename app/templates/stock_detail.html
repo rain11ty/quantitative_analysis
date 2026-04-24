@@ -1,6 +1,6 @@
 {% extends "base.html" %}
- {% block title %}{{ ts_code }} - 股票详情 - 股票分析系统{% endblock %}
- {% block content %}
+{% block title %}{{ ts_code }} - 股票详情 - 股票分析系统{% endblock %}
+{% block content %}
 
 <div class="container">
 <!-- 股票基本信息 -->
@@ -26,6 +26,7 @@
 </div>
 </div>
 </div>
+
 <!-- 实时行情卡片 -->
 <div class="row mb-4">
 <div class="col-12">
@@ -34,6 +35,11 @@
 <div class="d-flex justify-content-between align-items-center">
 <h5 class="mb-0 fw-bold">实时行情</h5>
 <div class="d-flex align-items-center gap-2">
+<div class="btn-group btn-group-sm" id="kline-freq-group">
+<button class="btn btn-outline-primary active" onclick="switchKlineFreq('daily', this)">日K</button>
+<button class="btn btn-outline-primary" onclick="switchKlineFreq('weekly', this)">周K</button>
+<button class="btn btn-outline-primary" onclick="switchKlineFreq('monthly', this)">月K</button>
+</div>
 <span class="badge bg-secondary" id="realtime-source">加载中</span>
 <span class="text-muted small" id="realtime-updated-at">--</span>
 <button class="btn btn-sm btn-outline-primary" onclick="loadRealtimeQuote()" title="刷新行情">
@@ -49,11 +55,12 @@
 <span class="ms-2 text-muted">正在加载实时行情...</span>
 </div>
 </div>
-<div id="realtime-chart" style="height:360px; display:none;"></div>
+<div id="realtime-chart" style="height:420px; display:none;"></div>
 </div>
 </div>
 </div>
 </div>
+
 <!-- 功能选项卡 -->
 <div class="row">
 <div class="col-12">
@@ -62,7 +69,7 @@
 <button class="nav-link active rounded-pill px-4" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">历史数据</button>
 </li>
 <li class="nav-item" role="presentation">
-<button class="nav-link rounded-pill px-4" id="factors-tab" data-bs-toggle="tab" data-bs-target="#factors" type="button" role="tab">技术因子</button>
+<button class="nav-link rounded-pill px-4" id="tech-analysis-tab" data-bs-toggle="tab" data-bs-target="#tech-analysis" type="button" role="tab">技术分析</button>
 </li>
 <li class="nav-item" role="presentation">
 <button class="nav-link rounded-pill px-4" id="moneyflow-tab" data-bs-toggle="tab" data-bs-target="#moneyflow" type="button" role="tab">资金流向</button>
@@ -72,6 +79,7 @@
 </li>
 </ul>
 <div class="tab-content" id="stockTabsContent">
+
 <!-- 历史数据 -->
 <div class="tab-pane fade show active" id="history" role="tabpanel">
 <div class="page-card">
@@ -80,10 +88,10 @@
 <h6 class="mb-0 fw-bold">历史价格数据</h6>
 <div class="d-flex align-items-center gap-2 flex-wrap">
 <div class="btn-group btn-group-sm" role="group">
-<button type="button" class="btn btn-outline-primary" onclick="loadHistoryData(30)">30天</button>
-<button type="button" class="btn btn-outline-primary active" onclick="loadHistoryData(60)">60天</button>
+<button type="button" class="btn btn-outline-primary" onclick="loadHistoryData(60)">60天</button>
 <button type="button" class="btn btn-outline-primary" onclick="loadHistoryData(120)">120天</button>
-<button type="button" class="btn btn-outline-primary" onclick="loadHistoryData(500)">500天</button>
+<button type="button" class="btn btn-outline-primary active" onclick="loadHistoryData(250)">250天</button>
+<button type="button" class="btn btn-outline-primary" onclick="loadHistoryData(750)">3年</button>
 </div>
 <div class="d-flex align-items-center gap-1">
 <input type="date" id="history-start-date" class="form-control form-control-sm" style="width:140px;" title="起始日期">
@@ -103,21 +111,16 @@
 </div>
 </div>
 </div>
-<!-- 技术因子 -->
-<div class="tab-pane fade" id="factors" role="tabpanel">
-<div class="page-card">
-<div class="card-header border-0 bg-transparent pt-3 pb-0">
-<h6 class="mb-0 fw-bold">技术因子数据</h6>
-</div>
-<div class="card-body">
-<div id="factors-content">
+
+<!-- 技术分析（合并自 analysis.html） -->
+<div class="tab-pane fade" id="tech-analysis" role="tabpanel">
+<div id="tech-analysis-content">
 <div class="text-center py-4">
 <p class="text-muted">切换到此标签页时自动加载</p>
 </div>
 </div>
 </div>
-</div>
-</div>
+
 <!-- 资金流向 -->
 <div class="tab-pane fade" id="moneyflow" role="tabpanel">
 <div class="page-card">
@@ -133,6 +136,7 @@
 </div>
 </div>
 </div>
+
 <!-- 筹码分布 -->
 <div class="tab-pane fade" id="cyq" role="tabpanel">
 <div class="page-card">
@@ -148,15 +152,23 @@
 </div>
 </div>
 </div>
-</div>
-</div>
-</div>
-</div> {% endblock %}
- {% block extra_js %}
 
-<script>const tsCode = '{{ ts_code }}';
+</div>
+</div>
+</div>
+{% endblock %}
 
+{% block extra_js %}
+
+<script>
+const tsCode = '{{ ts_code }}';
 let stockInfo = null;
+
+// 技术分析数据缓存
+let _analysisHistoryData = [];
+let _analysisFactorsData = [];
+let _analysisLoaded = false;
+let _currentIndicator = 'macd';
 
 // ECharts 实例管理（防止内存泄漏）
 const _chartInstances = {};
@@ -172,136 +184,136 @@ function _safeInitChart(id) {
 }
 
 // 页面加载完成后初始化
-
 document.addEventListener('DOMContentLoaded', function() {
- // 全局 resize：只绑定一次，处理所有 ECharts 实例
- window.addEventListener('resize', function() {
-     Object.values(_chartInstances).forEach(chart => {
-         if (chart && !chart.isDisposed()) chart.resize();
-     });
- });
+    // 全局 resize
+    window.addEventListener('resize', function() {
+        Object.values(_chartInstances).forEach(chart => {
+            if (chart && !chart.isDisposed()) chart.resize();
+        });
+    });
+    // 页面卸载时释放
+    window.addEventListener('beforeunload', function() {
+        Object.values(_chartInstances).forEach(chart => {
+            if (chart && !chart.isDisposed()) chart.dispose();
+        });
+    });
 
- // 页面卸载时释放所有 ECharts 实例
- window.addEventListener('beforeunload', function() {
-     Object.values(_chartInstances).forEach(chart => {
-         if (chart && !chart.isDisposed()) chart.dispose();
-     });
- });
+    loadStockInfo();
+    loadRealtimeQuote();
+    loadHistoryData(250);
 
- loadStockInfo();
- loadRealtimeQuote();
- loadHistoryData(60); // 默认加载60天数据
- // 绑定标签页切换事件
- document.querySelectorAll('#stockTabs button[data-bs-toggle="tab"]').forEach(tab => {
- tab.addEventListener('shown.bs.tab', function(event) {
- const target = event.target.getAttribute('data-bs-target');
- switch(target) {
- case '#factors':
- loadFactorsData();
- break;
- case '#moneyflow':
- loadMoneyflowData();
- break;
- case '#cyq':
- loadCyqData();
- break;
- }
- });
- });
+    // 绑定标签页切换事件
+    document.querySelectorAll('#stockTabs button[data-bs-toggle="tab"]').forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function(event) {
+            const target = event.target.getAttribute('data-bs-target');
+            switch(target) {
+                case '#tech-analysis':
+                    loadTechAnalysis();
+                    break;
+                case '#moneyflow':
+                    loadMoneyflowData();
+                    break;
+                case '#cyq':
+                    loadCyqData();
+                    break;
+            }
+        });
+    });
 
+    // 如果 URL 带 ?tab=analysis 参数，自动切到技术分析
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('tab') === 'analysis') {
+        const tab = document.getElementById('tech-analysis-tab');
+        if (tab) tab.click();
+    }
 });
- // 加载股票基本信息
 
+// ========== 股票基本信息 ==========
 async function loadStockInfo() {
- try {
- const response = await apiRequest(`/stocks/${tsCode}`);
- if (response.code === 200) {
- stockInfo = response.data;
- renderStockInfo(stockInfo);
- } else {
- showError('stock-info', '股票信息加载失败');
- }
- } catch (error) {
- showError('stock-info', '股票信息加载失败');
- console.error('加载股票信息失败:', error);
- }
-
+    try {
+        const response = await apiRequest(`/stocks/${tsCode}`);
+        if (response.code === 200) {
+            stockInfo = response.data;
+            renderStockInfo(stockInfo);
+        } else {
+            showError('stock-info', '股票信息加载失败');
+        }
+    } catch (error) {
+        showError('stock-info', '股票信息加载失败');
+        console.error('加载股票信息失败:', error);
+    }
 }
- // 渲染股票基本信息
 
 function renderStockInfo(stock) {
- const container = document.getElementById('stock-info');
- const html = `
-  <div class="col-md-8">
-<h3 class="mb-3">${stock.name} <small class="text-muted">(${stock.symbol})</small></h3>
-<div class="row g-3">
-<div class="col-md-6">
-<div class="d-flex justify-content-between">
-<span class="text-muted">股票代码:</span>
-<strong>${stock.ts_code}</strong>
-</div>
-</div>
-<div class="col-md-6">
-<div class="d-flex justify-content-between">
-<span class="text-muted">股票简称:</span>
-<strong>${stock.symbol}</strong>
-</div>
-</div>
-<div class="col-md-6">
-<div class="d-flex justify-content-between">
-<span class="text-muted">所属行业:</span>
-<span class="badge bg-secondary">${stock.industry || '--'}</span>
-</div>
-</div>
-<div class="col-md-6">
-<div class="d-flex justify-content-between">
-<span class="text-muted">所属地域:</span>
-<span class="badge bg-info">${stock.area || '--'}</span>
-</div>
-</div>
-<div class="col-md-6">
-<div class="d-flex justify-content-between">
-<span class="text-muted">上市日期:</span>
-<strong>${stock.list_date || '--'}</strong>
-</div>
-</div>
-<div class="col-md-6">
-<div class="d-flex justify-content-between">
-<span class="text-muted">市场:</span>
-<span class="badge ${stock.ts_code.includes('SH') ? 'bg-danger' : stock.ts_code.includes('BJ') ? 'bg-warning' : 'bg-success'}"> ${stock.ts_code.includes('SH') ? '上海' : stock.ts_code.includes('BJ') ? '北交所' : '深圳'}
-  </span>
-</div>
-</div>
-</div>
-</div>
-<div class="col-md-4">
-<div class="text-center">
-<div class="card bg-light">
-<div class="card-body">
-<h5 class="card-title">快速操作</h5>
-<div class="d-grid gap-2">
-<button class="btn btn-primary btn-sm" onclick="addToWatchlist()"> ? 加入自选</button>
-<button class="btn btn-success btn-sm" onclick="openAnalysis()"> ? 技术分析</button>
-<button class="btn btn-info btn-sm" onclick="openBacktest()"> ? 策略回测</button>
-</div>
-</div>
-</div>
-</div>
-</div> `;
- container.innerHTML = html;
+    const container = document.getElementById('stock-info');
+    const db = stock.daily_basic || {};
+    const fmtVal = (v, suffix='') => v != null ? Number(v).toFixed(2) + suffix : '--';
+    const fmtMV = (v) => {
+        if (v == null) return '--';
+        const n = Number(v);
+        if (n >= 1e8) return (n / 1e8).toFixed(2) + '亿';
+        if (n >= 1e4) return (n / 1e4).toFixed(2) + '万';
+        return n.toFixed(0);
+    };
 
+    const html = `
+    <div class="col-lg-8">
+        <h3 class="mb-3">${stock.name} <small class="text-muted">(${stock.symbol})</small></h3>
+        <div class="row g-3">
+            <div class="col-md-6"><div class="d-flex justify-content-between"><span class="text-muted">股票代码:</span><strong>${stock.ts_code}</strong></div></div>
+            <div class="col-md-6"><div class="d-flex justify-content-between"><span class="text-muted">股票简称:</span><strong>${stock.symbol}</strong></div></div>
+            <div class="col-md-6"><div class="d-flex justify-content-between"><span class="text-muted">所属行业:</span><span class="badge bg-secondary">${stock.industry || '--'}</span></div></div>
+            <div class="col-md-6"><div class="d-flex justify-content-between"><span class="text-muted">所属地域:</span><span class="badge bg-info">${stock.area || '--'}</span></div></div>
+            <div class="col-md-6"><div class="d-flex justify-content-between"><span class="text-muted">上市日期:</span><strong>${stock.list_date || '--'}</strong></div></div>
+            <div class="col-md-6"><div class="d-flex justify-content-between"><span class="text-muted">市场:</span><span class="badge ${stock.ts_code.includes('SH') ? 'bg-danger' : stock.ts_code.includes('BJ') ? 'bg-warning' : 'bg-success'}"> ${stock.ts_code.includes('SH') ? '上海' : stock.ts_code.includes('BJ') ? '北交所' : '深圳'}</span></div></div>
+        </div>
+        ${db.trade_date ? `
+        <hr class="my-3">
+        <div class="row g-2">
+            <div class="col-12"><small class="text-muted">估值指标 <span class="badge bg-light text-dark">${db.trade_date || ''}</span></small></div>
+            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">PE(TTM)</div><div class="fw-bold">${fmtVal(db.pe_ttm)}</div></div></div>
+            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">PB</div><div class="fw-bold">${fmtVal(db.pb)}</div></div></div>
+            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">PS(TTM)</div><div class="fw-bold">${fmtVal(db.ps_ttm)}</div></div></div>
+            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">股息率</div><div class="fw-bold">${fmtVal(db.dv_ratio, '%')}</div></div></div>
+            <div class="col-12 mt-1"><small class="text-muted">市值与交易</small></div>
+            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">总市值</div><div class="fw-bold">${fmtMV(db.total_mv)}</div></div></div>
+            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">流通市值</div><div class="fw-bold">${fmtMV(db.circ_mv)}</div></div></div>
+            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">换手率</div><div class="fw-bold">${fmtVal(db.turnover_rate, '%')}</div></div></div>
+            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">量比</div><div class="fw-bold">${fmtVal(db.volume_ratio)}</div></div></div>
+        </div>` : ''}
+    </div>
+    <div class="col-lg-4">
+        <div class="text-center">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h5 class="card-title">快速操作</h5>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary btn-sm" onclick="addToWatchlist()">加入自选</button>
+                        <button class="btn btn-info btn-sm" onclick="openBacktest()">策略回测</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>`;
+    container.innerHTML = html;
 }
 
 // ========== 实时行情 ==========
-
 let realtimeChart = null;
+let currentKlineFreq = 'daily';
+
+function switchKlineFreq(freq, btn) {
+    currentKlineFreq = freq;
+    document.querySelectorAll('#kline-freq-group .btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    loadRealtimeQuote();
+}
 
 async function loadRealtimeQuote() {
     const container = document.getElementById('realtime-content');
-    container.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary" role="status"></div><span class="ms-2 text-muted">正在加载实时行情...</span></div>';
-
+    container.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary" role="status"></div><span class="ms-2 text-muted">正在加载行情数据...</span></div>';
     try {
-        const response = await apiRequest(`/stocks/${tsCode}/realtime`);
+        const response = await apiRequest(`/stocks/${tsCode}/realtime?freq=${currentKlineFreq}`);
         if (response.code === 200 && response.data) {
             renderRealtimeQuote(response.data);
         } else {
@@ -318,14 +330,7 @@ function renderRealtimeQuote(data) {
     const container = document.getElementById('realtime-content');
     const sourceBadge = document.getElementById('realtime-source');
     const updatedAt = document.getElementById('realtime-updated-at');
-
-    // 更新来源标签
-    const sourceMap = {
-        'sina_realtime': '新浪实时',
-        'realtime_quote': 'Tushare实时',
-        'latest_trade_day': '最近交易日',
-        'local_cache': '本地缓存',
-    };
+    const sourceMap = { 'sina_realtime': '新浪实时', 'realtime_quote': 'Tushare实时', 'latest_trade_day': '最近交易日', 'local_cache': '本地缓存' };
     sourceBadge.textContent = sourceMap[quote.source] || quote.source || '行情数据';
     updatedAt.textContent = data.updated_at || '--';
 
@@ -337,75 +342,32 @@ function renderRealtimeQuote(data) {
     const colorClass = isUp ? 'text-danger' : isDown ? 'text-success' : 'text-muted';
     const arrow = isUp ? '▲' : isDown ? '▼' : '—';
 
-    const html = `
+    container.innerHTML = `
     <div class="row g-3">
         <div class="col-md-4">
             <div class="text-center py-2">
-                <div class="${colorClass}" style="font-size:2.2rem; font-weight:700; line-height:1.2;">${price !== null && price !== undefined ? Number(price).toFixed(2) : '--'}</div>
+                <div class="${colorClass}" style="font-size:2.2rem;font-weight:700;line-height:1.2;">${price != null ? Number(price).toFixed(2) : '--'}</div>
                 <div class="${colorClass} mt-1" style="font-size:1rem;">
-                    <span>${arrow} ${change !== null && change !== undefined ? Number(change).toFixed(2) : '--'}</span>
-                    <span class="ms-2">${pctChg !== null && pctChg !== undefined ? Number(pctChg).toFixed(2) + '%' : '--'}</span>
+                    <span>${arrow} ${change != null ? Number(change).toFixed(2) : '--'}</span>
+                    <span class="ms-2">${pctChg != null ? Number(pctChg).toFixed(2) + '%' : '--'}</span>
                 </div>
                 <div class="text-muted small mt-1">${quote.trade_date || ''} ${quote.trade_time || ''}</div>
             </div>
         </div>
         <div class="col-md-8">
             <div class="row g-2">
-                <div class="col-4">
-                    <div class="bg-light rounded p-2 text-center">
-                        <div class="text-muted small">今开</div>
-                        <div class="fw-bold">${quote.open !== null && quote.open !== undefined ? Number(quote.open).toFixed(2) : '--'}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="bg-light rounded p-2 text-center">
-                        <div class="text-muted small">昨收</div>
-                        <div class="fw-bold">${quote.pre_close !== null && quote.pre_close !== undefined ? Number(quote.pre_close).toFixed(2) : '--'}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="bg-light rounded p-2 text-center">
-                        <div class="text-muted small">最高</div>
-                        <div class="fw-bold text-danger">${quote.high !== null && quote.high !== undefined ? Number(quote.high).toFixed(2) : '--'}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="bg-light rounded p-2 text-center">
-                        <div class="text-muted small">最低</div>
-                        <div class="fw-bold text-success">${quote.low !== null && quote.low !== undefined ? Number(quote.low).toFixed(2) : '--'}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="bg-light rounded p-2 text-center">
-                        <div class="text-muted small">成交量</div>
-                        <div class="fw-bold">${quote.volume ? formatCompactNumber(quote.volume) : '--'}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="bg-light rounded p-2 text-center">
-                        <div class="text-muted small">成交额</div>
-                        <div class="fw-bold">${quote.amount ? formatCompactNumber(quote.amount) : '--'}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="bg-light rounded p-2 text-center">
-                        <div class="text-muted small">振幅</div>
-                        <div class="fw-bold">${quote.amplitude !== null && quote.amplitude !== undefined ? Number(quote.amplitude).toFixed(2) + '%' : '--'}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="bg-light rounded p-2 text-center">
-                        <div class="text-muted small">换手率</div>
-                        <div class="fw-bold">${quote.turnover_rate !== null && quote.turnover_rate !== undefined ? Number(quote.turnover_rate).toFixed(2) + '%' : '--'}</div>
-                    </div>
-                </div>
+                <div class="col-4"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">今开</div><div class="fw-bold">${quote.open != null ? Number(quote.open).toFixed(2) : '--'}</div></div></div>
+                <div class="col-4"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">昨收</div><div class="fw-bold">${quote.pre_close != null ? Number(quote.pre_close).toFixed(2) : '--'}</div></div></div>
+                <div class="col-4"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">最高</div><div class="fw-bold text-danger">${quote.high != null ? Number(quote.high).toFixed(2) : '--'}</div></div></div>
+                <div class="col-4"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">最低</div><div class="fw-bold text-success">${quote.low != null ? Number(quote.low).toFixed(2) : '--'}</div></div></div>
+                <div class="col-4"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">成交量</div><div class="fw-bold">${quote.volume ? formatCompactNumber(quote.volume) : '--'}</div></div></div>
+                <div class="col-4"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">成交额</div><div class="fw-bold">${quote.amount ? formatCompactNumber(quote.amount) : '--'}</div></div></div>
+                <div class="col-4"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">振幅</div><div class="fw-bold">${quote.amplitude != null ? Number(quote.amplitude).toFixed(2) + '%' : '--'}</div></div></div>
+                <div class="col-4"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">换手率</div><div class="fw-bold">${quote.turnover_rate != null ? Number(quote.turnover_rate).toFixed(2) + '%' : '--'}</div></div></div>
             </div>
         </div>
     </div>`;
 
-    container.innerHTML = html;
-
-    // 渲染K线图
     const series = data.series || [];
     if (series.length > 0) {
         renderRealtimeChart(series, data.series_mode || 'daily', quote.name || tsCode);
@@ -423,24 +385,16 @@ function formatCompactNumber(num) {
 function renderRealtimeChart(series, mode, title) {
     const chartDom = document.getElementById('realtime-chart');
     if (!chartDom) return;
-
     chartDom.style.display = 'block';
-
     if (!realtimeChart) {
         realtimeChart = echarts.init(chartDom);
-        window.addEventListener('resize', () => realtimeChart && realtimeChart.resize());
     }
-
-    if (!Array.isArray(series) || !series.length) {
-        chartDom.style.display = 'none';
-        return;
-    }
+    if (!Array.isArray(series) || !series.length) { chartDom.style.display = 'none'; return; }
 
     const labels = series.map(item => item.label || '--');
     const prices = series.map(item => Number(item.price || 0));
     const volumes = series.map(item => Number(item.volume || 0));
 
-    // 计算均线
     let ma5 = [], ma10 = [], ma20 = [];
     if (mode === 'daily') {
         function calcMA(data, n) {
@@ -458,1205 +412,828 @@ function renderRealtimeChart(series, mode, title) {
         ma20 = calcMA(prices, 20);
     }
 
-    // 构建K线数据
-    const candleData = series.map(item => [
-        Number(item.open || 0),
-        Number(item.price || item.close || 0),
-        Number(item.low || 0),
-        Number(item.high || 0),
-    ]);
+    const ohlc = series.map(item => [Number(item.open || 0), Number(item.price || item.close || 0), Number(item.low || 0), Number(item.high || 0)]);
+    const upColor = '#ef232a';
+    const downColor = '#14b143';
 
     realtimeChart.setOption({
         animation: false,
-        grid: [
-            { left: 48, right: 24, top: 46, height: '55%' },
-            { left: 48, right: 24, top: '75%', height: '14%' }
-        ],
-        xAxis: [
-            { type: 'category', data: labels, gridIndex: 0, axisLabel: { color: '#94a3b8', fontSize: 11 }, axisLine: { lineStyle: { color: '#334155' } } },
-            { type: 'category', data: labels, gridIndex: 1, axisLabel: { show: false }, axisLine: { lineStyle: { color: '#334155' } } }
-        ],
-        yAxis: [
-            { type: 'value', gridIndex: 0, scale: true, axisLabel: { color: '#94a3b8', fontSize: 11 }, splitLine: { lineStyle: { color: '#1e293b' } } },
-            { type: 'value', gridIndex: 1, axisLabel: { show: false }, splitLine: { show: false } }
-        ],
         tooltip: {
             trigger: 'axis',
             axisPointer: { type: 'cross' },
-            backgroundColor: '#0f172a',
-            borderColor: '#334155',
-            textStyle: { color: '#e2e8f0', fontSize: 12 },
+            backgroundColor: 'rgba(15, 23, 42, 0.92)',
+            borderWidth: 0,
+            textStyle: { color: '#fff', fontSize: 12 },
             formatter: function(params) {
                 if (!params || !params.length) return '';
-                const date = params[0].axisValue;
-                let html = `<div style="margin-bottom:4px;font-weight:600">${date}</div>`;
+                let html = `<div style="margin-bottom:4px;font-weight:600">${params[0].axisValue}</div>`;
                 params.forEach(p => {
-                    if (p.seriesType === 'candlestick') {
+                    if (p.seriesName === 'K线') {
                         const d = p.data;
-                        html += `<div>开: ${d[1]} 收: ${d[2]} 低: ${d[3]} 高: ${d[4]}</div>`;
-                    } else if (p.seriesType === 'line') {
-                        html += `<div>${p.seriesName}: ${p.value}</div>`;
-                    } else if (p.seriesType === 'bar') {
-                        html += `<div>成交量: ${formatCompactNumber(p.value)}</div>`;
+                        const color = d[1] >= d[0] ? upColor : downColor;
+                        html += `<div style="color:${color}">开 ${d[0]} 收 ${d[1]} 低 ${d[2]} 高 ${d[3]}</div>`;
+                    } else if (p.seriesName === '成交量') {
+                        html += `<div>${p.marker}${p.seriesName}: ${formatCompactNumber(p.value)}</div>`;
+                    } else if (p.value != null) {
+                        html += `<div>${p.marker}${p.seriesName}: ${p.value}</div>`;
                     }
                 });
                 return html;
             }
         },
+        legend: {
+            data: ['K线', 'MA5', 'MA10', 'MA20'],
+            top: 0,
+            textStyle: { color: '#64748b', fontSize: 11 }
+        },
+        grid: [
+            { left: 60, right: 20, top: 40, height: '55%' },
+            { left: 60, right: 20, top: '72%', height: '16%' }
+        ],
+        xAxis: [
+            {
+                type: 'category', data: labels, boundaryGap: true,
+                axisLine: { lineStyle: { color: '#cbd5e1' } },
+                axisLabel: { color: '#64748b', fontSize: 10, hideOverlap: true }
+            },
+            {
+                type: 'category', gridIndex: 1, data: labels, boundaryGap: true,
+                axisLine: { lineStyle: { color: '#cbd5e1' } },
+                axisLabel: { show: false }
+            }
+        ],
+        yAxis: [
+            {
+                scale: true,
+                axisLabel: { color: '#64748b', fontSize: 10 },
+                splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } }
+            },
+            {
+                scale: true, gridIndex: 1,
+                axisLabel: { color: '#64748b', fontSize: 10 },
+                splitLine: { show: false }
+            }
+        ],
+        dataZoom: [
+            { type: 'inside', xAxisIndex: [0, 1], start: 60, end: 100 },
+            { type: 'slider', xAxisIndex: [0, 1], bottom: 4, height: 18, borderColor: '#e2e8f0', fillerColor: 'rgba(37,99,235,0.1)' }
+        ],
         series: [
             {
-                name: 'K线',
-                type: 'candlestick',
-                data: candleData,
-                xAxisIndex: 0,
-                yAxisIndex: 0,
-                itemStyle: { color: '#ef4444', color0: '#22c55e', borderColor: '#ef4444', borderColor0: '#22c55e' },
+                name: 'K线', type: 'candlestick', data: ohlc,
+                itemStyle: { color: upColor, color0: downColor, borderColor: upColor, borderColor0: downColor }
             },
+            { name: 'MA5', type: 'line', data: ma5, smooth: true, symbol: 'none', lineStyle: { width: 1.2, color: '#f59e0b' } },
+            { name: 'MA10', type: 'line', data: ma10, smooth: true, symbol: 'none', lineStyle: { width: 1.2, color: '#3b82f6' } },
+            { name: 'MA20', type: 'line', data: ma20, smooth: true, symbol: 'none', lineStyle: { width: 1.2, color: '#8b5cf6' } },
             {
-                name: 'MA5',
-                type: 'line',
-                data: ma5,
-                xAxisIndex: 0,
-                yAxisIndex: 0,
-                smooth: true,
-                showSymbol: false,
-                lineStyle: { width: 1, color: '#f59e0b' },
-            },
-            {
-                name: 'MA10',
-                type: 'line',
-                data: ma10,
-                xAxisIndex: 0,
-                yAxisIndex: 0,
-                smooth: true,
-                showSymbol: false,
-                lineStyle: { width: 1, color: '#3b82f6' },
-            },
-            {
-                name: 'MA20',
-                type: 'line',
-                data: ma20,
-                xAxisIndex: 0,
-                yAxisIndex: 0,
-                smooth: true,
-                showSymbol: false,
-                lineStyle: { width: 1, color: '#a855f7' },
-            },
-            {
-                name: '成交量',
-                type: 'bar',
-                data: volumes,
-                xAxisIndex: 1,
-                yAxisIndex: 1,
-                itemStyle: { color: '#64748b' },
+                name: '成交量', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: volumes,
+                itemStyle: {
+                    color: function(params) {
+                        const idx = params.dataIndex;
+                        return ohlc[idx] && ohlc[idx][1] >= ohlc[idx][0] ? 'rgba(239,35,42,0.5)' : 'rgba(20,177,67,0.5)';
+                    }
+                }
             }
         ]
     }, true);
 }
 
-// 加载历史数据
-
+// ========== 历史数据 ==========
 async function loadHistoryData(days = 60) {
- // 切换按钮 active 状态
- document.querySelectorAll('.btn-group[role="group"] .btn').forEach(btn => {
-     btn.classList.remove('active');
- });
- // 找到被点击的按钮（通过 onclick 中的天数匹配）
- const btnClicked = Array.from(document.querySelectorAll('.btn-group[role="group"] .btn'))
-     .find(btn => btn.getAttribute('onclick') === `loadHistoryData(${days})`);
- if (btnClicked) btnClicked.classList.add('active');
- // 清空日期选择器
- document.getElementById('history-start-date').value = '';
- document.getElementById('history-end-date').value = '';
-
- showLoading('history-content', 'skeleton');
- try {
- const response = await apiRequest(`/stocks/${tsCode}/history?limit=${days}`);
- if (response.code === 200) {
- renderHistoryData(response.data, days);
- } else {
- showError('history-content', '历史数据加载失败');
- }
- } catch (error) {
- showError('history-content', '历史数据加载失败');
- console.error('加载历史数据失败:', error);
- }
-
+    document.querySelectorAll('.btn-group[role="group"] .btn').forEach(btn => btn.classList.remove('active'));
+    const btnClicked = Array.from(document.querySelectorAll('.btn-group[role="group"] .btn'))
+        .find(btn => btn.getAttribute('onclick') === `loadHistoryData(${days})`);
+    if (btnClicked) btnClicked.classList.add('active');
+    document.getElementById('history-start-date').value = '';
+    document.getElementById('history-end-date').value = '';
+    showLoading('history-content', 'skeleton');
+    try {
+        const response = await apiRequest(`/stocks/${tsCode}/history?limit=${days}`);
+        if (response.code === 200) { renderHistoryData(response.data, days); }
+        else { showError('history-content', '历史数据加载失败'); }
+    } catch (error) { showError('history-content', '历史数据加载失败'); console.error(error); }
 }
 
 async function loadHistoryByDate() {
- const startDate = document.getElementById('history-start-date').value;
- const endDate = document.getElementById('history-end-date').value;
- if (!startDate && !endDate) {
-     alert('请至少选择一个日期');
-     return;
- }
- // 取消天数按钮的 active
- document.querySelectorAll('.btn-group[role="group"] .btn').forEach(btn => btn.classList.remove('active'));
-
- showLoading('history-content', 'skeleton');
- try {
-     let url = `/stocks/${tsCode}/history?limit=5000`;
-     if (startDate) url += `&start_date=${startDate}`;
-     if (endDate) url += `&end_date=${endDate}`;
-     const response = await apiRequest(url);
-     if (response.code === 200) {
-         const label = (startDate || '') + ' ~ ' + (endDate || '今天');
-         renderHistoryData(response.data, label);
-     } else {
-         showError('history-content', '历史数据加载失败');
-     }
- } catch (error) {
-     showError('history-content', '历史数据加载失败');
-     console.error('加载历史数据失败:', error);
- }
+    const startDate = document.getElementById('history-start-date').value;
+    const endDate = document.getElementById('history-end-date').value;
+    if (!startDate && !endDate) { alert('请至少选择一个日期'); return; }
+    document.querySelectorAll('.btn-group[role="group"] .btn').forEach(btn => btn.classList.remove('active'));
+    showLoading('history-content', 'skeleton');
+    try {
+        let url = `/stocks/${tsCode}/history?limit=5000`;
+        if (startDate) url += `&start_date=${startDate}`;
+        if (endDate) url += `&end_date=${endDate}`;
+        const response = await apiRequest(url);
+        if (response.code === 200) { renderHistoryData(response.data, (startDate || '') + ' ~ ' + (endDate || '今天')); }
+        else { showError('history-content', '历史数据加载失败'); }
+    } catch (error) { showError('history-content', '历史数据加载失败'); }
 }
- // 渲染历史数据
 
 function renderHistoryData(data, days) {
- const container = document.getElementById('history-content');
- if (!data || data.length === 0) {
- container.innerHTML = '<div class="text-center py-4"><p class="text-muted">暂无历史数据</p></div>';
- return;
- }
-
- const PAGE_SIZE = 30;
- const totalRows = data.length;
- // 始终只渲染第一页，避免大量 DOM 导致卡顿
- const displayData = data.slice(0, PAGE_SIZE);
-
- const html = `
-  <div class="mb-3 d-flex justify-content-between align-items-center">
-<small class="text-muted mb-0">最近 ${days} 天的历史数据，共 ${totalRows} 条记录（按时间倒序）</small>
-<span id="history-page-info" class="text-muted small">显示 1-${Math.min(PAGE_SIZE, totalRows)} / ${totalRows}</span>
-</div>
-<div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-<table class="table table-sm table-hover table-striped mb-0" style="min-width: 700px;">
-<thead class="sticky-top">
-<tr>
-<th>日期</th>
-<th>开盘价</th>
-<th>最高价</th>
-<th>最低价</th>
-<th>收盘价</th>
-<th>成交量(万手)</th>
-<th>成交额(万元)</th>
-<th>涨跌幅</th>
-</tr>
-</thead>
-<tbody id="history-tbody"> ${displayData.map(item => `
-  <tr>
-<td><strong>${item.trade_date || '--'}</strong></td>
-<td>${formatNumber(item.open, 2)}</td>
-<td class="text-danger">${formatNumber(item.high, 2)}</td>
-<td class="text-success">${formatNumber(item.low, 2)}</td>
-<td class="text-primary"><strong>${formatNumber(item.close, 2)}</strong></td>
-<td>${formatNumber((item.vol || 0) / 10000, 1)}</td>
-<td>${formatNumber((item.amount || 0) / 10000, 0)}</td>
-<td class="${(item.pct_chg || 0) >= 0 ? 'text-danger' : 'text-success'}">
-<strong>${formatPercent(item.pct_chg || 0)}</strong>
-</td>
-</tr> `).join('')}
-  </tbody>
-</table>
-</div> ${totalRows > PAGE_SIZE ? `
-<div class="d-flex justify-content-center gap-2 mt-3" id="history-pagination">
-<button class="btn btn-sm btn-outline-primary" id="history-load-more" onclick="_loadMoreHistory(${PAGE_SIZE})">加载更多 (${PAGE_SIZE}/${totalRows})</button>
-<button class="btn btn-sm btn-outline-secondary" onclick="_scrollToHistoryTop()">回到顶部</button>
-</div>` : ''}
- `;
- container.innerHTML = html;
-
- // 将剩余数据挂载到按钮上供分页使用
- window._historyAllData = data;
- window._historyCurrentPage = 1;
-
+    const container = document.getElementById('history-content');
+    if (!data || data.length === 0) { container.innerHTML = '<div class="text-center py-4"><p class="text-muted">暂无历史数据</p></div>'; return; }
+    const PAGE_SIZE = 30;
+    const totalRows = data.length;
+    const displayData = data.slice(0, PAGE_SIZE);
+    container.innerHTML = `
+    <div class="mb-3 d-flex justify-content-between align-items-center">
+        <small class="text-muted mb-0">最近 ${days} 天的历史数据，共 ${totalRows} 条记录（按时间倒序）</small>
+        <span id="history-page-info" class="text-muted small">显示 1-${Math.min(PAGE_SIZE, totalRows)} / ${totalRows}</span>
+    </div>
+    <div class="table-responsive" style="max-height:500px;overflow-y:auto;">
+        <table class="table table-sm table-hover table-striped mb-0" style="min-width:700px;">
+            <thead class="sticky-top"><tr><th>日期</th><th>开盘价</th><th>最高价</th><th>最低价</th><th>收盘价</th><th>成交量(万手)</th><th>成交额(万元)</th><th>涨跌幅</th></tr></thead>
+            <tbody id="history-tbody">${displayData.map(item => `<tr>
+                <td><strong>${item.trade_date || '--'}</strong></td>
+                <td>${formatNumber(item.open, 2)}</td>
+                <td class="text-danger">${formatNumber(item.high, 2)}</td>
+                <td class="text-success">${formatNumber(item.low, 2)}</td>
+                <td class="text-primary"><strong>${formatNumber(item.close, 2)}</strong></td>
+                <td>${formatNumber((item.vol || 0) / 10000, 1)}</td>
+                <td>${formatNumber((item.amount || 0) / 10000, 0)}</td>
+                <td class="${(item.pct_chg || 0) >= 0 ? 'text-danger' : 'text-success'}"><strong>${formatPercent(item.pct_chg || 0)}</strong></td>
+            </tr>`).join('')}</tbody>
+        </table>
+    </div>
+    ${totalRows > PAGE_SIZE ? `<div class="d-flex justify-content-center gap-2 mt-3"><button class="btn btn-sm btn-outline-primary" id="history-load-more" onclick="_loadMoreHistory(${PAGE_SIZE})">加载更多 (${PAGE_SIZE}/${totalRows})</button></div>` : ''}`;
+    window._historyAllData = data;
+    window._historyCurrentPage = 1;
 }
 
-// 分页加载更多
 function _loadMoreHistory(pageSize) {
- const allData = window._historyAllData;
- if (!allData) return;
- window._historyCurrentPage++;
- const page = window._historyCurrentPage;
- const start = (page - 1) * pageSize;
- const end = start + pageSize;
- const chunk = allData.slice(start, end);
- const tbody = document.getElementById('history-tbody');
- if (!tbody) return;
-
- const newRows = chunk.map(item => `
-<tr>
-<td><strong>${item.trade_date || '--'}</strong></td>
-<td>${formatNumber(item.open, 2)}</td>
-<td class="text-danger">${formatNumber(item.high, 2)}</td>
-<td class="text-success">${formatNumber(item.low, 2)}</td>
-<td class="text-primary"><strong>${formatNumber(item.close, 2)}</strong></td>
-<td>${formatNumber((item.vol || 0) / 10000, 1)}</td>
-<td>${formatNumber((item.amount || 0) / 10000, 0)}</td>
-<td class="${(item.pct_chg || 0) >= 0 ? 'text-danger' : 'text-success'}">
-<strong>${formatPercent(item.pct_chg || 0)}</strong>
-</td>
-</tr>`).join('');
- tbody.insertAdjacentHTML('beforeend', newRows);
-
- // 更新分页信息和按钮
- const shown = Math.min(end, allData.length);
- const pageInfo = document.getElementById('history-page-info');
- if (pageInfo) pageInfo.textContent = `显示 1-${shown} / ${allData.length}`;
-
- const loadMoreBtn = document.getElementById('history-load-more');
- if (loadMoreBtn) {
-     if (shown >= allData.length) {
-         loadMoreBtn.textContent = '已全部加载';
-         loadMoreBtn.disabled = true;
-         loadMoreBtn.classList.replace('btn-outline-primary', 'btn-secondary');
-     } else {
-         loadMoreBtn.textContent = `加载更多 (${shown}/${allData.length})`;
-     }
- }
+    const allData = window._historyAllData; if (!allData) return;
+    window._historyCurrentPage++;
+    const page = window._historyCurrentPage;
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    const chunk = allData.slice(start, end);
+    const tbody = document.getElementById('history-tbody'); if (!tbody) return;
+    tbody.insertAdjacentHTML('beforeend', chunk.map(item => `<tr>
+        <td><strong>${item.trade_date || '--'}</strong></td><td>${formatNumber(item.open, 2)}</td><td class="text-danger">${formatNumber(item.high, 2)}</td><td class="text-success">${formatNumber(item.low, 2)}</td><td class="text-primary"><strong>${formatNumber(item.close, 2)}</strong></td><td>${formatNumber((item.vol||0)/10000,1)}</td><td>${formatNumber((item.amount||0)/10000,0)}</td><td class="${(item.pct_chg||0)>=0?'text-danger':'text-success'}"><strong>${formatPercent(item.pct_chg||0)}</strong></td>
+    </tr>`).join(''));
+    const shown = Math.min(end, allData.length);
+    const pageInfo = document.getElementById('history-page-info');
+    if (pageInfo) pageInfo.textContent = `显示 1-${shown} / ${allData.length}`;
+    const loadMoreBtn = document.getElementById('history-load-more');
+    if (loadMoreBtn) { if (shown >= allData.length) { loadMoreBtn.textContent = '已全部加载'; loadMoreBtn.disabled = true; } else { loadMoreBtn.textContent = `加载更多 (${shown}/${allData.length})`; } }
 }
 
-function _scrollToHistoryTop() {
- const scrollContainer = document.querySelector('.table-responsive[style*="max-height"]');
- if (scrollContainer) scrollContainer.scrollTop = 0;
-}
- // 加载技术因子数据
+// ========== 技术分析（合并自 analysis.html） ==========
+async function loadTechAnalysis() {
+    if (_analysisLoaded) return;
+    const container = document.getElementById('tech-analysis-content');
+    container.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><span class="ms-2 text-muted">正在加载技术分析数据...</span></div>';
 
-async function loadFactorsData() {
- if (document.getElementById('factors-content').innerHTML.includes('加载中')) return;
- showLoading('factors-content', 'skeleton');
- try {
- const response = await apiRequest(`/stocks/${tsCode}/factors?limit=120`);
- if (response.code === 200) {
- renderFactorsData(response.data);
- } else {
- showError('factors-content', '技术因子数据加载失败');
- }
- } catch (error) {
- showError('factors-content', '技术因子数据加载失败');
- console.error('加载技术因子数据失败:', error);
- }
+    try {
+        const [historyRes, factorsRes] = await Promise.all([
+            apiRequest(`/stocks/${tsCode}/history?limit=750`),
+            apiRequest(`/stocks/${tsCode}/factors?limit=750`).catch(err => ({ code: err?.response?.status || 500, data: [], message: '技术指标数据暂不可用' }))
+        ]);
 
-}
- // 渲染技术因子数据
+        if (historyRes.code !== 200 || !historyRes.data || historyRes.data.length === 0) {
+            container.innerHTML = '<div class="text-center py-4 text-muted">无法加载历史数据，技术分析不可用</div>';
+            return;
+        }
 
-function renderFactorsData(data) {
- const container = document.getElementById('factors-content');
- if (!data || data.length === 0) {
- container.innerHTML = '<div class="text-center py-4"><p class="text-muted">暂无技术因子数据</p></div>';
- return;
- }
- const html = `
-  <div class="mb-3">
-<small class="text-muted">技术因子数据，共 ${data.length} 条记录（按时间倒序，最新数据在前）</small>
-</div>
-<!-- 技术指标图表 -->
-<div class="row mb-4">
-<div class="col-12">
-<div class="card">
-<div class="card-header">
-<h6 class="mb-0">? 技术指标趋势</h6>
-</div>
-<div class="card-body">
-<div id="factors-chart" style="height: 400px;"></div>
-</div>
-</div>
-</div>
-</div>
-<!-- 详细数据表格 -->
-<div class="card">
-<div class="card-header">
-<h6 class="mb-0">? 详细数据</h6>
-</div>
-<div class="card-body">
-<div class="table-responsive">
-<table class="table table-sm table-hover">
-<thead>
-<tr>
-<th>日期</th>
-<th>收盘价</th>
-<th>MACD DIF</th>
-<th>MACD DEA</th>
-<th>MACD</th>
-<th>KDJ K</th>
-<th>KDJ D</th>
-<th>KDJ J</th>
-<th>RSI(6)</th>
-<th>RSI(12)</th>
-<th>RSI(24)</th>
-<th>布林上轨</th>
-<th>布林中轨</th>
-<th>布林下轨</th>
-<th>CCI</th>
-</tr>
-</thead>
-<tbody> ${data.slice(0, 50).map(item => `
-  <tr>
-<td><strong>${item.trade_date || '--'}</strong></td>
-<td class="text-primary"><strong>${formatNumber(item.close, 2)}</strong></td>
-<td class="${(item.macd_dif || 0) >= 0 ? 'text-danger' : 'text-success'}">${formatNumber(item.macd_dif, 4)}</td>
-<td class="${(item.macd_dea || 0) >= 0 ? 'text-danger' : 'text-success'}">${formatNumber(item.macd_dea, 4)}</td>
-<td class="${(item.macd || 0) >= 0 ? 'text-danger' : 'text-success'}">${formatNumber(item.macd, 4)}</td>
-<td>${formatNumber(item.kdj_k, 2)}</td>
-<td>${formatNumber(item.kdj_d, 2)}</td>
-<td class="${(item.kdj_j || 0) >80 ? 'text-danger' : (item.kdj_j || 0) < 20 ? 'text-success' : ''}">${formatNumber(item.kdj_j, 2)}</td>
-<td class="${(item.rsi_6 || 0) >70 ? 'text-danger' : (item.rsi_6 || 0) < 30 ? 'text-success' : ''}">${formatNumber(item.rsi_6, 2)}</td>
-<td class="${(item.rsi_12 || 0) >70 ? 'text-danger' : (item.rsi_12 || 0) < 30 ? 'text-success' : ''}">${formatNumber(item.rsi_12, 2)}</td>
-<td class="${(item.rsi_24 || 0) >70 ? 'text-danger' : (item.rsi_24 || 0) < 30 ? 'text-success' : ''}">${formatNumber(item.rsi_24, 2)}</td>
-<td class="text-danger">${formatNumber(item.boll_upper, 2)}</td>
-<td class="text-warning">${formatNumber(item.boll_mid, 2)}</td>
-<td class="text-success">${formatNumber(item.boll_lower, 2)}</td>
-<td class="${(item.cci || 0) >100 ? 'text-danger' : (item.cci || 0) < -100 ? 'text-success' : ''}">${formatNumber(item.cci, 2)}</td>
-</tr> `).join('')}
-  </tbody>
-</table>
-</div> ${data.length > 50 ? `<div class="text-center mt-3"><small class="text-muted">显示前50条，共${data.length}条记录</small></div>` : ''}
-  </div>
-</div> `;
- container.innerHTML = html;
- // 渲染技术指标图表
- renderFactorsChart(data);
+        _analysisHistoryData = historyRes.data;
+        _analysisFactorsData = factorsRes.code === 200 ? (factorsRes.data || []) : [];
+        _analysisLoaded = true;
 
-}
- // 渲染技术指标图表
-
-function renderFactorsChart(data) {
- const factorsChart = _safeInitChart('factors-chart');
- if (!factorsChart) return; // 渲染技术指标图表
- const reversedData = [...data].reverse();
- const dates = reversedData.map(item => item.trade_date);
- const factorsOption = {
- title: {
- text: '技术指标趋势',
- left: 'center'
- },
- tooltip: {
- trigger: 'axis',
- formatter: function(params) {
- let result = params[0].name + '<br/>';
- params.forEach(param => {
- result += param.marker + param.seriesName + ': ' + formatNumber(param.value, 4) + '<br/>';
- });
- return result;
- }
- },
- legend: {
- data: ['MACD DIF', 'MACD DEA', 'MACD', 'RSI(6)', 'RSI(12)', 'KDJ K', 'KDJ D'],
- top: 30,
- type: 'scroll'
- },
- grid: {
- left: '3%',
- right: '4%',
- bottom: '15%',
- containLabel: true
- },
- xAxis: {
- type: 'category',
- data: dates,
- axisLabel: {
- rotate: 45
- }
- },
- yAxis: [
- {
- type: 'value',
- name: 'MACD',
- position: 'left',
- axisLabel: {
- formatter: function(value) {
- return formatNumber(value, 4);
- }
- }
- },
- {
- type: 'value',
- name: 'RSI/KDJ',
- position: 'right',
- min: 0,
- max: 100,
- axisLabel: {
- formatter: function(value) {
- return value + '';
- }
- }
- }
- ],
- dataZoom: [
- {
- type: 'inside',
- start: 70,
- end: 100
- },
- {
- show: true,
- type: 'slider',
- top: '90%',
- start: 70,
- end: 100
- }
- ],
- series: [
- {
- name: 'MACD DIF',
- type: 'line',
- yAxisIndex: 0,
- data: reversedData.map(item => item.macd_dif || 0),
- itemStyle: { color: '#ff4d4f' },
- lineStyle: { width: 2 }
- },
- {
- name: 'MACD DEA',
- type: 'line',
- yAxisIndex: 0,
- data: reversedData.map(item => item.macd_dea || 0),
- itemStyle: { color: '#52c41a' },
- lineStyle: { width: 2 }
- },
- {
- name: 'MACD',
- type: 'bar',
- yAxisIndex: 0,
- data: reversedData.map(item => item.macd || 0),
- itemStyle: {
- color: function(params) {
- return params.value >= 0 ? '#ff4d4f' : '#52c41a';
- }
- }
- },
- {
- name: 'RSI(6)',
- type: 'line',
- yAxisIndex: 1,
- data: reversedData.map(item => item.rsi_6 || 0),
- itemStyle: { color: '#1890ff' }
- },
- {
- name: 'RSI(12)',
- type: 'line',
- yAxisIndex: 1,
- data: reversedData.map(item => item.rsi_12 || 0),
- itemStyle: { color: '#722ed1' }
- },
- {
- name: 'KDJ K',
- type: 'line',
- yAxisIndex: 1,
- data: reversedData.map(item => item.kdj_k || 0),
- itemStyle: { color: '#fa8c16' }
- },
- {
- name: 'KDJ D',
- type: 'line',
- yAxisIndex: 1,
- data: reversedData.map(item => item.kdj_d || 0),
- itemStyle: { color: '#13c2c2' }
- }
- ]
- };
- factorsChart.setOption(factorsOption);
+        renderTechAnalysis();
+    } catch (error) {
+        container.innerHTML = '<div class="text-center py-4 text-muted">技术分析数据加载失败</div>';
+        console.error('加载技术分析失败:', error);
+    }
 }
 
- // 加载资金流向数据
+function renderTechAnalysis() {
+    const container = document.getElementById('tech-analysis-content');
+    const factorsAvailable = _analysisFactorsData.length > 0;
+    const factorsMessage = !_analysisFactorsData.length ? '技术指标数据暂不可用，以下部分功能受限。' : '';
 
+    container.innerHTML = `
+    <!-- 实时分析与监控 -->
+    <div class="row mb-4">
+        <div class="col-lg-6 mb-3 mb-lg-0">
+            <div class="page-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div><h6 class="mb-0 fw-bold">实时分析</h6><small class="text-muted">基于最新交易日价格与技术因子自动生成</small></div>
+                        <span class="badge bg-primary bg-opacity-10 text-primary">最新分析</span>
+                    </div>
+                    <div id="realtime-analysis-content"><div class="text-muted">加载中...</div></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="page-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div><h6 class="mb-0 fw-bold">实时监控</h6><small class="text-muted">量能、波动与技术信号状态</small></div>
+                        <span class="badge bg-warning bg-opacity-10 text-warning">监控中</span>
+                    </div>
+                    <div id="realtime-monitor-content"><div class="text-muted">加载中...</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 指标图表 -->
+    <div class="page-card mb-4">
+        <div class="card-header border-0 bg-transparent pt-3 pb-0">
+            <div class="d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 fw-bold" id="indicator-title">MACD 指标</h6>
+                <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-outline-primary active" onclick="switchIndicator('macd', this)">MACD</button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="switchIndicator('kdj', this)">KDJ</button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="switchIndicator('rsi', this)">RSI</button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="switchIndicator('boll', this)">布林带</button>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="indicator-chart" style="height:380px;"></div>
+        </div>
+    </div>
+
+    ${factorsMessage ? `<div class="alert alert-warning">${factorsMessage}</div>` : ''}
+
+    <!-- 详细数据表格 -->
+    <div class="page-card">
+        <div class="card-header border-0 bg-transparent pt-3 pb-0">
+            <h6 class="mb-0 fw-bold">技术数据明细</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead><tr><th>日期</th><th>开盘</th><th>收盘</th><th>涨跌幅</th><th>RSI(6)</th><th>MACD</th><th>KDJ-K</th></tr></thead>
+                    <tbody id="analysis-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>`;
+
+    // 渲染实时分析
+    renderRealtimeInsights(_analysisHistoryData, _analysisFactorsData);
+    // 渲染指标图表
+    if (factorsAvailable) {
+        renderIndicatorChart('macd');
+    } else {
+        const chart = _safeInitChart('indicator-chart');
+        if (chart) chart.setOption({ title: { text: '技术指标暂不可用', left: 'center', top: 'center', textStyle: { color: '#94a3b8' } }, xAxis: { show: false }, yAxis: { show: false }, series: [] });
+    }
+    // 渲染数据表格
+    renderAnalysisTable(_analysisHistoryData, _analysisFactorsData);
+}
+
+function renderRealtimeInsights(historyData, factorsData) {
+    const analysisContainer = document.getElementById('realtime-analysis-content');
+    const monitorContainer = document.getElementById('realtime-monitor-content');
+    if (!analysisContainer || !monitorContainer || !historyData || !historyData.length) return;
+
+    const latest = historyData[0];
+    const previous = historyData[1] || null;
+    const latestFactor = _findFactorByTradeDate(factorsData, latest.trade_date);
+    const latestClose = Number(latest.close || 0);
+    const priceChange = previous ? ((latestClose - Number(previous.close || 0)) / Number(previous.close || 1)) * 100 : 0;
+    const ma5 = _average(historyData.slice(0, 5).map(item => Number(item.close || 0)));
+    const ma20 = _average(historyData.slice(0, 20).map(item => Number(item.close || 0)));
+    const avgVolume5 = _average(historyData.slice(1, 6).map(item => Number(item.vol || 0)));
+    const volumeRatio = avgVolume5 > 0 ? Number(latest.vol || 0) / avgVolume5 : 1;
+    const rsi6 = Number(latestFactor?.rsi_6 ?? 0);
+    const macd = Number(latestFactor?.macd ?? 0);
+    const kdjK = Number(latestFactor?.kdj_k ?? 0);
+    const bollUpper = Number(latestFactor?.boll_upper ?? 0);
+    const bollLower = Number(latestFactor?.boll_lower ?? 0);
+
+    // 趋势判断
+    let trendTitle, trendChip, trendText;
+    if (latestClose >= ma5 && latestClose >= ma20 && priceChange >= 0) {
+        trendTitle = '短线趋势偏强';
+        trendChip = `站上均线（MA5 ${formatNumber(ma5,2)} / MA20 ${formatNumber(ma20,2)}）`;
+        trendText = '价格位于短中期均线上方，走势具备延续性。';
+    } else if (latestClose < ma5 && latestClose < ma20 && priceChange < 0) {
+        trendTitle = '短线走势承压';
+        trendChip = `弱于均线（MA5 ${formatNumber(ma5,2)} / MA20 ${formatNumber(ma20,2)}）`;
+        trendText = '价格位于均线下方，关注止跌信号。';
+    } else {
+        trendTitle = '区间震荡观察';
+        trendChip = `均线附近（MA5 ${formatNumber(ma5,2)} / MA20 ${formatNumber(ma20,2)}）`;
+        trendText = '趋势方向尚未拉开，配合量能确认。';
+    }
+
+    // 动能判断
+    let momentumText;
+    if (macd > 0 && rsi6 >= 55) momentumText = `MACD/RSI 共振偏强，KDJ-K ${formatNumber(kdjK,2)}`;
+    else if (rsi6 >= 70) momentumText = `RSI(6) ${formatNumber(rsi6,2)} 偏热`;
+    else if (macd < 0 && rsi6 <= 45) momentumText = `MACD 偏弱且 RSI 回落，KDJ-K ${formatNumber(kdjK,2)}`;
+    else momentumText = `指标中性，KDJ-K ${formatNumber(kdjK,2)}，等待突破`;
+
+    // 波动位置
+    let volatilityText;
+    if (bollUpper && latestClose >= bollUpper) volatilityText = '触及布林上轨，波动放大';
+    else if (bollLower && latestClose <= bollLower) volatilityText = '接近布林下轨，防守压力大';
+    else if (bollUpper && bollLower) volatilityText = `布林区间内（${formatNumber(bollLower,2)} - ${formatNumber(bollUpper,2)}）`;
+    else volatilityText = '暂无布林数据';
+
+    analysisContainer.innerHTML = `
+    <div class="p-3 rounded" style="background:linear-gradient(135deg,rgba(37,99,235,0.06),rgba(59,130,246,0.02));border:1px solid rgba(37,99,235,0.1);">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <div>
+                <div class="text-muted small text-uppercase" style="letter-spacing:0.06em;">实时分析结论</div>
+                <div class="fw-bold" style="font-size:1.1rem;">${trendTitle}</div>
+                <div class="text-muted" style="font-size:0.88rem;">${trendText}</div>
+            </div>
+            <span class="text-muted small">${_formatTradeDate(latest.trade_date)}</span>
+        </div>
+        <div class="row g-2 mt-2">
+            <div class="col-4"><div class="p-2 rounded" style="background:rgba(248,250,252,0.8);border:1px solid var(--card-border);"><div class="text-muted small">趋势结构</div><div class="fw-semibold" style="font-size:0.88rem;">${trendChip}</div></div></div>
+            <div class="col-4"><div class="p-2 rounded" style="background:rgba(248,250,252,0.8);border:1px solid var(--card-border);"><div class="text-muted small">动能状态</div><div class="fw-semibold" style="font-size:0.88rem;">${momentumText}</div></div></div>
+            <div class="col-4"><div class="p-2 rounded" style="background:rgba(248,250,252,0.8);border:1px solid var(--card-border);"><div class="text-muted small">波动位置</div><div class="fw-semibold" style="font-size:0.88rem;">${volatilityText}</div></div></div>
+        </div>
+    </div>`;
+
+    // 监控信号
+    const monitorItems = [
+        { title: '量能监控', status: volumeRatio >= 1.6 ? '放量' : volumeRatio <= 0.75 ? '缩量' : '平稳', level: volumeRatio >= 1.6 ? 'warning' : volumeRatio <= 0.75 ? 'secondary' : 'success', text: volumeRatio >= 1.6 ? `量约为5日均量 ${formatNumber(volumeRatio,2)} 倍，活跃度抬升。` : volumeRatio <= 0.75 ? '量能低于5日均值，资金偏谨慎。' : '量能平稳，暂无明显异动。' },
+        { title: '动能监控', status: rsi6 >= 70 ? '偏热' : rsi6 <= 30 ? '偏弱' : '中性', level: rsi6 >= 70 ? 'danger' : rsi6 <= 30 ? 'success' : 'primary', text: rsi6 ? `RSI(6) ${formatNumber(rsi6,2)}，${rsi6 >= 70 ? '注意追高。' : rsi6 <= 30 ? '关注企稳反弹。' : '中性区间。'}` : '暂无RSI数据。' },
+        { title: 'MACD监控', status: macd > 0 ? '偏强' : macd < 0 ? '偏弱' : '观望', level: macd > 0 ? 'success' : macd < 0 ? 'danger' : 'secondary', text: macd > 0 ? 'MACD 零轴上方，趋势动能偏多。' : macd < 0 ? 'MACD 零轴下方，短线有整理压力。' : 'MACD 靠近零轴，方向待确认。' },
+        { title: '波动监控', status: bollUpper && latestClose >= bollUpper ? '突破' : bollLower && latestClose <= bollLower ? '承压' : '正常', level: bollUpper && latestClose >= bollUpper ? 'warning' : bollLower && latestClose <= bollLower ? 'danger' : 'primary', text: bollUpper && latestClose >= bollUpper ? '突破布林上轨，注意高位震荡。' : bollLower && latestClose <= bollLower ? '逼近布林下轨，关注止跌信号。' : '波动正常。' }
+    ];
+    const levelColors = { success: 'text-bg-success', danger: 'text-bg-danger', warning: 'text-bg-warning', secondary: 'text-bg-secondary', primary: 'text-bg-primary' };
+    monitorContainer.innerHTML = monitorItems.map(item => `
+    <div class="d-flex justify-content-between align-items-start py-2 ${item !== monitorItems[monitorItems.length-1] ? 'border-bottom' : ''}">
+        <div style="flex:1;min-width:0;">
+            <div class="fw-semibold" style="font-size:0.9rem;">${item.title}</div>
+            <div class="text-muted" style="font-size:0.82rem;">${item.text}</div>
+        </div>
+        <span class="badge ${levelColors[item.level] || 'text-bg-secondary'} ms-2" style="font-size:0.75rem;">${item.status}</span>
+    </div>`).join('');
+}
+
+function switchIndicator(indicator, btn) {
+    _currentIndicator = indicator;
+    // 更新按钮状态
+    if (btn) {
+        btn.closest('.d-flex').querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+    // 更新标题
+    const titles = { macd: 'MACD 指标', kdj: 'KDJ 指标', rsi: 'RSI 指标', boll: '布林带指标' };
+    document.getElementById('indicator-title').textContent = titles[indicator] || '';
+    // 渲染图表
+    renderIndicatorChart(indicator);
+}
+
+function renderIndicatorChart(indicator) {
+    const chart = _safeInitChart('indicator-chart');
+    if (!chart) return;
+
+    const reversedHistory = [..._analysisHistoryData].reverse();
+    const reversedFactors = [..._analysisFactorsData].reverse();
+    const dates = reversedFactors.map(item => item.trade_date);
+
+    switch(indicator) {
+        case 'macd': _renderMACDChart(chart, dates, reversedFactors); break;
+        case 'kdj': _renderKDJChart(chart, dates, reversedFactors); break;
+        case 'rsi': _renderRSIChart(chart, dates, reversedFactors); break;
+        case 'boll': _renderBollChart(chart, reversedHistory, reversedFactors); break;
+    }
+}
+
+function _renderMACDChart(chart, dates, data) {
+    chart.setOption({
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['DIF', 'DEA', 'MACD'], top: 5, textStyle: { fontSize: 11 } },
+        grid: { left: 48, right: 16, top: 40, bottom: 50 },
+        xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45, fontSize: 10 } },
+        yAxis: { type: 'value', axisLabel: { fontSize: 10 } },
+        dataZoom: [{ type: 'inside', start: 60, end: 100 }, { type: 'slider', bottom: 4, height: 16, start: 60, end: 100 }],
+        series: [
+            { name: 'DIF', type: 'line', data: data.map(i => i.macd_dif || 0), lineStyle: { width: 1.5 }, itemStyle: { color: '#ff4d4f' }, showSymbol: false },
+            { name: 'DEA', type: 'line', data: data.map(i => i.macd_dea || 0), lineStyle: { width: 1.5 }, itemStyle: { color: '#52c41a' }, showSymbol: false },
+            { name: 'MACD', type: 'bar', data: data.map(i => i.macd || 0), itemStyle: { color: function(p) { return p.value >= 0 ? '#ff4d4f' : '#52c41a'; } } }
+        ]
+    }, true);
+}
+
+function _renderKDJChart(chart, dates, data) {
+    chart.setOption({
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['K', 'D', 'J'], top: 5, textStyle: { fontSize: 11 } },
+        grid: { left: 48, right: 16, top: 40, bottom: 50 },
+        xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45, fontSize: 10 } },
+        yAxis: { type: 'value', min: function(v) { return Math.min(v.min, -10); }, max: function(v) { return Math.max(v.max, 110); }, axisLabel: { fontSize: 10 } },
+        dataZoom: [{ type: 'inside', start: 60, end: 100 }, { type: 'slider', bottom: 4, height: 16, start: 60, end: 100 }],
+        series: [
+            { name: 'K', type: 'line', data: data.map(i => i.kdj_k || 0), lineStyle: { width: 1.5 }, itemStyle: { color: '#5470c6' }, showSymbol: false },
+            { name: 'D', type: 'line', data: data.map(i => i.kdj_d || 0), lineStyle: { width: 1.5 }, itemStyle: { color: '#91cc75' }, showSymbol: false },
+            { name: 'J', type: 'line', data: data.map(i => i.kdj_j || 0), lineStyle: { width: 1.5 }, itemStyle: { color: '#fac858' }, showSymbol: false }
+        ],
+        markLine: { silent: true, data: [{ yAxis: 80, lineStyle: { color: '#ef4444', type: 'dashed' } }, { yAxis: 20, lineStyle: { color: '#22c55e', type: 'dashed' } }, { yAxis: 100, lineStyle: { color: '#999', type: 'dotted', width: 1 } }, { yAxis: 0, lineStyle: { color: '#999', type: 'dotted', width: 1 } }] }
+    }, true);
+}
+
+function _renderRSIChart(chart, dates, data) {
+    chart.setOption({
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['RSI(6)', 'RSI(12)', 'RSI(24)'], top: 5, textStyle: { fontSize: 11 } },
+        grid: { left: 48, right: 16, top: 40, bottom: 50 },
+        xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45, fontSize: 10 } },
+        yAxis: { type: 'value', min: 0, max: 100, axisLabel: { fontSize: 10 } },
+        dataZoom: [{ type: 'inside', start: 60, end: 100 }, { type: 'slider', bottom: 4, height: 16, start: 60, end: 100 }],
+        series: [
+            { name: 'RSI(6)', type: 'line', data: data.map(i => i.rsi_6 || 0), lineStyle: { width: 1.5 }, itemStyle: { color: '#5470c6' }, showSymbol: false },
+            { name: 'RSI(12)', type: 'line', data: data.map(i => i.rsi_12 || 0), lineStyle: { width: 1.5 }, itemStyle: { color: '#91cc75' }, showSymbol: false },
+            { name: 'RSI(24)', type: 'line', data: data.map(i => i.rsi_24 || 0), lineStyle: { width: 1.5 }, itemStyle: { color: '#fac858' }, showSymbol: false }
+        ],
+        markLine: { silent: true, data: [{ yAxis: 70, lineStyle: { color: '#ef4444', type: 'dashed' } }, { yAxis: 30, lineStyle: { color: '#22c55e', type: 'dashed' } }] }
+    }, true);
+}
+
+function _renderBollChart(chart, reversedHistory, reversedFactors) {
+    const dates = reversedHistory.map(i => i.trade_date);
+    const closeData = reversedHistory.map(i => i.close);
+    const bollUpper = [], bollMid = [], bollLower = [];
+    dates.forEach(date => {
+        const factor = reversedFactors.find(f => f.trade_date === date);
+        bollUpper.push(factor ? factor.boll_upper || 0 : 0);
+        bollMid.push(factor ? factor.boll_mid || 0 : 0);
+        bollLower.push(factor ? factor.boll_lower || 0 : 0);
+    });
+    chart.setOption({
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['收盘价', '上轨', '中轨', '下轨'], top: 5, textStyle: { fontSize: 11 } },
+        grid: { left: 48, right: 16, top: 40, bottom: 50 },
+        xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45, fontSize: 10 } },
+        yAxis: { type: 'value', scale: true, axisLabel: { fontSize: 10 } },
+        dataZoom: [{ type: 'inside', start: 60, end: 100 }, { type: 'slider', bottom: 4, height: 16, start: 60, end: 100 }],
+        series: [
+            { name: '收盘价', type: 'line', data: closeData, lineStyle: { width: 2 }, itemStyle: { color: '#5470c6' }, showSymbol: false },
+            { name: '上轨', type: 'line', data: bollUpper, lineStyle: { width: 1, type: 'dashed' }, itemStyle: { color: '#ef4444' }, showSymbol: false },
+            { name: '中轨', type: 'line', data: bollMid, lineStyle: { width: 1 }, itemStyle: { color: '#fac858' }, showSymbol: false },
+            { name: '下轨', type: 'line', data: bollLower, lineStyle: { width: 1, type: 'dashed' }, itemStyle: { color: '#22c55e' }, showSymbol: false }
+        ]
+    }, true);
+}
+
+function renderAnalysisTable(historyData, factorsData) {
+    const tbody = document.getElementById('analysis-table-body');
+    if (!tbody || !historyData) return;
+    const merged = historyData.slice(0, 20).map(h => {
+        const f = factorsData.find(f => _normalizeTradeDate(f.trade_date) === _normalizeTradeDate(h.trade_date)) || {};
+        return { ...h, ...f };
+    });
+    tbody.innerHTML = merged.map(item => `<tr>
+        <td><strong>${item.trade_date || '--'}</strong></td>
+        <td>${formatNumber(item.open, 2)}</td>
+        <td class="text-primary"><strong>${formatNumber(item.close, 2)}</strong></td>
+        <td class="${(item.pct_chg||0)>=0?'text-danger':'text-success'}">${formatPercent(item.pct_chg||0)}</td>
+        <td class="${(item.rsi_6||0)>70?'text-danger':(item.rsi_6||0)<30?'text-success':''}">${formatNumber(item.rsi_6,2)}</td>
+        <td class="${(item.macd||0)>=0?'text-danger':'text-success'}">${formatNumber(item.macd,4)}</td>
+        <td>${formatNumber(item.kdj_k,2)}</td>
+    </tr>`).join('');
+}
+
+// ========== 辅助函数（技术分析用） ==========
+function _findFactorByTradeDate(factors, tradeDate) {
+    if (!Array.isArray(factors) || !factors.length) return null;
+    const target = _normalizeTradeDate(tradeDate);
+    return factors.find(item => _normalizeTradeDate(item.trade_date) === target) || factors[factors.length - 1] || factors[0];
+}
+function _normalizeTradeDate(td) { return String(td || '').replace(/-/g, ''); }
+function _formatTradeDate(td) { const n = _normalizeTradeDate(td); return n.length !== 8 ? (td || '--') : `${n.slice(0,4)}-${n.slice(4,6)}-${n.slice(6,8)}`; }
+function _average(values) { const v = values.filter(x => Number.isFinite(x) && x > 0); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : 0; }
+
+// ========== 资金流向 ==========
 async function loadMoneyflowData() {
- if (document.getElementById('moneyflow-content').innerHTML.includes('加载中')) return;
- showLoading('moneyflow-content', 'skeleton');
- try {
- const response = await apiRequest(`/stocks/${tsCode}/moneyflow?limit=60`);
- if (response.code === 200) {
- renderMoneyflowData(response.data);
- } else {
- showError('moneyflow-content', '资金流向数据加载失败');
- }
- } catch (error) {
- showError('moneyflow-content', '资金流向数据加载失败');
- console.error('加载资金流向数据失败:', error);
- }
-
+    if (document.getElementById('moneyflow-content').innerHTML.includes('加载中')) return;
+    showLoading('moneyflow-content', 'skeleton');
+    try {
+        const response = await apiRequest(`/stocks/${tsCode}/moneyflow?limit=60`);
+        if (response.code === 200) { renderMoneyflowData(response.data); }
+        else { showError('moneyflow-content', '资金流向数据加载失败'); }
+    } catch (error) { showError('moneyflow-content', '资金流向数据加载失败'); console.error(error); }
 }
- // 渲染资金流向数据
 
 function renderMoneyflowData(data) {
- const container = document.getElementById('moneyflow-content');
- if (!data || data.length === 0) {
- container.innerHTML = '<div class="text-center py-4"><p class="text-muted">暂无资金流向数据</p></div>';
- return;
- }
- const html = `
-  <div class="mb-3">
-<small class="text-muted">资金流向数据，共 ${data.length} 条记录</small>
-</div>
-<!-- 资金流向图表 -->
-<div class="row mb-4">
-<div class="col-md-8">
-<div class="card">
-<div class="card-header">
-<h6 class="mb-0">? 分单资金买卖对比</h6>
-</div>
-<div class="card-body">
-<div id="moneyflow-chart" style="height: 400px;"></div>
-</div>
-</div>
-</div>
-<div class="col-md-4">
-<div class="card">
-<div class="card-header">
-<h6 class="mb-0">? 净流入趋势</h6>
-</div>
-<div class="card-body">
-<div id="netflow-chart" style="height: 400px;"></div>
-</div>
-</div>
-</div>
-</div>
-<!-- 资金形态指标 -->
-<div class="row mb-4">
-<div class="col-12">
-<div class="card">
-<div class="card-header">
-<h6 class="mb-0">? 资金形态指标</h6>
-</div>
-<div class="card-body">
-<div class="row" id="money-indicators">
-<!-- 动态生成指标卡片 -->
-</div>
-</div>
-</div>
-</div>
-</div>
-<!-- 详细数据表格 -->
-<div class="card">
-<div class="card-header">
-<h6 class="mb-0">? 详细数据</h6>
-</div>
-<div class="card-body">
-<div class="table-responsive">
-<table class="table table-sm table-hover">
-<thead>
-<tr>
-<th>日期</th>
-<th>净流入额</th>
-<th>特大单买入</th>
-<th>特大单卖出</th>
-<th>大单买入</th>
-<th>大单卖出</th>
-<th>中单买入</th>
-<th>中单卖出</th>
-<th>小单买入</th>
-<th>小单卖出</th>
-</tr>
-</thead>
-<tbody> ${data.slice(0, 30).map(item => `
-  <tr>
-<td>${item.trade_date || '--'}</td>
-<td class="${(item.net_mf_amount || 0) >= 0 ? 'text-danger' : 'text-success'}">
-<strong>${formatNumber(item.net_mf_amount, 0)}</strong>
-</td>
-<td class="text-danger">${formatNumber(item.buy_elg_amount, 0)}</td>
-<td class="text-success">${formatNumber(item.sell_elg_amount, 0)}</td>
-<td class="text-danger">${formatNumber(item.buy_lg_amount, 0)}</td>
-<td class="text-success">${formatNumber(item.sell_lg_amount, 0)}</td>
-<td class="text-danger">${formatNumber(item.buy_md_amount, 0)}</td>
-<td class="text-success">${formatNumber(item.sell_md_amount, 0)}</td>
-<td class="text-danger">${formatNumber(item.buy_sm_amount, 0)}</td>
-<td class="text-success">${formatNumber(item.sell_sm_amount, 0)}</td>
-</tr> `).join('')}
-  </tbody>
-</table>
-</div>
-</div>
-</div> `;
- container.innerHTML = html;
- // 渲染图表
- renderMoneyflowCharts(data);
-
+    const container = document.getElementById('moneyflow-content');
+    if (!data || data.length === 0) { container.innerHTML = '<div class="text-center py-4"><p class="text-muted">暂无资金流向数据</p></div>'; return; }
+    container.innerHTML = `
+    <div class="mb-3"><small class="text-muted">资金流向数据，共 ${data.length} 条记录</small></div>
+    <div class="row mb-4">
+        <div class="col-md-8"><div class="card"><div class="card-header"><h6 class="mb-0">分单资金买卖对比</h6></div><div class="card-body"><div id="moneyflow-chart" style="height:400px;"></div></div></div></div>
+        <div class="col-md-4"><div class="card"><div class="card-header"><h6 class="mb-0">净流入趋势</h6></div><div class="card-body"><div id="netflow-chart" style="height:400px;"></div></div></div></div>
+    </div>
+    <div class="row mb-4"><div class="col-12"><div class="card"><div class="card-header"><h6 class="mb-0">资金形态指标</h6></div><div class="card-body"><div class="row" id="money-indicators"></div></div></div></div></div>
+    <div class="card"><div class="card-header"><h6 class="mb-0">详细数据</h6></div><div class="card-body"><div class="table-responsive">
+        <table class="table table-sm table-hover"><thead><tr><th>日期</th><th>净流入额</th><th>特大单买入</th><th>特大单卖出</th><th>大单买入</th><th>大单卖出</th><th>中单买入</th><th>中单卖出</th><th>小单买入</th><th>小单卖出</th></tr></thead>
+        <tbody>${data.slice(0,30).map(item => `<tr>
+            <td>${item.trade_date||'--'}</td>
+            <td class="${(item.net_mf_amount||0)>=0?'text-danger':'text-success'}"><strong>${formatNumber(item.net_mf_amount,0)}</strong></td>
+            <td class="text-danger">${formatNumber(item.buy_elg_amount,0)}</td><td class="text-success">${formatNumber(item.sell_elg_amount,0)}</td>
+            <td class="text-danger">${formatNumber(item.buy_lg_amount,0)}</td><td class="text-success">${formatNumber(item.sell_lg_amount,0)}</td>
+            <td class="text-danger">${formatNumber(item.buy_md_amount,0)}</td><td class="text-success">${formatNumber(item.sell_md_amount,0)}</td>
+            <td class="text-danger">${formatNumber(item.buy_sm_amount,0)}</td><td class="text-success">${formatNumber(item.sell_sm_amount,0)}</td>
+        </tr>`).join('')}</tbody></table>
+    </div></div></div>`;
+    renderMoneyflowCharts(data);
 }
- // 渲染资金流向图表
 
 function renderMoneyflowCharts(data) {
- // 分单资金买卖对比图
- const moneyflowChart = _safeInitChart('moneyflow-chart');
- if (!moneyflowChart) return;
- const dates = data.map(item => item.trade_date).reverse();
- const latestData = data[0]; // 最新一天的数据
- // 分单买卖对比（最新一天）
- const moneyflowOption = {
- title: {
- text: '分单资金买卖对比',
- subtext: `${latestData.trade_date}`,
- left: 'center'
- },
- tooltip: {
- trigger: 'axis',
- axisPointer: {
- type: 'shadow'
- },
- formatter: function(params) {
- let result = params[0].name + '<br/>';
- params.forEach(param => {
- const value = Math.abs(param.value);
- result += param.marker + param.seriesName + ': ' + formatNumber(value, 0) + '万<br/>';
- });
- return result;
- }
- },
- legend: {
- data: ['买入', '卖出'],
- top: 30
- },
- grid: {
- left: '3%',
- right: '4%',
- bottom: '3%',
- containLabel: true
- },
- xAxis: {
- type: 'category',
- data: ['特大单', '大单', '中单', '小单']
- },
- yAxis: {
- type: 'value',
- axisLabel: {
- formatter: function(value) {
- return formatNumber(Math.abs(value), 0) + '万';
- }
- }
- },
- series: [
- {
- name: '买入',
- type: 'bar',
- data: [
- latestData.buy_elg_amount || 0,
- latestData.buy_lg_amount || 0,
- latestData.buy_md_amount || 0,
- latestData.buy_sm_amount || 0
- ],
- itemStyle: {
- color: '#ff4d4f'
- }
- },
- {
- name: '卖出',
- type: 'bar',
- data: [
- -(latestData.sell_elg_amount || 0),
- -(latestData.sell_lg_amount || 0),
- -(latestData.sell_md_amount || 0),
- -(latestData.sell_sm_amount || 0)
- ],
- itemStyle: {
- color: '#52c41a'
- }
- }
- ]
- };
- moneyflowChart.setOption(moneyflowOption);
- // 净流入趋势图
- const netflowChart = _safeInitChart('netflow-chart');
- if (!netflowChart) return;
- const netflowOption = {
- title: {
- text: '净流入趋势',
- left: 'center'
- },
- tooltip: {
- trigger: 'axis',
- formatter: function(params) {
- const data = params[0];
- return `${data.name}<br/>净流入: ${formatNumber(data.value, 0)}万`;
- }
- },
- grid: {
- left: '3%',
- right: '4%',
- bottom: '15%',
- containLabel: true
- },
- xAxis: {
- type: 'category',
- data: dates,
- axisLabel: {
- rotate: 45
- }
- },
- yAxis: {
- type: 'value',
- axisLabel: {
- formatter: function(value) {
- return formatNumber(value, 0) + '万';
- }
- }
- },
- series: [{
- name: '净流入',
- type: 'line',
- data: data.map(item => item.net_mf_amount || 0).reverse(),
- itemStyle: {
- color: '#1890ff'
- },
- areaStyle: {
- color: {
- type: 'linear',
- x: 0,
- y: 0,
- x2: 0,
- y2: 1,
- colorStops: [{
- offset: 0, color: 'rgba(24, 144, 255, 0.3)'
- }, {
- offset: 1, color: 'rgba(24, 144, 255, 0.1)'
- }]
- }
- }
- }],
- dataZoom: [
-  { type: 'inside', start: 0, end: 100 },
-  { type: 'slider', bottom: 4, height: 18, borderColor: '#e2e8f0', fillerColor: 'rgba(37,99,235,0.1)' }
- ]
- };
- netflowChart.setOption(netflowOption);
- // 渲染资金形态指标
- renderMoneyIndicators(latestData);
-}
+    const moneyflowChart = _safeInitChart('moneyflow-chart');
+    if (!moneyflowChart) return;
+    const dates = data.map(item => item.trade_date).reverse();
+    const latestData = data[0];
+    moneyflowChart.setOption({
+        title: { text: '分单资金买卖对比', subtext: latestData.trade_date, left: 'center' },
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        legend: { data: ['买入', '卖出'], top: 30 },
+        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+        xAxis: { type: 'category', data: ['特大单', '大单', '中单', '小单'] },
+        yAxis: { type: 'value', axisLabel: { formatter: v => formatNumber(Math.abs(v), 0) + '万' } },
+        series: [
+            { name: '买入', type: 'bar', data: [latestData.buy_elg_amount||0, latestData.buy_lg_amount||0, latestData.buy_md_amount||0, latestData.buy_sm_amount||0], itemStyle: { color: '#ff4d4f' } },
+            { name: '卖出', type: 'bar', data: [-(latestData.sell_elg_amount||0), -(latestData.sell_lg_amount||0), -(latestData.sell_md_amount||0), -(latestData.sell_sm_amount||0)], itemStyle: { color: '#52c41a' } }
+        ]
+    });
 
- // 渲染资金形态指标
+    const netflowChart = _safeInitChart('netflow-chart');
+    if (!netflowChart) return;
+    netflowChart.setOption({
+        title: { text: '净流入趋势', left: 'center' },
+        tooltip: { trigger: 'axis', formatter: p => `${p[0].name}<br/>净流入: ${formatNumber(p[0].value,0)}万` },
+        grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
+        xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45 } },
+        yAxis: { type: 'value', axisLabel: { formatter: v => formatNumber(v,0) + '万' } },
+        series: [{ name: '净流入', type: 'line', data: data.map(i => i.net_mf_amount || 0).reverse(), itemStyle: { color: '#1890ff' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(24,144,255,0.3)' }, { offset: 1, color: 'rgba(24,144,255,0.1)' }] } } }],
+        dataZoom: [{ type: 'inside', start: 0, end: 100 }, { type: 'slider', bottom: 4, height: 18, borderColor: '#e2e8f0', fillerColor: 'rgba(37,99,235,0.1)' }]
+    });
+
+    renderMoneyIndicators(latestData);
+}
 
 function renderMoneyIndicators(data) {
- const container = document.getElementById('money-indicators');
- // 计算各种指标
- const totalBuy = (data.buy_elg_amount || 0) + (data.buy_lg_amount || 0) + (data.buy_md_amount || 0) + (data.buy_sm_amount || 0);
- const totalSell = (data.sell_elg_amount || 0) + (data.sell_lg_amount || 0) + (data.sell_md_amount || 0) + (data.sell_sm_amount || 0);
- const mainBuy = (data.buy_elg_amount || 0) + (data.buy_lg_amount || 0); // 主力买入（特大单+大单）
- const mainSell = (data.sell_elg_amount || 0) + (data.sell_lg_amount || 0); // 主力卖出
- const lgBuyRate = totalBuy > 0 ? ((data.buy_lg_amount || 0) / totalBuy * 100) : 0;
- const elgBuyRate = totalBuy > 0 ? ((data.buy_elg_amount || 0) / totalBuy * 100) : 0;
- const mainNetFlow = mainBuy - mainSell;
- const html = `
-  <div class="col-md-3">
-<div class="text-center p-3 bg-light rounded">
-<h5 class="text-primary">${formatNumber(data.net_mf_amount || 0, 0)}</h5>
-<small class="text-muted">净流入额(万)</small>
-</div>
-</div>
-<div class="col-md-3">
-<div class="text-center p-3 bg-light rounded">
-<h5 class="text-success">${formatNumber(lgBuyRate, 1)}%</h5>
-<small class="text-muted">大单买入占比</small>
-</div>
-</div>
-<div class="col-md-3">
-<div class="text-center p-3 bg-light rounded">
-<h5 class="text-warning">${formatNumber(elgBuyRate, 1)}%</h5>
-<small class="text-muted">特大单买入占比</small>
-</div>
-</div>
-<div class="col-md-3">
-<div class="text-center p-3 bg-light rounded">
-<h5 class="${mainNetFlow >= 0 ? 'text-danger' : 'text-success'}">${formatNumber(mainNetFlow, 0)}</h5>
-<small class="text-muted">主力净流入(万)</small>
-</div>
-</div> `;
- container.innerHTML = html;
-
+    const container = document.getElementById('money-indicators');
+    const totalBuy = (data.buy_elg_amount||0)+(data.buy_lg_amount||0)+(data.buy_md_amount||0)+(data.buy_sm_amount||0);
+    const mainBuy = (data.buy_elg_amount||0)+(data.buy_lg_amount||0);
+    const mainSell = (data.sell_elg_amount||0)+(data.sell_lg_amount||0);
+    const mainNetFlow = mainBuy - mainSell;
+    const lgBuyRate = totalBuy > 0 ? (data.buy_lg_amount||0)/totalBuy*100 : 0;
+    const elgBuyRate = totalBuy > 0 ? (data.buy_elg_amount||0)/totalBuy*100 : 0;
+    container.innerHTML = `
+    <div class="col-md-3"><div class="text-center p-3 bg-light rounded"><h5 class="text-primary">${formatNumber(data.net_mf_amount||0,0)}</h5><small class="text-muted">净流入额(万)</small></div></div>
+    <div class="col-md-3"><div class="text-center p-3 bg-light rounded"><h5 class="text-success">${formatNumber(lgBuyRate,1)}%</h5><small class="text-muted">大单买入占比</small></div></div>
+    <div class="col-md-3"><div class="text-center p-3 bg-light rounded"><h5 class="text-warning">${formatNumber(elgBuyRate,1)}%</h5><small class="text-muted">特大单买入占比</small></div></div>
+    <div class="col-md-3"><div class="text-center p-3 bg-light rounded"><h5 class="${mainNetFlow>=0?'text-danger':'text-success'}">${formatNumber(mainNetFlow,0)}</h5><small class="text-muted">主力净流入(万)</small></div></div>`;
 }
- // 加载筹码分布数据
 
+// ========== 筹码分布 ==========
+let _cyqChipsLoaded = false;
 async function loadCyqData() {
- if (document.getElementById('cyq-content').innerHTML.includes('加载中')) return;
- showLoading('cyq-content', 'skeleton');
- try {
- const response = await apiRequest(`/stocks/${tsCode}/cyq?limit=60`);
- if (response.code === 200) {
- renderCyqData(response.data);
- } else {
- showError('cyq-content', '筹码分布数据加载失败');
- }
- } catch (error) {
- showError('cyq-content', '筹码分布数据加载失败');
- console.error('加载筹码分布数据失败:', error);
- }
-
-}
- // 渲染筹码分布数据
-
-function renderCyqData(data) {
- const container = document.getElementById('cyq-content');
- if (!data || data.length === 0) {
- container.innerHTML = '<div class="text-center py-4"><p class="text-muted">暂无筹码分布数据</p></div>';
- return;
- }
- const html = `
-  <div class="mb-3">
-<small class="text-muted">筹码分布数据，共 ${data.length} 条记录</small>
-</div>
-<!-- 筹码分布图表 -->
-<div class="row mb-4">
-<div class="col-md-8">
-<div class="card">
-<div class="card-header">
-<h6 class="mb-0">? 成本分位曲线</h6>
-</div>
-<div class="card-body">
-<div id="cost-distribution-chart" style="height: 400px;"></div>
-</div>
-</div>
-</div>
-<div class="col-md-4">
-<div class="card">
-<div class="card-header">
-<h6 class="mb-0">? 胜率变化</h6>
-</div>
-<div class="card-body">
-<div id="winner-rate-chart" style="height: 400px;"></div>
-</div>
-</div>
-</div>
-</div>
-<!-- 筹码分析指标 -->
-<div class="row mb-4">
-<div class="col-12">
-<div class="card">
-<div class="card-header">
-<h6 class="mb-0">? 筹码分析指标</h6>
-</div>
-<div class="card-body">
-<div class="row" id="cyq-indicators">
-<!-- 动态生成指标卡片 -->
-</div>
-</div>
-</div>
-</div>
-</div>
-<!-- 详细数据表格 -->
-<div class="card">
-<div class="card-header">
-<h6 class="mb-0">? 详细数据</h6>
-</div>
-<div class="card-body">
-<div class="table-responsive">
-<table class="table table-sm table-hover">
-<thead>
-<tr>
-<th>日期</th>
-<th>历史最低</th>
-<th>历史最高</th>
-<th>5%成本</th>
-<th>15%成本</th>
-<th>50%成本</th>
-<th>85%成本</th>
-<th>95%成本</th>
-<th>加权平均</th>
-<th>胜率</th>
-</tr>
-</thead>
-<tbody> ${data.slice(0, 30).map(item => `
-  <tr>
-<td>${item.trade_date || '--'}</td>
-<td class="text-success">${formatNumber(item.his_low, 2)}</td>
-<td class="text-danger">${formatNumber(item.his_high, 2)}</td>
-<td>${formatNumber(item.cost_5pct, 2)}</td>
-<td>${formatNumber(item.cost_15pct, 2)}</td>
-<td><strong>${formatNumber(item.cost_50pct, 2)}</strong></td>
-<td>${formatNumber(item.cost_85pct, 2)}</td>
-<td>${formatNumber(item.cost_95pct, 2)}</td>
-<td class="text-primary"><strong>${formatNumber(item.weight_avg, 2)}</strong></td>
-<td class="${(item.winner_rate || 0) >= 50 ? 'text-success' : 'text-danger'}">
-<strong>${formatPercent(item.winner_rate || 0)}</strong>
-</td>
-</tr> `).join('')}
-  </tbody>
-</table>
-</div>
-</div>
-</div> `;
- container.innerHTML = html;
- // 渲染图表
- renderCyqCharts(data);
-
-}
- // 渲染筹码分布图表
-
-function renderCyqCharts(data) {
- // 成本分位曲线图
- const costChart = _safeInitChart('cost-distribution-chart');
- if (!costChart) return;
- const dates = data.map(item => item.trade_date).reverse();
- const costOption = {
- title: {
- text: '成本分位曲线',
- left: 'center'
- },
- tooltip: {
- trigger: 'axis',
- formatter: function(params) {
- let result = params[0].name + '<br/>';
- params.forEach(param => {
- result += param.marker + param.seriesName + ': ' + formatNumber(param.value, 2) + '<br/>';
- });
- return result;
- }
- },
- legend: {
- data: ['5%成本', '15%成本', '50%成本', '85%成本', '95%成本', '加权平均'],
- top: 30
- },
- grid: {
- left: '3%',
- right: '4%',
- bottom: '15%',
- containLabel: true
- },
- xAxis: {
- type: 'category',
- data: dates,
- axisLabel: {
- rotate: 45
- }
- },
- yAxis: {
- type: 'value',
- axisLabel: {
- formatter: function(value) {
- return formatNumber(value, 2);
- }
- }
- },
- series: [
- {
- name: '5%成本',
- type: 'line',
- data: data.map(item => item.cost_5pct || 0).reverse(),
- itemStyle: { color: '#ff7875' }
- },
- {
- name: '15%成本',
- type: 'line',
- data: data.map(item => item.cost_15pct || 0).reverse(),
- itemStyle: { color: '#ffa940' }
- },
- {
- name: '50%成本',
- type: 'line',
- data: data.map(item => item.cost_50pct || 0).reverse(),
- itemStyle: { color: '#1890ff' },
- lineStyle: { width: 3 }
- },
- {
- name: '85%成本',
- type: 'line',
- data: data.map(item => item.cost_85pct || 0).reverse(),
- itemStyle: { color: '#73d13d' }
- },
- {
- name: '95%成本',
- type: 'line',
- data: data.map(item => item.cost_95pct || 0).reverse(),
- itemStyle: { color: '#b37feb' }
- },
- {
- name: '加权平均',
- type: 'line',
- data: data.map(item => item.weight_avg || 0).reverse(),
- itemStyle: { color: '#f759ab' },
-lineStyle: { width: 2, type: 'dashed' }
-}
-],
- dataZoom: [
-  { type: 'inside', start: 0, end: 100 },
-  { type: 'slider', bottom: 4, height: 18, borderColor: '#e2e8f0', fillerColor: 'rgba(37,99,235,0.1)' }
- ]
- };
- costChart.setOption(costOption);
- // 胜率变化图
- const winnerChart = _safeInitChart('winner-rate-chart');
- if (!winnerChart) return;
- const winnerOption = {
- title: {
- text: '胜率变化',
- left: 'center'
- },
- tooltip: {
- trigger: 'axis',
- formatter: function(params) {
- const data = params[0];
- return `${data.name}<br/>胜率: ${formatPercent(data.value)}`;
- }
- },
- grid: {
- left: '3%',
- right: '4%',
- bottom: '15%',
- containLabel: true
- },
- xAxis: {
- type: 'category',
- data: dates,
- axisLabel: {
- rotate: 45
- }
- },
- yAxis: {
- type: 'value',
- min: 0,
- max: 100,
- axisLabel: {
- formatter: function(value) {
- return value + '%';
- }
- }
- },
- series: [{
- name: '胜率',
- type: 'line',
- data: data.map(item => item.winner_rate || 0).reverse(),
- itemStyle: {
- color: '#52c41a'
- },
- areaStyle: {
- color: {
- type: 'linear',
- x: 0,
- y: 0,
- x2: 0,
- y2: 1,
- colorStops: [{
- offset: 0, color: 'rgba(82, 196, 26, 0.3)'
- }, {
- offset: 1, color: 'rgba(82, 196, 26, 0.1)'
- }]
- }
- },
- markLine: {
- data: [
- { yAxis: 50, name: '50%基准线' }
- ],
- lineStyle: {
- color: '#ff4d4f',
- type: 'dashed'
- }
- }
-}],
- dataZoom: [
-  { type: 'inside', start: 0, end: 100 },
-  { type: 'slider', bottom: 4, height: 18, borderColor: '#e2e8f0', fillerColor: 'rgba(37,99,235,0.1)' }
- ]
- };
- winnerChart.setOption(winnerOption);
- // 渲染筹码分析指标
- renderCyqIndicators(data[0]); // 最新数据
+    if (document.getElementById('cyq-content').innerHTML.includes('加载中')) return;
+    showLoading('cyq-content', 'skeleton');
+    try {
+        // 并行加载筹码分布详情和筹码胜率数据
+        const [chipsResp, perfResp] = await Promise.all([
+            apiRequest(`/stocks/${tsCode}/cyq_chips?limit_days=5`),
+            apiRequest(`/stocks/${tsCode}/cyq?limit=250`)
+        ]);
+        const chipsData = chipsResp.code === 200 ? chipsResp.data : [];
+        const perfData = perfResp.code === 200 ? perfResp.data : [];
+        renderCyqData(chipsData, perfData);
+    } catch (error) { showError('cyq-content', '筹码分布数据加载失败'); console.error(error); }
 }
 
+function renderCyqData(chipsData, perfData) {
+    const container = document.getElementById('cyq-content');
+    if ((!chipsData || chipsData.length === 0) && (!perfData || perfData.length === 0)) {
+        container.innerHTML = '<div class="text-center py-4"><p class="text-muted">暂无筹码分布数据</p></div>'; return;
+    }
 
- // 渲染筹码分析指标
+    // 获取不同交易日期列表
+    const tradeDates = [...new Set(chipsData.map(i => i.trade_date))].sort().reverse();
+    const latestDate = tradeDates[0] || '';
 
-function renderCyqIndicators(data) {
- const container = document.getElementById('cyq-indicators');
- // 计算筹码集中度（95%成本 - 5%成本）/ 50%成本
- const concentration = data.cost_95pct && data.cost_5pct && data.cost_50pct ? 
- ((data.cost_95pct - data.cost_5pct) / data.cost_50pct * 100) : 0;
- // 计算当前价格相对位置（需要从股票基本信息获取当前价格）
- const currentPrice = stockInfo?.latest_daily?.close || 0;
- const pricePosition = data.cost_95pct && data.cost_5pct ? 
- ((currentPrice - data.cost_5pct) / (data.cost_95pct - data.cost_5pct) * 100) : 0;
- const html = `
-  <div class="col-md-3">
-<div class="text-center p-3 bg-light rounded">
-<h5 class="text-primary">${formatNumber(concentration, 1)}%</h5>
-<small class="text-muted">筹码集中度</small>
-</div>
-</div>
-<div class="col-md-3">
-<div class="text-center p-3 bg-light rounded">
-<h5 class="text-success">${formatNumber(data.weight_avg || 0, 2)}</h5>
-<small class="text-muted">加权平均成本</small>
-</div>
-</div>
-<div class="col-md-3">
-<div class="text-center p-3 bg-light rounded">
-<h5 class="${(data.winner_rate || 0) >= 50 ? 'text-success' : 'text-danger'}">${formatPercent(data.winner_rate || 0)}</h5>
-<small class="text-muted">当前胜率</small>
-</div>
-</div>
-<div class="col-md-3">
-<div class="text-center p-3 bg-light rounded">
-<h5 class="text-warning">${formatNumber(pricePosition, 1)}%</h5>
-<small class="text-muted">价格相对位置</small>
-</div>
-</div> `;
- container.innerHTML = html;
+    container.innerHTML = `
+    <div class="mb-3 d-flex justify-content-between align-items-center">
+        <small class="text-muted">筹码分布数据${latestDate ? '（最新: ' + latestDate + '）' : ''}</small>
+        ${tradeDates.length > 1 ? `<select id="cyq-date-select" class="form-select form-select-sm" style="width:auto;" onchange="renderCyqChipsChart(chipsDataGlobal, this.value)">
+            ${tradeDates.map(d => `<option value="${d}" ${d===latestDate?'selected':''}>${d}</option>`).join('')}
+        </select>` : ''}
+    </div>
+    <!-- 筹码分布图（核心：水平柱状图） -->
+    <div class="row mb-4">
+        <div class="col-md-8"><div class="card"><div class="card-header"><h6 class="mb-0">筹码分布</h6></div><div class="card-body"><div id="cyq-chips-chart" style="height:500px;"></div></div></div></div>
+        <div class="col-md-4">
+            <div class="card mb-3"><div class="card-header"><h6 class="mb-0">筹码分析指标</h6></div><div class="card-body"><div class="row" id="cyq-indicators"></div></div></div>
+            ${perfData && perfData.length > 0 ? `<div class="card"><div class="card-header"><h6 class="mb-0">胜率变化</h6></div><div class="card-body"><div id="winner-rate-chart" style="height:280px;"></div></div></div>` : ''}
+        </div>
+    </div>
+    ${perfData && perfData.length > 0 ? `
+    <!-- 成本分位曲线 -->
+    <div class="row mb-4">
+        <div class="col-12"><div class="card"><div class="card-header"><h6 class="mb-0">成本分位曲线</h6></div><div class="card-body"><div id="cost-distribution-chart" style="height:350px;"></div></div></div></div>
+    </div>
+    <!-- 详细数据 -->
+    <div class="card"><div class="card-header"><h6 class="mb-0">筹码胜率详细数据</h6></div><div class="card-body"><div class="table-responsive">
+        <table class="table table-sm table-hover"><thead><tr><th>日期</th><th>历史最低</th><th>历史最高</th><th>5%成本</th><th>15%成本</th><th>50%成本</th><th>85%成本</th><th>95%成本</th><th>加权平均</th><th>胜率</th></tr></thead>
+        <tbody>${perfData.slice(0,30).map(item => `<tr>
+            <td>${item.trade_date||'--'}</td><td class="text-success">${formatNumber(item.his_low,2)}</td><td class="text-danger">${formatNumber(item.his_high,2)}</td>
+            <td>${formatNumber(item.cost_5pct,2)}</td><td>${formatNumber(item.cost_15pct,2)}</td><td><strong>${formatNumber(item.cost_50pct,2)}</strong></td>
+            <td>${formatNumber(item.cost_85pct,2)}</td><td>${formatNumber(item.cost_95pct,2)}</td><td class="text-primary"><strong>${formatNumber(item.weight_avg,2)}</strong></td>
+            <td class="${(item.winner_rate||0)>=50?'text-success':'text-danger'}"><strong>${formatPercent(item.winner_rate||0)}</strong></td>
+        </tr>`).join('')}</tbody></table>
+    </div></div></div>` : ''}`;
 
+    // 保存全局数据供日期切换使用
+    window.chipsDataGlobal = chipsData;
+
+    // 渲染筹码分布图
+    renderCyqChipsChart(chipsData, latestDate);
+
+    // 渲染成本分位曲线和胜率图
+    if (perfData && perfData.length > 0) {
+        renderCyqPerfCharts(perfData);
+    }
 }
- // 快速操作函数
 
+function renderCyqChipsChart(chipsData, tradeDate) {
+    if (!chipsData || chipsData.length === 0) return;
+    // 筛选指定日期的数据
+    const dayData = chipsData.filter(i => i.trade_date === tradeDate).sort((a, b) => a.price - b.price);
+    if (dayData.length === 0) return;
+
+    const prices = dayData.map(i => formatNumber(i.price, 2));
+    const percents = dayData.map(i => i.percent || 0);
+
+    // 当前价
+    const currentPrice = stockInfo?.latest_daily?.close || 0;
+
+    // 默认缩放范围：当前价±30%
+    let zoomStart = 0, zoomEnd = 100;
+    if (currentPrice > 0 && dayData.length > 20) {
+        const rangeLow = currentPrice * 0.7;
+        const rangeHigh = currentPrice * 1.3;
+        const idxLow = dayData.findIndex(i => i.price >= rangeLow);
+        const idxHigh = dayData.findIndex(i => i.price > rangeHigh);
+        if (idxLow >= 0) zoomStart = Math.max(0, (idxLow - 2) / dayData.length * 100);
+        if (idxHigh >= 0) zoomEnd = Math.min(100, (idxHigh + 2) / dayData.length * 100);
+    }
+
+    const chart = _safeInitChart('cyq-chips-chart');
+    if (chart) {
+        chart.setOption({
+            title: { text: `筹码分布 (${tradeDate})`, left: 'center', textStyle: { fontSize: 14 } },
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'shadow' },
+                formatter: function(params) {
+                    const p = params[0];
+                    return `价格: ${p.name}<br/>占比: ${formatNumber(p.value, 2)}%`;
+                }
+            },
+            grid: { left: '12%', right: '8%', top: 40, bottom: 40 },
+            xAxis: {
+                type: 'value',
+                name: '占比(%)',
+                axisLabel: { formatter: v => v + '%' },
+                splitLine: { lineStyle: { type: 'dashed', color: '#e8e8e8' } }
+            },
+            yAxis: {
+                type: 'category',
+                data: prices,
+                inverse: false,
+                axisLabel: { fontSize: 10 },
+            },
+            series: [{
+                type: 'bar',
+                data: percents.map((v, idx) => {
+                    const price = dayData[idx].price;
+                    const isNearCurrent = currentPrice > 0 && Math.abs(price - currentPrice) / currentPrice < 0.005;
+                    return {
+                        value: v,
+                        itemStyle: {
+                            color: isNearCurrent ? '#ef232a' :
+                                   price <= currentPrice ? 'rgba(20,177,67,0.7)' : 'rgba(180,180,180,0.5)'
+                        }
+                    };
+                }),
+                barWidth: '70%',
+                label: {
+                    show: true,
+                    position: 'right',
+                    formatter: p => p.value >= 0.5 ? formatNumber(p.value, 1) + '%' : '',
+                    fontSize: 9,
+                    color: '#666'
+                },
+                markLine: currentPrice > 0 ? {
+                    symbol: 'none',
+                    data: [{ yAxis: formatNumber(currentPrice, 2), name: '当前价' }],
+                    lineStyle: { color: '#ef232a', type: 'solid', width: 2 },
+                    label: { formatter: '现价 ' + formatNumber(currentPrice, 2), position: 'insideEndTop', color: '#ef232a', fontSize: 11, fontWeight: 'bold' }
+                } : undefined
+            }],
+            dataZoom: [
+                { type: 'inside', yAxisIndex: 0, filterMode: 'none', start: zoomStart, end: zoomEnd },
+                { type: 'slider', yAxisIndex: 0, right: 4, width: 16, filterMode: 'none', borderColor: '#e2e8f0', fillerColor: 'rgba(37,99,235,0.1)', start: zoomStart, end: zoomEnd }
+            ]
+        });
+    }
+
+    // 更新筹码分析指标
+    renderCyqChipsIndicators(dayData, currentPrice);
+}
+
+function renderCyqChipsIndicators(dayData, currentPrice) {
+    const container = document.getElementById('cyq-indicators');
+    if (!container || !dayData || dayData.length === 0) return;
+
+    const totalPercent = dayData.reduce((s, i) => s + (i.percent || 0), 0);
+    // 找90%筹码集中区间
+    const sorted = [...dayData].sort((a, b) => b.percent - a.percent);
+    let cumPct = 0, concentratedPrices = [];
+    for (const item of sorted) {
+        cumPct += (item.percent || 0);
+        concentratedPrices.push(item.price);
+        if (cumPct >= 90) break;
+    }
+    const concLow = Math.min(...concentratedPrices);
+    const concHigh = Math.max(...concentratedPrices);
+    const concentration = concHigh > concLow ? ((concHigh - concLow) / ((concHigh + concLow) / 2) * 100) : 0;
+    // 加权平均成本
+    const weightAvg = totalPercent > 0 ? dayData.reduce((s, i) => s + (i.price || 0) * (i.percent || 0), 0) / totalPercent : 0;
+    // 获利比例（低于当前价的筹码占比）
+    const profitRate = currentPrice > 0 ? dayData.filter(i => i.price <= currentPrice).reduce((s, i) => s + (i.percent || 0), 0) : 0;
+    // 平均成本
+    const avgCost = totalPercent > 0 ? dayData.reduce((s, i) => s + (i.price || 0) * (i.percent || 0), 0) / totalPercent : 0;
+
+    container.innerHTML = `
+    <div class="col-12 mb-2"><div class="text-center p-2 bg-light rounded"><h5 class="text-primary">${formatNumber(weightAvg,2)}</h5><small class="text-muted">平均成本</small></div></div>
+    <div class="col-12 mb-2"><div class="text-center p-2 bg-light rounded"><h5 class="${profitRate>=50?'text-success':'text-danger'}">${formatPercent(profitRate)}</h5><small class="text-muted">获利比例</small></div></div>
+    <div class="col-12 mb-2"><div class="text-center p-2 bg-light rounded"><h5 class="text-warning">${formatNumber(concentration,1)}%</h5><small class="text-muted">筹码集中度</small></div></div>
+    <div class="col-12"><div class="text-center p-2 bg-light rounded"><h5 class="text-info">${formatNumber(concLow,2)} ~ ${formatNumber(concHigh,2)}</h5><small class="text-muted">90%筹码区间</small></div></div>`;
+}
+
+function renderCyqPerfCharts(perfData) {
+    const dates = perfData.map(item => item.trade_date).reverse();
+    const costChart = _safeInitChart('cost-distribution-chart');
+    if (costChart) {
+        costChart.setOption({
+            title: { text: '成本分位曲线', left: 'center', textStyle: { fontSize: 14 } },
+            tooltip: { trigger: 'axis', formatter: p => { let r = p[0].name + '<br/>'; p.forEach(i => r += i.marker + i.seriesName + ': ' + formatNumber(i.value,2) + '<br/>'); return r; } },
+            legend: { data: ['5%成本','15%成本','50%成本','85%成本','95%成本','加权平均'], top: 30 },
+            grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
+            xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45 } },
+            yAxis: { type: 'value', axisLabel: { formatter: v => formatNumber(v,2) } },
+            series: [
+                { name: '5%成本', type: 'line', data: perfData.map(i=>i.cost_5pct||0).reverse(), itemStyle:{color:'#ff7875'} },
+                { name: '15%成本', type: 'line', data: perfData.map(i=>i.cost_15pct||0).reverse(), itemStyle:{color:'#ffa940'} },
+                { name: '50%成本', type: 'line', data: perfData.map(i=>i.cost_50pct||0).reverse(), itemStyle:{color:'#1890ff'}, lineStyle:{width:3} },
+                { name: '85%成本', type: 'line', data: perfData.map(i=>i.cost_85pct||0).reverse(), itemStyle:{color:'#73d13d'} },
+                { name: '95%成本', type: 'line', data: perfData.map(i=>i.cost_95pct||0).reverse(), itemStyle:{color:'#b37feb'} },
+                { name: '加权平均', type: 'line', data: perfData.map(i=>i.weight_avg||0).reverse(), itemStyle:{color:'#f759ab'}, lineStyle:{width:2,type:'dashed'} }
+            ],
+            dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 4, height: 18, borderColor: '#e2e8f0', fillerColor: 'rgba(37,99,235,0.1)' }]
+        });
+    }
+
+    const winnerChart = _safeInitChart('winner-rate-chart');
+    if (winnerChart) {
+        winnerChart.setOption({
+            title: { text: '胜率变化', left: 'center', textStyle: { fontSize: 14 } },
+            tooltip: { trigger: 'axis', formatter: p => `${p[0].name}<br/>胜率: ${formatPercent(p[0].value)}` },
+            grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
+            xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45 } },
+            yAxis: { type: 'value', min: 0, max: 100, axisLabel: { formatter: v => v + '%' } },
+            series: [{ name: '胜率', type: 'line', data: perfData.map(i=>i.winner_rate||0).reverse(), itemStyle:{color:'#52c41a'}, areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(82,196,26,0.3)'},{offset:1,color:'rgba(82,196,26,0.1)'}]}}, markLine:{data:[{yAxis:50}],lineStyle:{color:'#ff4d4f',type:'dashed'}} }],
+            dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 4, height: 18, borderColor: '#e2e8f0', fillerColor: 'rgba(37,99,235,0.1)' }]
+        });
+    }
+}
+
+// ========== 快速操作 ==========
 async function addToWatchlist() {
- try {
- const btn = event.target;
- const originalText = btn.innerHTML;
- btn.disabled = true;
- btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>添加中...';
-
- const response = await apiRequest(`/watchlist/${tsCode}`, { method: 'POST' });
- if (response.code === 200) {
- // 切换按钮状态为已选中
- btn.className = 'btn btn-sm btn-outline-danger';
- btn.innerHTML = ' 已取消自选';
- btn.onclick = removeFromWatchlist;
- alert(response.message || '已加入自选');
- } else {
- alert((response.message || '操作失败'));
- }
- } catch (error) {
- console.error('加入自选失败:', error);
- alert('操作失败，请稍后重试');
- }
+    try {
+        const response = await apiRequest(`/watchlist/${tsCode}`, { method: 'POST' });
+        if (response.code === 200) { alert(response.message || '已加入自选'); }
+        else { alert(response.message || '操作失败'); }
+    } catch (error) { console.error('加入自选失败:', error); alert('操作失败，请稍后重试'); }
 }
 
- async function removeFromWatchlist() {
- try {
- const btn = event.target;
- btn.disabled = true;
- btn.innerHTML = '移除中...';
+function openBacktest() { window.open(`/backtest?stock=${tsCode}`, '_blank'); }
 
- const response = await apiRequest(`/watchlist/${tsCode}`, { method: 'DELETE' });
- if (response.code === 200) {
- btn.className = 'btn btn-primary btn-sm';
- btn.innerHTML = ' 加入自选';
- btn.onclick = addToWatchlist;
- alert(response.message || '已从自选移除');
- } else {
- alert((response.message || '操作失败'));
- }
- } catch (error) {
- console.error('移除自选失败:', error);
- alert('操作失败，请稍后重试');
- }
-}
- function openAnalysis() {
- window.open(`/analysis?stock=${tsCode}`, '_blank');
-
-}
- function openBacktest() {
- window.open(`/backtest?stock=${tsCode}`, '_blank');
-
-}
- // 工具函数
-
+// ========== 工具函数 ==========
 function formatNumber(num, decimals = 2) {
- if (num === null || num === undefined || isNaN(num)) return '--';
- return Number(num).toLocaleString('zh-CN', {
- minimumFractionDigits: decimals,
- maximumFractionDigits: decimals
- });
-
+    if (num === null || num === undefined || isNaN(num)) return '--';
+    return Number(num).toLocaleString('zh-CN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
- function formatPercent(num) {
- if (num === null || num === undefined || isNaN(num)) return '--';
- const sign = num >= 0 ? '+' : '';
- return sign + Number(num).toFixed(2) + '%';
-
+function formatPercent(num) {
+    if (num === null || num === undefined || isNaN(num)) return '--';
+    const sign = num >= 0 ? '+' : '';
+    return sign + Number(num).toFixed(2) + '%';
 }
-
-</script> {% endblock %} 
+</script>
+{% endblock %}

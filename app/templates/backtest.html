@@ -54,10 +54,13 @@
                 <form id="backtest-form">
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label for="stock-select" class="form-label">选择股票 <span class="text-danger">*</span></label>
-                            <select class="form-select" id="stock-select" required>
-                                <option value="">请选择要回测的股票</option>
-                            </select>
+                            <label for="stock-search" class="form-label">选择股票 <span class="text-danger">*</span></label>
+                            <div style="position:relative;">
+                                <input type="text" class="form-control" id="stock-search" placeholder="输入股票代码、名称或拼音搜索…" autocomplete="off">
+                                <input type="hidden" id="stock-select" value="">
+                                <div id="stock-search-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:999;max-height:300px;overflow-y:auto;background:#fff;border:1px solid #e2e8f0;border-radius:0 0 12px 12px;box-shadow:0 8px 24px -6px rgba(15,23,42,0.18);margin-top:2px;"></div>
+                                <div id="stock-selected-display" style="display:none;margin-top:0.35rem;padding:0.35rem 0.7rem;background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.18);border-radius:8px;font-size:0.85rem;color:#1d4ed8;font-weight:600;"></div>
+                            </div>
                         </div>
 
                         <div class="col-md-6">
@@ -145,12 +148,11 @@ const STRATEGY_LABELS = {
 
 document.addEventListener('DOMContentLoaded', function() {
     initializeDates();
-    loadStockOptions();
+    initStockSearch();
 
     document.getElementById('backtest-form').addEventListener('submit', handleBacktest);
     document.getElementById('reset-backtest').addEventListener('click', resetBacktest);
     document.getElementById('strategy-type').addEventListener('change', updateStrategyParams);
-    document.getElementById('stock-select').addEventListener('change', handleStockChange);
 });
 
 function initializeDates() {
@@ -162,61 +164,105 @@ function initializeDates() {
     document.getElementById('start-date').value = startDate.toISOString().split('T')[0];
 }
 
-async function loadStockOptions() {
-    const select = document.getElementById('stock-select');
+// ========== 股票搜索（支持代码/名称/拼音） ==========
+let backtestSearchTimer = null;
+
+function initStockSearch() {
+    const input = document.getElementById('stock-search');
+    const dropdown = document.getElementById('stock-search-dropdown');
     const preselectedStock = new URLSearchParams(window.location.search).get('stock');
 
+    input.addEventListener('input', () => {
+        clearTimeout(backtestSearchTimer);
+        const keyword = input.value.trim();
+        if (!keyword) {
+            dropdown.style.display = 'none';
+            return;
+        }
+        backtestSearchTimer = setTimeout(() => doBacktestStockSearch(keyword), 300);
+    });
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            clearTimeout(backtestSearchTimer);
+            const keyword = input.value.trim();
+            if (keyword) doBacktestStockSearch(keyword);
+        }
+        if (e.key === 'Escape') {
+            dropdown.style.display = 'none';
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#stock-search') && !e.target.closest('#stock-search-dropdown')) {
+            dropdown.style.display = 'none';
+        }
+    });
+
+    // 预选股票
+    if (preselectedStock) {
+        selectBacktestStock(preselectedStock, preselectedStock);
+    }
+}
+
+async function doBacktestStockSearch(keyword) {
+    const dropdown = document.getElementById('stock-search-dropdown');
     try {
-        select.disabled = true;
-        select.innerHTML = '<option value="">正在加载股票列表...</option>';
-
-        const stocks = await fetchAllStocks();
-        select.innerHTML = '<option value="">请选择要回测的股票</option>';
-
-        stocks.forEach(stock => {
-            const option = document.createElement('option');
-            option.value = stock.ts_code || '';
-            option.textContent = `${stock.symbol || stock.ts_code || '--'} - ${stock.name || '--'}`;
-            select.appendChild(option);
-        });
-
-        if (preselectedStock) {
-            select.value = preselectedStock;
-            currentStock = preselectedStock;
+        const response = await apiRequest(`/stocks?search=${encodeURIComponent(keyword)}&page_size=10`);
+        if (response.code === 200 && response.data.stocks?.length) {
+            dropdown.innerHTML = response.data.stocks.map(s => `
+                <div class="stock-search-item" data-ts-code="${s.ts_code}" style="display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.85rem;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:background 0.15s;">
+                    <span style="font-weight:600;color:#0f172a;font-size:0.88rem;">${s.name || ''}</span>
+                    <span style="color:#64748b;font-size:0.78rem;font-family:monospace;">${s.ts_code} · ${s.industry || ''}</span>
+                </div>
+            `).join('');
+            dropdown.querySelectorAll('.stock-search-item').forEach(item => {
+                item.addEventListener('mouseenter', () => item.style.background = '#eff6ff');
+                item.addEventListener('mouseleave', () => item.style.background = '');
+                item.addEventListener('click', () => {
+                    const tsCode = item.dataset.tsCode;
+                    const name = item.querySelector('span').textContent;
+                    selectBacktestStock(tsCode, name);
+                    dropdown.style.display = 'none';
+                });
+            });
+            dropdown.style.display = 'block';
+        } else {
+            dropdown.innerHTML = '<div style="padding:1rem;text-align:center;color:#94a3b8;font-size:0.85rem;">未找到匹配的股票</div>';
+            dropdown.style.display = 'block';
         }
-    } catch (error) {
-        console.error('加载股票列表失败:', error);
-        select.innerHTML = '<option value="">加载失败，请刷新页面后重试</option>';
-    } finally {
-        select.disabled = false;
+    } catch (err) {
+        dropdown.innerHTML = '<div style="padding:1rem;text-align:center;color:#94a3b8;font-size:0.85rem;">搜索失败，请重试</div>';
+        dropdown.style.display = 'block';
     }
 }
 
-async function fetchAllStocks() {
-    const pageSize = 100;
-    let page = 1;
-    let totalPages = 1;
-    const allStocks = [];
+function selectBacktestStock(tsCode, displayName) {
+    const hiddenInput = document.getElementById('stock-select');
+    const searchInput = document.getElementById('stock-search');
+    const displayEl = document.getElementById('stock-selected-display');
 
-    while (page <= totalPages) {
-        const response = await apiRequest(`/stocks?page=${page}&page_size=${pageSize}`);
-        const data = response?.data || {};
-        const stocks = Array.isArray(data.stocks) ? data.stocks : [];
+    hiddenInput.value = tsCode;
+    currentStock = tsCode;
+    searchInput.value = '';
 
-        allStocks.push(...stocks);
-        totalPages = Number(data.total_pages || 1);
-        page += 1;
-
-        if (stocks.length === 0) {
-            break;
-        }
+    if (tsCode) {
+        displayEl.style.display = '';
+        displayEl.innerHTML = `${displayName} <span style="color:#64748b;font-weight:400;font-size:0.78rem;margin-left:4px;">${tsCode}</span> <button type="button" onclick="clearBacktestStock()" style="border:none;background:none;color:#94a3b8;cursor:pointer;font-size:0.85rem;margin-left:6px;">&times;</button>`;
+    } else {
+        displayEl.style.display = 'none';
     }
-
-    return allStocks;
 }
 
-function handleStockChange(event) {
-    currentStock = event.target.value;
+function clearBacktestStock() {
+    const hiddenInput = document.getElementById('stock-select');
+    const displayEl = document.getElementById('stock-selected-display');
+    const searchInput = document.getElementById('stock-search');
+    hiddenInput.value = '';
+    currentStock = null;
+    displayEl.style.display = 'none';
+    searchInput.focus();
 }
 
 function updateStrategyParams() {
@@ -446,8 +492,8 @@ function renderBacktestResults(results, config) {
     const container = document.getElementById('backtest-results');
     const perf = results?.performance || {};
     const trades = Array.isArray(results?.trades) ? results.trades : [];
-    const stockSelect = document.getElementById('stock-select');
-    const stockName = stockSelect.options[stockSelect.selectedIndex]?.text || config.ts_code;
+    const stockDisplay = document.getElementById('stock-selected-display');
+    const stockName = stockDisplay?.textContent?.trim() || config.ts_code;
 
     const tradesHtml = trades.length > 0 ? `
         <div class="mt-4">
@@ -564,6 +610,9 @@ function getStrategyTypeName(type) {
 
 function resetBacktest() {
     document.getElementById('backtest-form').reset();
+    document.getElementById('stock-select').value = '';
+    document.getElementById('stock-selected-display').style.display = 'none';
+    currentStock = null;
     initializeDates();
     updateStrategyParams();
 

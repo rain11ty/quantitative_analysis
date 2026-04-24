@@ -17,6 +17,8 @@ from .system_log import SystemLog
 from .trading_signals import TradingSignals
 from .portfolio_positions import PortfolioPositions
 from .risk_alerts import RiskAlerts
+from .stock_shock import StockShock
+from .stock_cyq_chips import StockCyqChips
 
 __all__ = [
     'StockBasic',
@@ -26,6 +28,7 @@ __all__ = [
     'StockMaData',
     'StockMoneyflow',
     'StockCyqPerf',
+    'StockCyqChips',
     'StockBusiness',
     'StockIncomeStatement',
     'StockBalanceSheet',
@@ -39,5 +42,6 @@ __all__ = [
     'SystemLog',
     'TradingSignals',
     'PortfolioPositions',
-    'RiskAlerts'
+    'RiskAlerts',
+    'StockShock',
 ] 

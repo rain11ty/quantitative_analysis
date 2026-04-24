@@ -17,7 +17,7 @@
             </p>
             <div class="workspace-actions">
                 <a class="btn btn-light" href="{{ url_for('main.stocks') }}">浏览股票列表</a>
-                <a class="btn btn-outline-light" href="{{ url_for('main.analysis') }}">进入个股分析</a>
+                <a class="btn btn-outline-light" href="{{ url_for('main.stocks') }}">进入个股分析</a>
                 <a class="btn btn-outline-light" href="{{ url_for('main.ai_assistant') }}">继续咨询 AI 助手</a>
             </div>
             <div class="workspace-summary-grid">
@@ -182,7 +182,7 @@
                             <h2 class="workspace-panel-title">最近分析历史</h2>
                             <p class="workspace-panel-desc">自动记录你最近查看与分析过的内容，方便快速复盘。</p>
                         </div>
-                        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('main.analysis') }}">继续分析</a>
+                        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('main.stocks') }}">继续分析</a>
                     </div>
                     {% if analysis_records %}
                     <div>

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from flask import render_template, request
+from flask import render_template, request, redirect, url_for
 from app.main import main_bp
 from app.services.stock_service import StockService
 
@@ -20,8 +20,8 @@ def stock_detail(ts_code):
 
 @main_bp.route('/analysis')
 def analysis():
-    """分析页面"""
-    return render_template('analysis.html')
+    """分析页面 — 已合并到 stock_detail，重定向到股票列表"""
+    return redirect(url_for('main.stocks'))
 
 @main_bp.route('/screen')
 def screen():
@@ -37,6 +37,12 @@ def backtest():
 def ai_assistant():
     """AI智能助手页面"""
     return render_template('ai_assistant.html')
+
+
+@main_bp.route('/news')
+def news():
+    """新闻资讯页面"""
+    return render_template('news.html')
 
 
 @main_bp.route('/monitor')

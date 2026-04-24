@@ -8,7 +8,7 @@ from sqlalchemy import and_, asc, desc, or_
 from app.extensions import db
 from app.models import (
     StockBasic, StockDailyHistory, StockDailyBasic,
-    StockFactor, StockMaData, StockMoneyflow, StockCyqPerf
+    StockFactor, StockMaData, StockMoneyflow, StockCyqPerf, StockCyqChips
 )
 from loguru import logger
 import pandas as pd
@@ -305,6 +305,38 @@ class StockService:
             return [item.to_dict() for item in reversed(cyq_perf)]
         except Exception as e:
             logger.error(f"获取筹码分布数据失败: {ts_code}, 错误: {e}")
+            return []
+    
+    @staticmethod
+    def get_cyq_chips(ts_code: str, trade_date: str = None, limit_days: int = 1):
+        """获取股票每日筹码分布数据（各价位占比）
+        
+        Args:
+            ts_code: 股票代码
+            trade_date: 指定交易日期（YYYYMMDD），不指定则取最新
+            limit_days: 获取最近N天的数据
+        """
+        try:
+            query = StockCyqChips.query.filter_by(ts_code=ts_code)
+            
+            if trade_date:
+                query = query.filter(StockCyqChips.trade_date == trade_date)
+            else:
+                # 取最近N个不同交易日的数据
+                date_subq = db.session.query(StockCyqChips.trade_date)\
+                    .filter(StockCyqChips.ts_code == ts_code)\
+                    .distinct()\
+                    .order_by(desc(StockCyqChips.trade_date))\
+                    .limit(limit_days)
+                trade_dates = [row[0] for row in date_subq.all()]
+                if not trade_dates:
+                    return []
+                query = query.filter(StockCyqChips.trade_date.in_(trade_dates))
+            
+            chips = query.order_by(desc(StockCyqChips.trade_date), asc(StockCyqChips.price)).all()
+            return [item.to_dict() for item in chips]
+        except Exception as e:
+            logger.error(f"获取筹码分布详情失败: {ts_code}, 错误: {e}")
             return []
     
     @staticmethod

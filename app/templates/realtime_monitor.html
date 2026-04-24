@@ -659,6 +659,21 @@
             <div class="text-muted small">加载中...</div>
         </div>
     </section>
+
+    <!-- 异常波动 -->
+    <section class="monitor-section" style="margin-top:1rem;">
+        <div class="section-header">
+            <div class="section-title">异常波动</div>
+            <div class="d-flex align-items-center gap-2">
+                <input type="text" class="form-control form-control-sm" id="shockCodeInput" placeholder="输入代码筛选" style="width:140px;font-size:0.78rem;border-radius:8px;">
+                <button class="btn btn-sm btn-outline-primary" onclick="loadShockData()" style="border-radius:8px;">查询</button>
+                <span class="text-muted small" id="shockTime"></span>
+            </div>
+        </div>
+        <div id="shockContainer">
+            <div class="text-muted small">加载中...</div>
+        </div>
+    </section>
 </div>
 
 <!-- 调试面板 (Ctrl+D 切换显示) -->
@@ -831,7 +846,7 @@ const INDEX_NAMES = {
 };
 
 async function fetchDashboard(rawCodes = '') {
-    const query = rawCodes ? `?ts_codes=${encodeURIComponent(rawCodes)}` : '';
+    const query = rawCodes ? `?ts_codes=${encodeURIComponent(rawCodes)}&include_detail=1` : '?include_detail=1';
     return apiRequest(`/monitor/dashboard${query}`);
 }
 
@@ -1079,23 +1094,36 @@ function renderDetail(data) {
         </div>
     `;
 
-    renderChart(data?.series || [], data?.series_mode || 'daily', quote?.name || selectedCode);
+    // 根据当前图表模式渲染：分时模式由loadIntradayData负责，日线模式才渲染日线图
+    if (currentChartMode !== 'intraday') {
+        renderChart(data?.series || [], data?.series_mode || 'daily', quote?.name || selectedCode);
+    }
 
     // 根据当前模式切换显示
     updateChartModeUI();
 }
 
-function renderChart(series, mode, title) {
+function _ensureChartInstance() {
     const chartDom = document.getElementById('monitorChart');
-    if (!chartDom) return;
+    if (!chartDom) return null;
+    if (detailChart && detailChart.getDom && detailChart.getDom() !== chartDom) {
+        detailChart.dispose();
+        detailChart = null;
+    }
     if (!detailChart) {
         detailChart = echarts.init(chartDom);
         window.addEventListener('resize', () => detailChart && detailChart.resize());
     }
+    return detailChart;
+}
+
+function renderChart(series, mode, title) {
+    const chart = _ensureChartInstance();
+    if (!chart) return;
 
     if (!Array.isArray(series) || !series.length) {
-        detailChart.clear();
-        detailChart.setOption({
+        chart.clear();
+        chart.setOption({
             title: {
                 text: '暂无走势数据',
                 left: 'center',
@@ -1137,7 +1165,7 @@ function renderChart(series, mode, title) {
     ma10 = calcMA(closes, 10);
     ma20 = calcMA(closes, 20);
 
-    detailChart.setOption({
+    chart.setOption({
         animation: false,
         tooltip: {
             trigger: 'axis',
@@ -1247,15 +1275,50 @@ async function loadDashboard(rawCodes = '') {
             selectedCode = dashboardState.selected_ts_code || dashboardState.codes?.[0] || '';
         }
         renderStockTabStrip(dashboardState);
-        if (selectedCode) {
+        // 如果 dashboard 已包含 stock_detail，直接渲染，避免二次请求
+        if (dashboardState.stock_detail) {
+            renderDetail(dashboardState.stock_detail);
+            if (currentChartMode === 'intraday') {
+                await loadIntradayData();
+            }
+        } else if (selectedCode) {
             await loadStockDetail();
+            if (currentChartMode === 'intraday') {
+                await loadIntradayData();
+            }
         }
+        // 异步加载市场概览（涨跌家数），不阻塞页面
+        loadMarketOverviewAsync();
     } catch (error) {
         document.getElementById('stockTabStrip').innerHTML = `<div class="empty-state">${escapeHtml(error?.response?.data?.message || error.message || '监控数据加载失败')}</div>`;
         document.getElementById('detailContainer').className = 'empty-state';
         document.getElementById('detailContainer').textContent = '监控详情加载失败，请稍后重试。';
     }
     updateDebugPanel();
+}
+
+async function loadMarketOverviewAsync() {
+    try {
+        const res = await apiRequest('/market/overview');
+        if (res.code === 200 && res.data) {
+            const overview = res.data;
+            const statsEl = document.getElementById('marketStatsBadge');
+            const advancing = overview.advancing || 0;
+            const declining = overview.declining || 0;
+            const flat = overview.flat || 0;
+            if (advancing || declining) {
+                statsEl.style.display = '';
+                statsEl.innerHTML = `<span style="color:#b91c1c;font-weight:700;">${advancing}</span> 涨 / <span style="color:#166534;font-weight:700;">${declining}</span> 跌 / ${flat} 平`;
+            }
+            // 更新 dashboardState 中的 market_overview
+            if (dashboardState) {
+                dashboardState.market_overview = overview;
+            }
+        }
+    } catch (error) {
+        // 静默失败，不影响主要功能
+        console.warn('[MarketOverview] Async load failed:', error);
+    }
 }
 
 function updateChartModeUI() {
@@ -1279,13 +1342,9 @@ async function switchChartMode(mode) {
 async function loadIntradayData(period) {
     if (!selectedCode) return;
     period = period || '1';
-    const chartDom = document.getElementById('monitorChart');
-    if (!chartDom) return;
-    if (!detailChart) {
-        detailChart = echarts.init(chartDom);
-        window.addEventListener('resize', () => detailChart && detailChart.resize());
-    }
-    detailChart.showLoading({ text: '加载分时数据...', color: '#2563eb' });
+    const chart = _ensureChartInstance();
+    if (!chart) return;
+    chart.showLoading({ text: '加载分时数据...', color: '#2563eb' });
 
     try {
         const res = await apiRequest(`/monitor/intraday/${encodeURIComponent(selectedCode)}?period=${period}`);
@@ -1296,27 +1355,42 @@ async function loadIntradayData(period) {
         renderIntradayChart(data);
     } catch (error) {
         console.error('[Intraday] Failed:', selectedCode, error);
-        detailChart.hideLoading();
-        detailChart.clear();
-        detailChart.setOption({
-            title: { text: '分时数据加载失败', left: 'center', top: 'middle',
-                textStyle: { color: '#ef4444', fontSize: 14, fontWeight: 600 } }
-        });
+        const ch = _ensureChartInstance();
+        if (ch) {
+            ch.hideLoading();
+            ch.clear();
+            ch.setOption({
+                title: { text: '分时数据加载失败', left: 'center', top: 'middle',
+                    textStyle: { color: '#ef4444', fontSize: 14, fontWeight: 600 } }
+            });
+        }
     }
 }
 
 function renderIntradayChart(data) {
-    const chartDom = document.getElementById('monitorChart');
-    if (!chartDom || !detailChart) return;
+    const chart = _ensureChartInstance();
+    if (!chart) return;
 
     const intraday = data.intraday || [];
     const preClose = Number(data.pre_close) || 0;
     const date = data.date || '';
+    const source = data.source || '';
+
+    // 日线回退模式（只有1条记录），自动切换到日线展示
+    if (source === 'daily_fallback' && intraday.length <= 1) {
+        chart.hideLoading();
+        chart.clear();
+        chart.setOption({
+            title: { text: data.message || '非交易时间，暂无分时数据', left: 'center', top: 'middle',
+                textStyle: { color: '#64748b', fontSize: 14, fontWeight: 600 } }
+        });
+        return;
+    }
 
     if (!intraday.length) {
-        detailChart.hideLoading();
-        detailChart.clear();
-        detailChart.setOption({
+        chart.hideLoading();
+        chart.clear();
+        chart.setOption({
             title: { text: data.message || '暂无分时数据（非交易时间或接口不可用）', left: 'center', top: 'middle',
                 textStyle: { color: '#64748b', fontSize: 14, fontWeight: 600 } }
         });
@@ -1338,8 +1412,8 @@ function renderIntradayChart(data) {
     // 涨跌幅序列（相对昨收）
     const pctChanges = closes.map(c => preClose > 0 ? +((c - preClose) / preClose * 100).toFixed(2) : 0);
 
-    detailChart.hideLoading();
-    detailChart.setOption({
+    chart.hideLoading();
+    chart.setOption({
         animation: false,
         tooltip: {
             trigger: 'axis',
@@ -1372,6 +1446,13 @@ function renderIntradayChart(data) {
             data: ['价格', '均价', '昨收线'],
             top: 0,
             textStyle: { color: '#64748b', fontSize: 11 }
+        },
+        title: {
+            text: `${date} 分时走势${source === 'daily_fallback' ? '（日线回退）' : ''}`,
+            left: 'center',
+            top: 0,
+            textStyle: { color: '#64748b', fontSize: 12, fontWeight: 400 },
+            z: 100
         },
         grid: [
             { left: 60, right: 60, top: 40, height: '55%' },
@@ -1528,6 +1609,50 @@ function toggleAutoRefresh() {
     }, 30000);
 }
 
+// ========== 异常波动 ==========
+async function loadShockData() {
+    const container = document.getElementById('shockContainer');
+    const timeEl = document.getElementById('shockTime');
+    if (!container) return;
+    container.innerHTML = '<div class="text-muted small">加载中...</div>';
+
+    try {
+        const code = (document.getElementById('shockCodeInput')?.value || '').trim();
+        const params = code ? `?ts_code=${encodeURIComponent(code)}&limit=30` : '?limit=30';
+        const res = await apiRequest(`/monitor/shock${params}`);
+        const items = res.data || [];
+        timeEl.textContent = items.length ? `${items[0].trade_date || ''} 更新` : '';
+
+        if (!items.length) {
+            container.innerHTML = '<div class="text-muted small">暂无异常波动数据</div>';
+            return;
+        }
+
+        container.innerHTML = `
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:0.6rem;">
+            ${items.map(item => {
+                const borderColor = item.reason?.includes('ST') ? '#f59e0b' : item.reason?.includes('30%') ? '#ef4444' : '#3b82f6';
+                const bgColor = item.reason?.includes('ST') ? 'rgba(245,158,11,0.06)' : item.reason?.includes('30%') ? 'rgba(239,68,68,0.05)' : 'rgba(59,130,246,0.05)';
+                return `
+                <div style="background:${bgColor}; border-radius:12px; padding:0.7rem 0.85rem; border-left:3px solid ${borderColor}; border:1px solid rgba(226,232,240,0.9); border-left:3px solid ${borderColor};">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div>
+                            <span style="font-weight:700;color:#0f172a;">${escapeHtml(item.name || item.ts_code)}</span>
+                            <span style="color:#64748b;font-size:0.75rem;margin-left:6px;">${escapeHtml(item.ts_code || '')}</span>
+                        </div>
+                        <span style="font-size:0.72rem;color:#94a3b8;">${escapeHtml(item.trade_market || '')}</span>
+                    </div>
+                    <div style="color:#334155;font-size:0.82rem;margin-top:4px;font-weight:500;">${escapeHtml(item.reason || '')}</div>
+                    <div style="color:#94a3b8;font-size:0.72rem;margin-top:3px;">期间: ${escapeHtml(item.period || '')} | 公告: ${escapeHtml(item.trade_date || '')}</div>
+                </div>`;
+            }).join('')}
+        </div>`;
+    } catch (error) {
+        container.innerHTML = `<div class="text-muted small">异常波动数据加载失败</div>`;
+        console.error('Shock data failed:', error);
+    }
+}
+
 function updateDebugPanel() {
     const el = document.getElementById('debugContent');
     if (!el || !dashboardState) return;
@@ -1600,7 +1725,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await loadDashboard('');
     syncInputWithDashboard();
+    // 并行加载排名和异常波动数据
     loadRanking();
+    loadShockData();
 });
 </script>
 {% endblock %}

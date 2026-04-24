@@ -48,6 +48,10 @@ import numpy as np
 import tushare as ts
 from dotenv import load_dotenv
 
+def _clean_nan(df):
+    """彻底清理DataFrame中的NaN/None，确保MySQL兼容"""
+    return df.replace({np.nan: None}).where(pd.notnull(df), None)
+
 load_dotenv(override=True, encoding='utf-8')
 
 
@@ -182,7 +186,7 @@ class TushareDataSync:
                 print("  未获取到数据")
                 return
 
-            df = df.where(pd.notnull(df), None)
+            df = _clean_nan(df)
             data = []
             for _, row in df.iterrows():
                 list_date = None
@@ -242,7 +246,7 @@ class TushareDataSync:
                 print("  未获取到数据")
                 return
 
-            df = df.where(pd.notnull(df), None)
+            df = _clean_nan(df)
             data = []
             for _, row in df.iterrows():
                 cal_date = datetime.strptime(str(row['cal_date']), '%Y%m%d').date() if row.get('cal_date') else None
@@ -327,7 +331,7 @@ class TushareDataSync:
                         self._print_progress(idx, total, f'日期{trade_date}: 无数据')
                         continue
 
-                    df = df.where(pd.notnull(df), None)
+                    df = _clean_nan(df)
                     data = []
                     for _, row in df.iterrows():
                         td = datetime.strptime(str(row['trade_date']), '%Y%m%d').date() if row.get('trade_date') else None
@@ -437,7 +441,7 @@ class TushareDataSync:
                         self._print_progress(idx, total, f'{trade_date}: 无数据')
                         continue
 
-                    df = df.where(pd.notnull(df), None)
+                    df = _clean_nan(df)
                     data = []
                     for _, row in df.iterrows():
                         td = datetime.strptime(str(row['trade_date']), '%Y%m%d').date() if row.get('trade_date') else None
@@ -536,7 +540,7 @@ class TushareDataSync:
                         self._print_progress(idx, total, f'{trade_date}: 无数据')
                         continue
 
-                    df = df.where(pd.notnull(df), None)
+                    df = _clean_nan(df)
                     data = []
                     for _, row in df.iterrows():
                         td = datetime.strptime(str(row['trade_date']), '%Y%m%d').date() if row.get('trade_date') else None
@@ -637,7 +641,7 @@ class TushareDataSync:
                         self._print_progress(idx, total, f'{trade_date}: 无数据')
                         continue
 
-                    df = df.where(pd.notnull(df), None)
+                    df = _clean_nan(df)
                     data = []
                     for _, row in df.iterrows():
                         td = datetime.strptime(str(row['trade_date']), '%Y%m%d').date() if row.get('trade_date') else None
@@ -713,7 +717,7 @@ class TushareDataSync:
                 print("  未获取到数据")
                 return
 
-            df = df.where(pd.notnull(df), None)
+            df = _clean_nan(df)
             columns = ['trade_date', 'ggt_ss', 'ggt_sz', 'hgt', 'sgt', 'north_money', 'south_money']
             data = []
             for _, row in df.iterrows():
@@ -731,6 +735,104 @@ class TushareDataSync:
         except Exception as e:
             self.conn.rollback()
             print(f"  错误: {e}")
+
+    # ================================================================
+    #  同步：每日筹码分布
+    # ================================================================
+    def sync_cyq_chips(self, start_date=None, end_date=None, stock_list=None):
+        """同步每日筹码分布（cyq_chips，增量按股票代码+日期）"""
+        if not end_date:
+            end_date = datetime.now().strftime('%Y%m%d')
+
+        # 获取股票列表
+        if not stock_list:
+            self.cursor.execute("SELECT ts_code FROM stock_basic WHERE ts_code LIKE '%.SH' OR ts_code LIKE '%.SZ' ORDER BY ts_code")
+            stock_list = [row[0] for row in self.cursor.fetchall()]
+
+        total_stocks = len(stock_list)
+        total_rows = 0
+        columns = ['ts_code', 'trade_date', 'price', 'percent']
+
+        print("\n" + "=" * 60)
+        print(f"  同步每日筹码分布 (stock_cyq_chips) {start_date or '增量'} ~ {end_date}")
+        print(f"  共 {total_stocks} 只股票")
+        print("=" * 60)
+
+        try:
+            self.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS `stock_cyq_chips` (
+                  `ts_code` varchar(20) NOT NULL COMMENT '股票代码',
+                  `trade_date` date NOT NULL COMMENT '交易日期',
+                  `price` decimal(10,2) NOT NULL COMMENT '成本价格',
+                  `percent` decimal(10,4) DEFAULT NULL COMMENT '价格占比（%）',
+                  PRIMARY KEY (`ts_code`,`trade_date`,`price`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """)
+            self.conn.commit()
+
+            self._start_time = time.time()
+            for idx, ts_code in enumerate(stock_list, 1):
+                try:
+                    # 增量：查询该股票最新日期
+                    if not start_date:
+                        self.cursor.execute(
+                            "SELECT MAX(trade_date) FROM stock_cyq_chips WHERE ts_code = %s", (ts_code,))
+                        result = self.cursor.fetchone()
+                        if result and result[0]:
+                            if isinstance(result[0], str):
+                                latest = result[0]
+                            else:
+                                latest = result[0].strftime('%Y%m%d')
+                            next_day = (datetime.strptime(latest, '%Y%m%d') + timedelta(days=1)).strftime('%Y%m%d')
+                            sd = next_day
+                        else:
+                            sd = '20180101'
+                    else:
+                        sd = start_date
+
+                    if sd > end_date:
+                        self._print_progress(idx, total_stocks, f'{ts_code}: 已是最新')
+                        continue
+
+                    # 按日期分段拉取，每次最多覆盖一段时间（单次最多2000条）
+                    current_start = sd
+                    while current_start <= end_date:
+                        # 每次最多拉3个月的量，避免超过2000条限制
+                        current_end_dt = datetime.strptime(current_start, '%Y%m%d') + timedelta(days=90)
+                        current_end = min(end_date, current_end_dt.strftime('%Y%m%d'))
+
+                        self._rate_limit()
+                        df = self.pro.cyq_chips(ts_code=ts_code,
+                                                start_date=current_start,
+                                                end_date=current_end)
+
+                        if df is not None and not df.empty:
+                            df = _clean_nan(df)
+                            data = []
+                            for _, row in df.iterrows():
+                                td = datetime.strptime(str(row['trade_date']), '%Y%m%d').date() if row.get('trade_date') else None
+                                data.append((
+                                    row.get('ts_code'), td,
+                                    row.get('price'), row.get('percent'),
+                                ))
+                            inserted = self._batch_upsert('stock_cyq_chips', columns, data, batch_size=2000)
+                            total_rows += inserted
+
+                        current_start = (current_end_dt + timedelta(days=1)).strftime('%Y%m%d')
+
+                    self._print_progress(idx, total_stocks, f'{ts_code}')
+
+                except Exception as e:
+                    print(f"\n  {ts_code} 错误: {e}")
+                    self.conn.rollback()
+                    continue
+
+            elapsed = time.time() - self._start_time
+            print(f"\n\n  完成！共写入 {total_rows} 条筹码分布数据，耗时 {elapsed:.0f}s，API调用 {self._call_count}次")
+
+        except Exception as e:
+            self.conn.rollback()
+            print(f"\n  错误: {e}")
 
     # ================================================================
     #  同步所有
@@ -754,6 +856,9 @@ class TushareDataSync:
         # 资金数据（增量）
         self.sync_moneyflow(start_date=start_date, end_date=end_date)
         self.sync_moneyflow_hsgt(start_date=start_date, end_date=end_date)
+
+        # 筹码分布（增量）
+        self.sync_cyq_chips(start_date=start_date, end_date=end_date)
 
         print("\n" + "=" * 60)
         print("  全量同步完成！")
@@ -789,7 +894,8 @@ def main():
     )
     parser.add_argument('--type', required=True,
                         choices=['basic', 'calendar', 'daily', 'adj_factor',
-                                 'daily_basic', 'moneyflow', 'moneyflow_hsgt', 'all'],
+                                 'daily_basic', 'moneyflow', 'moneyflow_hsgt',
+                                 'cyq_chips', 'all'],
                         help='同步的数据类型')
     parser.add_argument('--start', default=None,
                         help='起始日期 YYYYMMDD（不指定则自动增量）')
@@ -808,6 +914,7 @@ def main():
             'daily_basic': sync.sync_daily_basic,
             'moneyflow': sync.sync_moneyflow,
             'moneyflow_hsgt': sync.sync_moneyflow_hsgt,
+            'cyq_chips': sync.sync_cyq_chips,
             'all': sync.sync_all,
         }
 

@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+
+{% block title %}新闻资讯 - 股票量化分析系统{% endblock %}
+
+{% block extra_css %}
+<style>
+ .news-page-header {
+ display: flex;
+ justify-content: space-between;
+ align-items: center;
+ margin-bottom: 1.5rem;
+ flex-wrap: wrap;
+ gap: 1rem;
+ }
+ .news-page-title {
+ font-size: 1.5rem;
+ font-weight: 700;
+ color: var(--text-main);
+ }
+ .news-source-tabs {
+ display: flex;
+ gap: 0.5rem;
+ flex-wrap: wrap;
+ }
+ .news-tab {
+ padding: 0.45rem 1rem;
+ border-radius: 10px;
+ border: 1px solid var(--card-border);
+ background: transparent;
+ color: var(--text-muted);
+ font-size: 0.85rem;
+ font-weight: 600;
+ cursor: pointer;
+ transition: var(--transition-smooth);
+ white-space: nowrap;
+ }
+ .news-tab:hover {
+ border-color: #94a3b8;
+ color: var(--text-main);
+ }
+ .news-tab.active {
+ background: linear-gradient(135deg, #2563eb, #1d4ed8);
+ color: #fff;
+ border-color: transparent;
+ }
+ .news-list {
+ display: flex;
+ flex-direction: column;
+ gap: 0.75rem;
+ }
+ .news-card {
+ background: var(--primary-bg);
+ border: 1px solid var(--card-border);
+ border-radius: 16px;
+ padding: 1.15rem 1.35rem;
+ transition: var(--transition-smooth);
+ }
+ .news-card:hover {
+ box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+ transform: translateY(-1px);
+ border-color: rgba(59, 130, 246, 0.25);
+ }
+ .news-card-header {
+ display: flex;
+ align-items: flex-start;
+ gap: 0.75rem;
+ margin-bottom: 0.5rem;
+ }
+ .news-source-badge {
+ display: inline-flex;
+ align-items: center;
+ padding: 0.2rem 0.6rem;
+ border-radius: 999px;
+ font-size: 0.72rem;
+ font-weight: 600;
+ white-space: nowrap;
+ flex-shrink: 0;
+ }
+ .badge-eastmoney {
+ background: rgba(239, 68, 68, 0.1);
+ color: #dc2626;
+ }
+ .badge-cls {
+ background: rgba(234, 179, 8, 0.1);
+ color: #b45309;
+ }
+ .badge-ths {
+ background: rgba(34, 197, 94, 0.1);
+ color: #15803d;
+ }
+ .news-title {
+ font-size: 1rem;
+ font-weight: 600;
+ color: var(--text-main);
+ text-decoration: none;
+ line-height: 1.5;
+ flex: 1;
+ }
+ .news-title:hover {
+ color: #2563eb;
+ }
+ .news-summary {
+ font-size: 0.88rem;
+ color: var(--text-muted);
+ line-height: 1.6;
+ margin-bottom: 0.5rem;
+ display: -webkit-box;
+ -webkit-line-clamp: 2;
+ -webkit-box-orient: vertical;
+ overflow: hidden;
+ }
+ .news-meta {
+ display: flex;
+ align-items: center;
+ gap: 0.75rem;
+ font-size: 0.8rem;
+ color: #94a3b8;
+ }
+ .news-time {
+ display: inline-flex;
+ align-items: center;
+ gap: 0.3rem;
+ }
+ .news-empty {
+ text-align: center;
+ padding: 4rem 2rem;
+ color: var(--text-muted);
+ }
+ .news-empty-icon {
+ font-size: 3rem;
+ margin-bottom: 1rem;
+ opacity: 0.3;
+ }
+ .news-load-more {
+ text-align: center;
+ padding: 1.5rem;
+ }
+ .news-count-badge {
+ display: inline-flex;
+ align-items: center;
+ padding: 0.3rem 0.75rem;
+ border-radius: 999px;
+ background: rgba(59, 130, 246, 0.1);
+ color: #2563eb;
+ font-size: 0.8rem;
+ font-weight: 600;
+ }
+ /* Skeleton for news */
+ .skeleton-news-card {
+ background: var(--primary-bg);
+ border: 1px solid var(--card-border);
+ border-radius: 16px;
+ padding: 1.15rem 1.35rem;
+ margin-bottom: 0.75rem;
+ }
+ .skeleton-news-title {
+ height: 18px;
+ width: 70%;
+ margin-bottom: 10px;
+ }
+ .skeleton-news-summary {
+ height: 14px;
+ width: 90%;
+ margin-bottom: 8px;
+ }
+ .skeleton-news-meta {
+ height: 12px;
+ width: 30%;
+ }
+ @media (max-width: 576px) {
+ .news-page-header {
+ flex-direction: column;
+ align-items: flex-start;
+ }
+ .news-card {
+ padding: 0.95rem 1.1rem;
+ }
+ }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="news-page-header">
+ <h1 class="news-page-title">新闻资讯</h1>
+ <div class="d-flex align-items-center gap-3">
+  <span class="news-count-badge" id="newsCount">加载中...</span>
+  <button class="btn-modern btn-modern-outline" id="refreshBtn" onclick="loadNews()">
+   <span>刷新</span>
+  </button>
+ </div>
+</div>
+
+<div class="news-source-tabs mb-4" id="sourceTabs">
+ <button class="news-tab active" data-source="all" onclick="switchSource('all', this)">全部</button>
+ <button class="news-tab" data-source="cjzc" onclick="switchSource('cjzc', this)">财经早餐</button>
+ <button class="news-tab" data-source="global_em" onclick="switchSource('global_em', this)">全球快讯</button>
+ <button class="news-tab" data-source="cls" onclick="switchSource('cls', this)">财联社</button>
+ <button class="news-tab" data-source="ths" onclick="switchSource('ths', this)">同花顺</button>
+</div>
+
+<div class="news-list" id="newsList">
+ <!-- Skeleton Loading -->
+ <div class="skeleton-news-card"><div class="skeleton skeleton-news-title"></div><div class="skeleton skeleton-news-summary"></div><div class="skeleton skeleton-news-meta"></div></div>
+ <div class="skeleton-news-card"><div class="skeleton skeleton-news-title"></div><div class="skeleton skeleton-news-summary"></div><div class="skeleton skeleton-news-meta"></div></div>
+ <div class="skeleton-news-card"><div class="skeleton skeleton-news-title"></div><div class="skeleton skeleton-news-summary"></div><div class="skeleton skeleton-news-meta"></div></div>
+ <div class="skeleton-news-card"><div class="skeleton skeleton-news-title"></div><div class="skeleton skeleton-news-summary"></div><div class="skeleton skeleton-news-meta"></div></div>
+ <div class="skeleton-news-card"><div class="skeleton skeleton-news-title"></div><div class="skeleton skeleton-news-summary"></div><div class="skeleton skeleton-news-meta"></div></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentSource = 'all';
+let allNewsItems = [];
+const PAGE_SIZE = 30;
+let displayedCount = 0;
+
+function escapeHtmlText(text) {
+ return String(text ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function getSourceBadgeClass(source) {
+ if (source.includes('东财') || source.includes('财经早餐')) return 'badge-eastmoney';
+ if (source.includes('财联社')) return 'badge-cls';
+ if (source.includes('同花顺')) return 'badge-ths';
+ return 'badge-eastmoney';
+}
+
+function renderNewsItem(item) {
+ const badgeClass = getSourceBadgeClass(item.source);
+ const linkHtml = item.link
+  ? `<a class="news-title" href="${escapeHtmlText(item.link)}" target="_blank" rel="noopener">${escapeHtmlText(item.title || '无标题')}</a>`
+  : `<span class="news-title">${escapeHtmlText(item.title || '无标题')}</span>`;
+ const summaryHtml = item.summary
+  ? `<div class="news-summary">${escapeHtmlText(item.summary)}</div>`
+  : '';
+ return `
+  <div class="news-card">
+   <div class="news-card-header">
+    <span class="news-source-badge ${badgeClass}">${escapeHtmlText(item.source)}</span>
+    ${linkHtml}
+   </div>
+   ${summaryHtml}
+   <div class="news-meta">
+    <span class="news-time">${escapeHtmlText(item.time || '')}</span>
+   </div>
+  </div>
+ `;
+}
+
+function renderNewsList(items, append) {
+ const container = document.getElementById('newsList');
+ if (!append) container.innerHTML = '';
+
+ if (!items || items.length === 0) {
+  if (!append) {
+   container.innerHTML = `
+    <div class="news-empty">
+     <div class="news-empty-icon">📰</div>
+     <div>暂无新闻数据</div>
+    </div>
+   `;
+  }
+  return;
+ }
+
+ const html = items.map(renderNewsItem).join('');
+ if (append) {
+  container.insertAdjacentHTML('beforeend', html);
+ } else {
+  container.innerHTML = html;
+ }
+}
+
+function showSkeleton() {
+ const container = document.getElementById('newsList');
+ container.innerHTML = Array(5).fill('').map(() =>
+  `<div class="skeleton-news-card"><div class="skeleton skeleton-news-title"></div><div class="skeleton skeleton-news-summary"></div><div class="skeleton skeleton-news-meta"></div></div>`
+ ).join('');
+}
+
+async function loadNews() {
+ const btn = document.getElementById('refreshBtn');
+ btn.disabled = true;
+ btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>加载中';
+ showSkeleton();
+
+ try {
+  const res = await apiRequest(`/news?source=${encodeURIComponent(currentSource)}`);
+  const data = res.data;
+
+  if (data && data.items) {
+   allNewsItems = data.items;
+   displayedCount = Math.min(PAGE_SIZE, allNewsItems.length);
+   renderNewsList(allNewsItems.slice(0, displayedCount));
+   document.getElementById('newsCount').textContent = `共 ${data.count || allNewsItems.length} 条`;
+
+   // Show load more button if needed
+   updateLoadMore();
+  } else {
+   allNewsItems = [];
+   renderNewsList([]);
+   document.getElementById('newsCount').textContent = '0 条';
+  }
+
+  if (data && data.errors && data.errors.length > 0) {
+   console.warn('部分新闻源获取失败:', data.errors);
+  }
+ } catch (error) {
+  document.getElementById('newsList').innerHTML = `
+   <div class="news-empty">
+    <div class="news-empty-icon">⚠️</div>
+    <div>加载失败: ${escapeHtmlText(error.message)}</div>
+   </div>
+  `;
+  document.getElementById('newsCount').textContent = '加载失败';
+ } finally {
+  btn.disabled = false;
+  btn.innerHTML = '<span>刷新</span>';
+ }
+}
+
+function updateLoadMore() {
+ let loadMoreEl = document.getElementById('loadMoreBtn');
+ if (displayedCount >= allNewsItems.length) {
+  if (loadMoreEl) loadMoreEl.remove();
+  return;
+ }
+ if (!loadMoreEl) {
+  loadMoreEl = document.createElement('div');
+  loadMoreEl.id = 'loadMoreBtn';
+  loadMoreEl.className = 'news-load-more';
+  loadMoreEl.innerHTML = '<button class="btn-modern btn-modern-outline" onclick="loadMore()">加载更多</button>';
+  document.getElementById('newsList').after(loadMoreEl);
+ }
+}
+
+function loadMore() {
+ const nextCount = Math.min(displayedCount + PAGE_SIZE, allNewsItems.length);
+ const newItems = allNewsItems.slice(displayedCount, nextCount);
+ renderNewsList(newItems, true);
+ displayedCount = nextCount;
+ updateLoadMore();
+}
+
+function switchSource(source, el) {
+ currentSource = source;
+ document.querySelectorAll('.news-tab').forEach(t => t.classList.remove('active'));
+ if (el) el.classList.add('active');
+ loadNews();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+ loadNews();
+});
+</script>
+{% endblock %}
