@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+{% block title %}系统自检 - 管理后台{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/account-admin.css') }}">
+<style>
+.health-check-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+.health-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid #e8ecf1;
+    transition: box-shadow .2s, border-color .2s;
+}
+.health-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,.06);
+}
+.health-card-header {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-bottom: .75rem;
+}
+.health-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; color: #fff;
+}
+.health-icon.ok   { background: #28a745; }
+.health-icon.error{ background: #dc3545; }
+.health-icon.disabled { background: #6c757d; }
+.health-icon.pending { background: #ffc107; color: #333 !important; }
+
+.health-card-title {
+    font-weight: 600; font-size: 1rem; color: #1a2332;
+}
+.health-card-status {
+    margin-left: auto;
+    font-size: .8rem; font-weight: 600;
+    padding: .2rem .6rem; border-radius: 20px;
+}
+.health-card-status.ok   { background: #e6f9ec; color: #1a7d3f; }
+.health-card-status.error{ background: #fde8e8; color: #b91c1c; }
+.health-card-status.disabled { background: #f0f0f0; color: #666; }
+.health-card-status.pending  { background: #fff8e1; color: #b8860b; }
+
+.health-card-message {
+    font-size: .875rem; color: #555; margin-bottom: .5rem;
+}
+.health-detail-table {
+    width: 100%; font-size: .8rem; color: #666;
+}
+.health-detail-table td {
+    padding: .2rem 0;
+}
+.health-detail-table td:first-child {
+    color: #999; width: 110px;
+}
+
+.health-overall-banner {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 1rem 1.5rem; border-radius: 12px;
+    margin-bottom: 1rem; font-weight: 600;
+}
+.health-overall-banner.ok      { background: #e6f9ec; color: #1a7d3f; border: 1px solid #b2dfcc; }
+.health-overall-banner.degraded{ background: #fde8e8; color: #b91c1c; border: 1px solid #f5b7b7; }
+.health-overall-banner.pending { background: #fff8e1; color: #b8860b; border: 1px solid #ffe082; }
+
+.spin-icon {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.btn-check-run {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff; border: none; padding: .6rem 1.5rem;
+    border-radius: 8px; font-weight: 600; cursor: pointer;
+    transition: opacity .2s;
+}
+.btn-check-run:hover { opacity: .9; }
+.btn-check-run:disabled { opacity: .5; cursor: not-allowed; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="workspace-shell">
+        <section class="workspace-hero">
+            <span class="workspace-kicker">后台模块</span>
+            <h1 class="workspace-title">系统自检</h1>
+            <p class="workspace-subtitle">检查数据库、缓存、Tushare、AkShare 等核心组件的连通性与可用性。</p>
+            <div class="workspace-actions">
+                <a class="btn btn-light" href="{{ url_for('admin.dashboard') }}">返回后台首页</a>
+                <a class="btn btn-outline-light" href="{{ url_for('admin.data_center') }}">数据管理</a>
+                <a class="btn btn-outline-light" href="{{ url_for('admin.logs') }}">系统日志</a>
+            </div>
+        </section>
+
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <button id="btnRunCheck" class="btn-check-run" onclick="runCheck()">
+                &#9889; 立即检查
+            </button>
+            <span id="checkTime" class="text-muted" style="font-size:.875rem;"></span>
+        </div>
+
+        <div id="overallBanner" class="health-overall-banner pending" style="display:none;">
+            <span id="overallIcon"></span>
+            <span id="overallText"></span>
+        </div>
+
+        <div id="checkResults" class="health-check-grid">
+            <!-- 占位卡片：数据库 -->
+            <div class="health-card" id="card-database">
+                <div class="health-card-header">
+                    <div class="health-icon pending">DB</div>
+                    <span class="health-card-title">MySQL 数据库</span>
+                    <span class="health-card-status pending">待检测</span>
+                </div>
+                <div class="health-card-message">点击"立即检查"开始检测</div>
+            </div>
+            <!-- 占位卡片：Redis -->
+            <div class="health-card" id="card-redis">
+                <div class="health-card-header">
+                    <div class="health-icon pending">R</div>
+                    <span class="health-card-title">Redis 缓存</span>
+                    <span class="health-card-status pending">待检测</span>
+                </div>
+                <div class="health-card-message">点击"立即检查"开始检测</div>
+            </div>
+            <!-- 占位卡片：Tushare -->
+            <div class="health-card" id="card-tushare">
+                <div class="health-card-header">
+                    <div class="health-icon pending">TS</div>
+                    <span class="health-card-title">Tushare Pro</span>
+                    <span class="health-card-status pending">待检测</span>
+                </div>
+                <div class="health-card-message">点击"立即检查"开始检测</div>
+            </div>
+            <!-- 占位卡片：AkShare -->
+            <div class="health-card" id="card-akshare">
+                <div class="health-card-header">
+                    <div class="health-icon pending">AK</div>
+                    <span class="health-card-title">AkShare / 新浪快照</span>
+                    <span class="health-card-status pending">待检测</span>
+                </div>
+                <div class="health-card-message">点击"立即检查"开始检测</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function renderCard(key, comp) {
+    var card = document.getElementById('card-' + key);
+    if (!card) return;
+    var iconMap = { database: 'DB', redis: 'R', tushare: 'TS', akshare: 'AK' };
+    var statusLabel = { ok: '正常', error: '异常', disabled: '未启用' };
+    var iconText = iconMap[key] || '?';
+    var s = comp.status || 'pending';
+    var iconEl = card.querySelector('.health-icon');
+    iconEl.className = 'health-icon ' + s;
+    iconEl.textContent = iconText;
+    var statusEl = card.querySelector('.health-card-status');
+    statusEl.className = 'health-card-status ' + s;
+    statusEl.textContent = statusLabel[s] || '检测中';
+    var msgEl = card.querySelector('.health-card-message');
+    msgEl.textContent = comp.message || '';
+
+    // 详情
+    var oldDetail = card.querySelector('.health-detail-table');
+    if (oldDetail) oldDetail.remove();
+    if (comp.detail && Object.keys(comp.detail).length > 0) {
+        var tbl = document.createElement('table');
+        tbl.className = 'health-detail-table';
+        var labels = {
+            proxy_url: '代理地址', latest_trade_date: '最近交易日',
+            source: '数据源', spot_count: '采样数', proxy: '代理状态'
+        };
+        for (var k in comp.detail) {
+            var val = comp.detail[k];
+            if (val === null || val === undefined || val === '') continue;
+            var tr = document.createElement('tr');
+            tr.innerHTML = '<td>' + (labels[k] || k) + '</td><td>' + val + '</td>';
+            tbl.appendChild(tr);
+        }
+        if (tbl.rows.length > 0) card.appendChild(tbl);
+    }
+}
+
+function renderOverall(overall) {
+    var banner = document.getElementById('overallBanner');
+    var icon = document.getElementById('overallIcon');
+    var text = document.getElementById('overallText');
+    banner.style.display = 'flex';
+    banner.className = 'health-overall-banner ' + overall;
+    if (overall === 'ok') {
+        icon.textContent = '\u2705';
+        text.textContent = '所有组件运行正常';
+    } else if (overall === 'degraded') {
+        icon.textContent = '\u26A0\uFE0F';
+        text.textContent = '部分组件存在异常，请查看详情';
+    } else {
+        icon.textContent = '\u23F3';
+        text.textContent = '正在检测中...';
+    }
+}
+
+function runCheck() {
+    var btn = document.getElementById('btnRunCheck');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin-icon">\u26A1</span> 检测中...';
+
+    // 先重置卡片为 pending 状态
+    var keys = ['database', 'redis', 'tushare', 'akshare'];
+    keys.forEach(function(k) {
+        var card = document.getElementById('card-' + k);
+        if (!card) return;
+        card.querySelector('.health-icon').className = 'health-icon pending';
+        card.querySelector('.health-card-status').className = 'health-card-status pending';
+        card.querySelector('.health-card-status').textContent = '检测中';
+        card.querySelector('.health-card-message').textContent = '正在检测...';
+        var old = card.querySelector('.health-detail-table');
+        if (old) old.remove();
+    });
+    renderOverall('pending');
+
+    fetch('{{ url_for("admin.api_system_check") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(data) {
+        renderOverall(data.overall || 'ok');
+        document.getElementById('checkTime').textContent = '\u68C0\u6D4B\u65F6\u95F4\uFF1A' + (data.checked_at || '');
+        var comps = data.components || {};
+        for (var key in comps) {
+            renderCard(key, comps[key]);
+        }
+    })
+    .catch(function(err) {
+        renderOverall('degraded');
+        document.getElementById('overallText').textContent = '检测请求失败: ' + err.message;
+    })
+    .finally(function() {
+        btn.disabled = false;
+        btn.innerHTML = '\u26A1 \u7ACB\u5373\u68C0\u67E5';
+    });
+}
+</script>
+{% endblock %}

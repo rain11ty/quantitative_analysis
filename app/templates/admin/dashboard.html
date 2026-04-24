@@ -19,6 +19,7 @@
                 <a class="btn btn-light" href="{{ url_for('admin.users') }}">用户管理</a>
                 <a class="btn btn-outline-light" href="{{ url_for('admin.logs') }}">系统日志</a>
                 <a class="btn btn-outline-light" href="{{ url_for('admin.data_center') }}">数据管理</a>
+                <a class="btn btn-outline-light" href="{{ url_for('admin.system_check') }}">系统自检</a>
                 <a class="btn btn-outline-light" href="{{ url_for('auth.profile') }}">返回个人中心</a>
                 <a class="btn btn-outline-light" href="{{ url_for('admin.logout') }}">退出后台</a>
             </div>
@@ -61,6 +62,11 @@
                 <span class="workspace-chip warning">数据中心</span>
                 <span class="admin-shortcut-title">检查数据规模与同步入口</span>
                 <span class="admin-shortcut-desc">查看股票基础表、分钟表规模，并手动尝试同步指定股票分钟数据。</span>
+            </a>
+            <a class="admin-shortcut" href="{{ url_for('admin.system_check') }}">
+                <span class="workspace-chip" style="background:#667eea;">系统自检</span>
+                <span class="admin-shortcut-title">检测各组件连通性</span>
+                <span class="admin-shortcut-desc">检查数据库、Redis、Tushare、AkShare 等核心服务是否正常运行。</span>
             </a>
         </div>
 

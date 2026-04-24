@@ -21,15 +21,15 @@ bind = os.getenv('GUNICORN_BIND', '0.0.0.0:5001')
 # ============================================================
 # Worker 进程配置
 # ============================================================
-worker_class = "sync"  # 使用同步worker（gevent未安装时回退）
-workers = int(os.getenv('GUNICORN_WORKERS', multiprocessing.cpu_count() * 2 + 1))
+worker_class = os.getenv('GUNICORN_WORKER_CLASS', 'sync')  # 生产环境推荐 gevent
+workers = int(os.getenv('GUNICORN_WORKERS', min(multiprocessing.cpu_count() * 2 + 1, 8)))
 worker_connections = int(os.getenv('GUNICORN_CONNECTIONS', 1000))
 threads = int(os.getenv('GUNICORN_THREADS', 1))
 
 # ============================================================
 # 超时配置
 # ============================================================
-timeout = int(os.getenv('GUNICORN_TIMEOUT', 120))
+timeout = int(os.getenv('GUNICORN_TIMEOUT', 180))
 keepalive = int(os.getenv('GUNICORN_KEEPALIVE', 5))
 graceful_timeout = int(os.getenv('GUNICORN_GRACEFUL_TIMEOUT', 30))
 worker_silent_timeout = int(os.getenv('GUNICORN_SILENT_TIMEOUT', 60))

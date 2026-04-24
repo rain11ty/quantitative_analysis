@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for
+from flask import Blueprint, flash, g, jsonify, redirect, render_template, request, session, url_for
 from sqlalchemy import or_
 
 from app.extensions import db
@@ -14,6 +14,8 @@ from app.models import (
 )
 from app.services.minute_data_sync_service import MinuteDataSyncService
 from app.services.system_log_service import SystemLogService
+from app.services.market_overview_service import MarketOverviewService
+from app.services.akshare_service import AkshareService
 from app.utils.auth import admin_required
 
 
@@ -295,3 +297,131 @@ def sync_one_stock():
         flash(f'Sync error: {exc}', 'danger')
 
     return redirect(url_for('admin.data_center'))
+
+
+# ======================== 系统自检 ========================
+
+@admin_routes.route('/system-check')
+@admin_required
+def system_check():
+    """系统自检页面"""
+    return render_template('admin/health_check.html')
+
+
+@admin_routes.route('/api/system-check', methods=['POST'])
+@admin_required
+def api_system_check():
+    """执行系统自检，返回各组件连通性状态"""
+    import time as _time
+
+    results = {
+        'overall': 'ok',
+        'checked_at': _time.strftime('%Y-%m-%d %H:%M:%S'),
+        'components': {},
+    }
+
+    # 1. 数据库
+    try:
+        db.session.execute(db.text('SELECT 1'))
+        results['components']['database'] = {
+            'status': 'ok',
+            'label': 'MySQL 数据库',
+            'message': '连接正常',
+        }
+    except Exception as e:
+        results['overall'] = 'degraded'
+        results['components']['database'] = {
+            'status': 'error',
+            'label': 'MySQL 数据库',
+            'message': str(e)[:200],
+        }
+
+    # 2. Redis
+    try:
+        from app.extensions import redis_client
+        if redis_client is not None:
+            redis_client.ping()
+            results['components']['redis'] = {
+                'status': 'ok',
+                'label': 'Redis 缓存',
+                'message': '连接正常',
+            }
+        else:
+            results['components']['redis'] = {
+                'status': 'disabled',
+                'label': 'Redis 缓存',
+                'message': '未启用，使用内存缓存',
+            }
+    except Exception as e:
+        results['overall'] = 'degraded'
+        results['components']['redis'] = {
+            'status': 'error',
+            'label': 'Redis 缓存',
+            'message': str(e)[:200],
+        }
+
+    # 3. Tushare
+    try:
+        ts_result = MarketOverviewService.ping_tushare()
+        if ts_result.get('success'):
+            results['components']['tushare'] = {
+                'status': 'ok',
+                'label': 'Tushare Pro',
+                'message': ts_result.get('message', '连接正常'),
+                'detail': {
+                    'proxy_url': ts_result.get('proxy_url', ''),
+                    'latest_trade_date': ts_result.get('latest_trade_date', ''),
+                },
+            }
+        else:
+            results['overall'] = 'degraded'
+            results['components']['tushare'] = {
+                'status': 'error',
+                'label': 'Tushare Pro',
+                'message': ts_result.get('message', '连接失败'),
+                'detail': {
+                    'proxy_url': ts_result.get('proxy_url', ''),
+                },
+            }
+    except Exception as e:
+        results['overall'] = 'degraded'
+        results['components']['tushare'] = {
+            'status': 'error',
+            'label': 'Tushare Pro',
+            'message': str(e)[:200],
+        }
+
+    # 4. AkShare / 新浪快照
+    try:
+        ak_result = AkshareService.ping()
+        if ak_result.get('success'):
+            results['components']['akshare'] = {
+                'status': 'ok',
+                'label': 'AkShare / 新浪快照',
+                'message': ak_result.get('message', '连接正常'),
+                'detail': {
+                    'source': ak_result.get('source', ''),
+                    'spot_count': ak_result.get('spot_count', 0),
+                    'proxy': ak_result.get('proxy', ''),
+                },
+            }
+        else:
+            results['overall'] = 'degraded'
+            results['components']['akshare'] = {
+                'status': 'error',
+                'label': 'AkShare / 新浪快照',
+                'message': ak_result.get('message', '连接失败'),
+                'detail': {
+                    'source': ak_result.get('source', ''),
+                    'proxy': ak_result.get('proxy', ''),
+                },
+            }
+    except Exception as e:
+        results['overall'] = 'degraded'
+        results['components']['akshare'] = {
+            'status': 'error',
+            'label': 'AkShare / 新浪快照',
+            'message': str(e)[:200],
+        }
+
+    return jsonify(results)

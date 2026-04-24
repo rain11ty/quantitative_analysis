@@ -3,7 +3,7 @@
 {% block title %}首页 - 股票量化分析系统{% endblock %}
 
 {% block extra_css %}
-<style> /* Hero Banner */
+<style>
  .hero-banner {
  position: relative;
  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
@@ -59,7 +59,6 @@
  color: #fef3c7;
  font-weight: 700;
  }
- /* Market Breadth & Stats */
  .market-stats-container {
  display: flex;
  flex-wrap: wrap;
@@ -96,11 +95,228 @@
  color: var(--text-main);
  line-height: 1;
  }
- /* Index Charts */
+ /* Index Grid */
+ .index-grid {
+ display: grid;
+ grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+ gap: 1rem;
+ margin-bottom: 2rem;
+ }
+ /* Ranking Section */
+.ranking-section {
+    margin-bottom: 2rem;
+}
+.ranking-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+}
+.ranking-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+.ranking-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem;
+}
+.ranking-panel {
+    background: var(--primary-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(15, 23, 42, 0.03);
+}
+.ranking-panel-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    padding: 0.65rem 1rem;
+    background: rgba(248, 250, 252, 0.9);
+    border-bottom: 1px solid var(--card-border);
+}
+.ranking-panel-title.is-gainers {
+    color: #b91c1c;
+    background: rgba(239, 68, 68, 0.06);
+}
+.ranking-panel-title.is-losers {
+    color: #166534;
+    background: rgba(34, 197, 94, 0.06);
+}
+.ranking-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+.ranking-table th {
+    padding: 0.4rem 0.6rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: rgba(248, 250, 252, 0.5);
+    border-bottom: 1px solid var(--card-border);
+    text-align: right;
+    white-space: nowrap;
+}
+.ranking-table th:first-child,
+.ranking-table th:nth-child(2) {
+    text-align: left;
+}
+.ranking-table td {
+    padding: 0.38rem 0.6rem;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.4);
+    text-align: right;
+    white-space: nowrap;
+    color: var(--text-main);
+}
+.ranking-table td:first-child {
+    color: var(--text-muted);
+    width: 28px;
+    text-align: center;
+}
+.ranking-table td:nth-child(2) {
+    text-align: left;
+    font-weight: 600;
+}
+.ranking-table tr {
+    cursor: pointer;
+    transition: background 0.12s ease;
+}
+.ranking-table tbody tr:hover {
+    background: rgba(59, 130, 246, 0.04);
+}
+.ranking-table .pct-up {
+    color: #b91c1c;
+    font-weight: 700;
+}
+.ranking-table .pct-down {
+    color: #166534;
+    font-weight: 700;
+}
+.ranking-table .pct-flat {
+    color: var(--text-muted);
+}
+.ranking-table .rank-top3 {
+    color: #dc2626;
+    font-weight: 800;
+}
+@media (max-width: 767px) {
+    .ranking-container {
+        grid-template-columns: 1fr;
+    }
+}
+ .index-card {
+ background: var(--primary-bg);
+ border: 1px solid var(--card-border);
+ border-radius: 18px;
+ padding: 1.15rem 1.25rem;
+ cursor: pointer;
+ transition: var(--transition-smooth);
+ position: relative;
+ overflow: hidden;
+ }
+ .index-card:hover, .index-card.active {
+ transform: translateY(-2px);
+ box-shadow: 0 12px 28px rgba(37, 99, 235, 0.12);
+ border-color: rgba(59, 130, 246, 0.4);
+ }
+ .index-card.active::before {
+ content: '';
+ position: absolute;
+ left: 0; top: 0; bottom: 0;
+ width: 4px;
+ background: linear-gradient(180deg, #2563eb, #60a5fa);
+ border-radius: 4px 0 0 4px;
+ }
+ .index-name {
+ font-size: 0.88rem;
+ color: var(--text-muted);
+ font-weight: 500;
+ }
+ .index-code {
+ font-size: 0.78rem;
+ color: #94a3b8;
+ margin-top: 0.1rem;
+ }
+ .index-price {
+ font-size: 1.55rem;
+ font-weight: 800;
+ color: var(--text-main);
+ margin-top: 0.5rem;
+ letter-spacing: -0.02em;
+ }
+ .index-change {
+ display: inline-flex;
+ align-items: center;
+ gap: 0.3rem;
+ padding: 0.25rem 0.6rem;
+ border-radius: 999px;
+ font-size: 0.82rem;
+ font-weight: 700;
+ margin-top: 0.35rem;
+ }
+.index-change.is-up {
+    color: #b91c1c;
+    background: rgba(239, 68, 68, 0.12);
+}
+.index-change.is-down {
+    color: #166534;
+    background: rgba(34, 197, 94, 0.12);
+}
+ .index-change.is-flat {
+ color: #475569;
+ background: rgba(148, 163, 184, 0.15);
+ }
+ /* Chart Section */
+ .chart-section {
+ background: var(--primary-bg);
+ border: 1px solid var(--card-border);
+ border-radius: 24px;
+ padding: 1.5rem 1.75rem;
+ margin-bottom: 2rem;
+ }
+ .chart-header {
+ display: flex;
+ justify-content: space-between;
+ align-items: center;
+ flex-wrap: wrap;
+ gap: 1rem;
+ margin-bottom: 1rem;
+ }
+ .chart-title {
+ font-size: 1.2rem;
+ font-weight: 700;
+ color: var(--text-main);
+ }
+ .period-btns {
+ display: flex;
+ gap: 0.4rem;
+ }
+ .period-btn {
+ padding: 0.35rem 0.85rem;
+ border-radius: 10px;
+ border: 1px solid var(--card-border);
+ background: transparent;
+ color: var(--text-muted);
+ font-size: 0.82rem;
+ font-weight: 600;
+ cursor: pointer;
+ transition: var(--transition-smooth);
+ }
+ .period-btn:hover {
+ border-color: #94a3b8;
+ color: var(--text-main);
+ }
+ .period-btn.active {
+ background: linear-gradient(135deg, #2563eb, #1d4ed8);
+ color: #fff;
+ border-color: transparent;
+ }
  .chart-box {
- height: 320px;
+ height: 400px;
  width: 100%;
- margin-top: 1rem;
  }
  /* Status Grid */
  .status-grid {
@@ -174,25 +390,42 @@
 </div>
 </div>
 </div>
-<!-- Index Charts Section -->
-<div class="row mb-4 g-4">
-<div class="col-lg-6">
-<div class="page-card h-100 p-4">
-<div class="d-flex justify-content-between align-items-center mb-2">
-<h5 class="fw-bold mb-0">上证指数 <span class="fs-6 text-muted fw-normal ms-1">(000001.SH)</span></h5>
-<div id="sh-change" class="fw-bold fs-5">--</div>
+<!-- Index Cards Section -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+<h4 class="fw-bold mb-0 text-main">大盘行情</h4>
+<span class="text-muted small" id="index-update-time"></span>
 </div>
-<div id="sh-chart" class="chart-box"></div>
+<div class="index-grid" id="indexGrid">
+<!-- Dynamically rendered -->
+</div>
+<!-- Index K-line Chart Section -->
+<div class="chart-section">
+<div class="chart-header">
+<div class="chart-title" id="chartTitle">上证指数 日线走势</div>
+<div class="period-btns">
+<button class="period-btn" data-period="1M">1月</button>
+<button class="period-btn" data-period="3M">3月</button>
+<button class="period-btn active" data-period="1Y">1年</button>
+<button class="period-btn" data-period="3Y">3年</button>
 </div>
 </div>
-<div class="col-lg-6">
-<div class="page-card h-100 p-4">
-<div class="d-flex justify-content-between align-items-center mb-2">
-<h5 class="fw-bold mb-0">深证成指 <span class="fs-6 text-muted fw-normal ms-1">(399001.SZ)</span></h5>
-<div id="sz-change" class="fw-bold fs-5">--</div>
+<div id="indexChart" class="chart-box"></div>
 </div>
-<div id="sz-chart" class="chart-box"></div>
+<!-- Realtime Ranking Section -->
+<div class="ranking-section">
+<div class="ranking-header">
+<h4 class="fw-bold mb-0 text-main">实时涨跌幅排名</h4>
+<div class="ranking-controls">
+<select id="rankingSortBy" class="form-select form-select-sm" style="width:auto;font-size:0.82rem;border-radius:8px;">
+<option value="pct_change" selected>涨跌幅</option>
+<option value="turnover_rate">换手率</option>
+<option value="amount">成交额</option>
+</select>
+<span class="text-muted small" id="rankingUpdateTime"></span>
 </div>
+</div>
+<div class="ranking-container" id="rankingContainer">
+<div class="text-muted small">加载中...</div>
 </div>
 </div>
 <!-- System Status -->
@@ -225,158 +458,382 @@
 </div> {% endblock %}
 
 {% block extra_js %}
-<script>let shChart = null;
-let szChart = null;
+<script>
+let indexChart = null;
+let selectedIndex = '000001.SH';
+let currentPeriod = '1Y';
+let overviewData = null;
+// 前端 API 缓存
+const _apiCache = {};
+const API_CACHE_TTL = 15000; // 15秒
+
+async function cachedApiRequest(url) {
+    const now = Date.now();
+    const cached = _apiCache[url];
+    if (cached && now - cached.ts < API_CACHE_TTL) {
+        return cached.data;
+    }
+    const data = await apiRequest(url);
+    _apiCache[url] = { ts: now, data };
+    return data;
+}
+
+const INDEX_NAMES = {
+    '000001.SH': '上证指数',
+    '399001.SZ': '深证成指',
+    '399006.SZ': '创业板指',
+    '000016.SH': '上证50',
+    '000300.SH': '沪深300',
+    '000905.SH': '中证500',
+    '000688.SH': '科创50',
+};
+
+function getChangeClass(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num) || num === 0) return 'is-flat';
+    return num > 0 ? 'is-up' : 'is-down';
+}
+
+function formatNum(v, d = 2) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '--';
+    return n.toFixed(d);
+}
+
+function formatCompactValue(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return '--';
+    if (Math.abs(number) >= 100000000) {
+        return `${(number / 100000000).toFixed(2)} 亿`;
+    }
+    if (Math.abs(number) >= 10000) {
+        return `${(number / 10000).toFixed(2)} 万`;
+    }
+    return number.toFixed(0);
+}
+
+function escapeHtmlText(text) {
+    return String(text ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderRankingRow(item, idx) {
+    const pct = Number(item.pct_change);
+    const pctClass = !Number.isFinite(pct) || pct === 0 ? 'pct-flat' : pct > 0 ? 'pct-up' : 'pct-down';
+    const sign = pct > 0 ? '+' : '';
+    const rankClass = idx < 3 ? 'rank-top3' : '';
+    return `
+        <tr onclick="rankingGoToStock('${escapeHtmlText(item.ts_code)}')">
+            <td class="${rankClass}">${idx + 1}</td>
+            <td title="${escapeHtmlText(item.ts_code)}">${escapeHtmlText(item.name || item.ts_code)}</td>
+            <td>${formatNum(item.price)}</td>
+            <td class="${pctClass}">${sign}${formatNum(pct)}%</td>
+            <td>${formatNum(item.turnover_rate)}%</td>
+            <td>${formatCompactValue(item.amount)}</td>
+        </tr>
+    `;
+}
+
+function rankingGoToStock(tsCode) {
+    window.location.href = `/stocks?ts_code=${encodeURIComponent(tsCode)}`;
+}
+
+async function loadRanking() {
+    const sortBy = document.getElementById('rankingSortBy').value;
+    const container = document.getElementById('rankingContainer');
+    const timeEl = document.getElementById('rankingUpdateTime');
+
+    try {
+        const res = await apiRequest(`/monitor/ranking?sort_by=${encodeURIComponent(sortBy)}&limit=20`);
+        const data = res.data || {};
+
+        if (!data.success) {
+            container.innerHTML = `<div class="text-muted small">${escapeHtmlText(data.message || '排名数据加载失败')}</div>`;
+            timeEl.textContent = '';
+            return;
+        }
+
+        timeEl.textContent = data.updated_at ? `更新于 ${data.updated_at}` : '';
+
+        const gainers = data.top_gainers || [];
+        const losers = data.top_losers || [];
+        const sortByLabel = {'pct_change': '涨跌幅', 'turnover_rate': '换手率', 'amount': '成交额', 'vol_ratio': '量比'}[data.sort_by] || data.sort_by;
+
+        container.innerHTML = `
+            <div class="ranking-panel">
+                <div class="ranking-panel-title is-gainers">涨幅榜（按${escapeHtmlText(sortByLabel)}）</div>
+                <table class="ranking-table">
+                    <thead><tr><th>#</th><th>名称</th><th>现价</th><th>涨跌幅</th><th>换手率</th><th>成交额</th></tr></thead>
+                    <tbody>${gainers.map((item, idx) => renderRankingRow(item, idx)).join('')}</tbody>
+                </table>
+            </div>
+            <div class="ranking-panel">
+                <div class="ranking-panel-title is-losers">跌幅榜（按${escapeHtmlText(sortByLabel)}）</div>
+                <table class="ranking-table">
+                    <thead><tr><th>#</th><th>名称</th><th>现价</th><th>涨跌幅</th><th>换手率</th><th>成交额</th></tr></thead>
+                    <tbody>${losers.map((item, idx) => renderRankingRow(item, idx)).join('')}</tbody>
+                </table>
+            </div>
+        `;
+    } catch (error) {
+        container.innerHTML = `<div class="text-muted small">排名加载失败: ${escapeHtmlText(error.message)}</div>`;
+    }
+}
 
 document.addEventListener('DOMContentLoaded', function() {
- initCharts();
- checkTushareStatus();
- loadMarketOverview();
- document.getElementById('check-api-btn').addEventListener('click', function() {
-const btn = this;
-const originalText = btn.innerHTML;
-
- btn.disabled = true;
- btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>测试中...';
- checkTushareStatus().finally(() => {
- btn.disabled = false;
- btn.innerHTML = originalText;
- });
- });
- window.addEventListener('resize', function() {
- if(shChart) shChart.resize();
- if(szChart) szChart.resize();
- });
+    initChart();
+    checkTushareStatus();
+    loadMarketOverview().then(() => {
+        // 大盘行情加载完毕后自动加载默认K线，无需用户手动切换时间周期
+        loadIndexKline(selectedIndex, currentPeriod);
+    });
+    loadRanking();
+    document.getElementById('rankingSortBy').addEventListener('change', loadRanking);
+    document.getElementById('check-api-btn').addEventListener('click', function() {
+    const btn = this;
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>测试中...';
+    checkTushareStatus().finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+    });
+    document.querySelectorAll('.period-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        currentPeriod = this.dataset.period;
+        loadIndexKline(selectedIndex, currentPeriod);
+    });
+    });
+    window.addEventListener('resize', function() {
+    if(indexChart) indexChart.resize();
+    });
 });
 
-function initCharts() {
- const shDom = document.getElementById('sh-chart');
- const szDom = document.getElementById('sz-chart');
- if (typeof echarts !== 'undefined') {
- shChart = echarts.init(shDom);
- szChart = echarts.init(szDom);
- const loadingOpt = {
- text: '数据加载中...',
- color: '#2563eb',
- textColor: '#64748b',
- maskColor: 'rgba(255, 255, 255, 0.8)'
- };
- shChart.showLoading('default', loadingOpt);
- szChart.showLoading('default', loadingOpt);
- }
+function initChart() {
+    const dom = document.getElementById('indexChart');
+    if (typeof echarts !== 'undefined') {
+    indexChart = echarts.init(dom);
+    indexChart.showLoading('default', {
+        text: '数据加载中...',
+        color: '#2563eb',
+        textColor: '#64748b',
+        maskColor: 'rgba(255, 255, 255, 0.8)'
+    });
+    }
 }
 
 async function checkTushareStatus() {
- try {
- const res = await apiRequest('/market/health');
- const response = res.data;
- const statusEl = document.getElementById('tushare-status');
- if (response && response.success) {
- statusEl.innerHTML = '<span class="badge bg-success bg-opacity-10 text-success px-3 py-2 rounded-pill">连接正常</span>';
- document.getElementById('proxy-url').textContent = response.proxy_url || '未设置代理';
- document.getElementById('latest-trade-date').textContent = response.latest_trade_date || '--';
- } else {
- statusEl.innerHTML = '<span class="badge bg-danger bg-opacity-10 text-danger px-3 py-2 rounded-pill">连接失败</span>';
- }
- } catch (error) {
- document.getElementById('tushare-status').innerHTML = '<span class="badge bg-danger bg-opacity-10 text-danger px-3 py-2 rounded-pill">请求异常</span>';
- }
+    try {
+    const res = await apiRequest('/market/health');
+    const response = res.data;
+    const statusEl = document.getElementById('tushare-status');
+    if (response && response.success) {
+        statusEl.innerHTML = '<span class="badge bg-success bg-opacity-10 text-success px-3 py-2 rounded-pill">连接正常</span>';
+        document.getElementById('proxy-url').textContent = response.proxy_url || '未设置代理';
+        document.getElementById('latest-trade-date').textContent = response.latest_trade_date || '--';
+    } else {
+        statusEl.innerHTML = '<span class="badge bg-danger bg-opacity-10 text-danger px-3 py-2 rounded-pill">连接失败</span>';
+    }
+    } catch (error) {
+    document.getElementById('tushare-status').innerHTML = '<span class="badge bg-danger bg-opacity-10 text-danger px-3 py-2 rounded-pill">请求异常</span>';
+    }
 }
 
 async function loadMarketOverview() {
- try {
- const res = await apiRequest('/market/overview');
- const response = res.data;
- if (response && response.success && response.items) {
- // 更新涨跌家数与时间
- document.getElementById('advancing-count').textContent = response.advancing || 0;
- document.getElementById('declining-count').textContent = response.declining || 0;
- document.getElementById('flat-count').textContent = response.flat || 0;
- if (response.update_time) {
- document.getElementById('update-time').innerHTML = `更新于 ${response.update_time} (交易日: ${response.trade_date})`;
- }
- // 处理指数数据
- const shData = response.items.find(item => item.ts_code === '000001.SH');
- const szData = response.items.find(item => item.ts_code === '399001.SZ');
- if (shData) {
- updateIndexHeader('sh-change', shData);
- if (shData.kline && shChart) renderKLineChart(shChart, shData.kline, '上证指数');
- }
- if (szData) {
- updateIndexHeader('sz-change', szData);
- if (szData.kline && szChart) renderKLineChart(szChart, szData.kline, '深证成指');
- }
- }
- } catch (error) {
- console.error('Failed to load market overview:', error);
- if (shChart) shChart.hideLoading();
- if (szChart) szChart.hideLoading();
- }
+    try {
+    const res = await apiRequest('/market/overview');
+    const response = res.data;
+    overviewData = response;
+    if (response && response.success && response.items) {
+        // 更新涨跌家数
+        document.getElementById('advancing-count').textContent = response.advancing || 0;
+        document.getElementById('declining-count').textContent = response.declining || 0;
+        document.getElementById('flat-count').textContent = response.flat || 0;
+        if (response.update_time) {
+        document.getElementById('update-time').innerHTML = `更新于 ${response.update_time} (交易日: ${response.trade_date})`;
+        document.getElementById('index-update-time').textContent = `更新于 ${response.update_time}`;
+        }
+        renderIndexCards(response.items);
+    }
+    } catch (error) {
+    console.error('Failed to load market overview:', error);
+    if (indexChart) indexChart.hideLoading();
+    }
 }
 
-function updateIndexHeader(elementId, data) {
- const el = document.getElementById(elementId);
- if (!el || !data.close) return;
- const colorClass = data.pct_chg >= 0 ? 'text-danger' : 'text-success';
- const sign = data.pct_chg >= 0 ? '+' : '';
- el.innerHTML = `
-  <span class="${colorClass}">${data.close.toFixed(2)}</span>
-<span class="${colorClass} fs-6 ms-2">${sign}${data.change.toFixed(2)} (${sign}${data.pct_chg.toFixed(2)}%)</span> `;
+function renderIndexCards(items) {
+    const container = document.getElementById('indexGrid');
+    if (!items || !items.length) {
+    container.innerHTML = '<div class="text-muted">暂无指数数据</div>';
+    return;
+    }
+
+    container.innerHTML = items.map(item => {
+    const changeClass = getChangeClass(item.pct_chg);
+    const sign = Number(item.pct_chg) >= 0 ? '+' : '';
+    const isActive = item.ts_code === selectedIndex ? 'active' : '';
+    return `
+        <div class="index-card ${isActive}" data-code="${item.ts_code}" onclick="selectIndex('${item.ts_code}')">
+        <div class="index-name">${INDEX_NAMES[item.ts_code] || item.name || item.ts_code}</div>
+        <div class="index-code">${item.ts_code}</div>
+        <div class="index-price">${formatNum(item.close)}</div>
+        <div class="index-change ${changeClass}">
+            ${sign}${formatNum(item.change)} (${sign}${formatNum(item.pct_chg)}%)
+        </div>
+        </div>
+    `;
+    }).join('');
 }
 
-function renderKLineChart(chartInstance, klineData, name) {
- chartInstance.hideLoading();
- if (!klineData || klineData.length === 0) return;
- const dates = klineData.map(item => item.trade_date);
- const data = klineData.map(item => [item.open, item.close, item.low, item.high]);
- const upColor = '#ef232a';
- const upBorderColor = '#ef232a';
- const downColor = '#14b143';
- const downBorderColor = '#14b143';
- const option = {
- tooltip: {
- trigger: 'axis',
- axisPointer: { type: 'cross' },
- backgroundColor: 'rgba(255, 255, 255, 0.9)',
- borderColor: '#e2e8f0',
- textStyle: { color: '#0f172a' }
- },
- grid: {
- left: '2%',
- right: '2%',
- bottom: '5%',
- top: '5%',
- containLabel: true
- },
- xAxis: {
- type: 'category',
- data: dates,
- scale: true,
- boundaryGap: false,
- axisLine: { onZero: false, lineStyle: { color: '#cbd5e1' } },
- axisLabel: { color: '#64748b' }
- },
- yAxis: {
- scale: true,
- splitArea: { show: false },
- splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } },
- axisLabel: { color: '#64748b' }
- },
- series: [
- {
- name: name,
- type: 'candlestick',
- data: data,
- itemStyle: {
- color: upColor,
- color0: downColor,
- borderColor: upBorderColor,
- borderColor0: downBorderColor
- }
- }
- ]
- };
- chartInstance.setOption(option);
+function selectIndex(code) {
+    selectedIndex = code;
+    // 更新卡片选中状态
+    document.querySelectorAll('.index-card').forEach(card => {
+    card.classList.toggle('active', card.dataset.code === code);
+    });
+    // 更新图表标题
+    document.getElementById('chartTitle').textContent = `${INDEX_NAMES[code] || code} 日线走势`;
+    // 加载K线
+    loadIndexKline(code, currentPeriod);
+}
+
+async function loadIndexKline(tsCode, period) {
+    if (!indexChart) return;
+    indexChart.showLoading('default', { text: '加载K线数据...', color: '#2563eb', maskColor: 'rgba(255,255,255,0.8)' });
+
+    try {
+    const res = await apiRequest(`/market/index/${encodeURIComponent(tsCode)}/kline?period=${period}`);
+    const response = res.data;
+    if (response && response.success && response.kline && response.kline.length > 0) {
+        renderCandlestickChart(response.kline);
+    } else {
+        // 回退：从 market overview 的 kline 数据展示
+        if (overviewData && overviewData.items) {
+        const item = overviewData.items.find(i => i.ts_code === tsCode);
+        if (item && item.kline && item.kline.length > 0) {
+            renderCandlestickChart(item.kline);
+            return;
+        }
+        }
+        indexChart.hideLoading();
+        indexChart.setOption({
+        title: { text: '暂无K线数据', left: 'center', top: 'middle', textStyle: { color: '#64748b' } }
+        });
+    }
+    } catch (error) {
+    console.error('Failed to load index kline:', error);
+    indexChart.hideLoading();
+    }
+}
+
+function renderCandlestickChart(klineData) {
+    indexChart.hideLoading();
+    if (!klineData || klineData.length === 0) return;
+
+    const dates = klineData.map(item => item.trade_date);
+    const ohlc = klineData.map(item => [item.open, item.close, item.low, item.high]);
+    const volumes = klineData.map(item => Number(item.vol || 0));
+    const closes = klineData.map(item => Number(item.close || 0));
+
+    // 计算 MA5, MA10, MA20
+    function calcMA(data, n) {
+    const result = [];
+    for (let i = 0; i < data.length; i++) {
+        if (i < n - 1) { result.push(null); continue; }
+        let sum = 0;
+        for (let j = 0; j < n; j++) sum += data[i - j];
+        result.push(+(sum / n).toFixed(2));
+    }
+    return result;
+    }
+    const ma5 = calcMA(closes, 5);
+    const ma10 = calcMA(closes, 10);
+    const ma20 = calcMA(closes, 20);
+
+    const upColor = '#ef232a';
+    const downColor = '#14b143';
+
+    const option = {
+    animation: false,
+    tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'cross' },
+        backgroundColor: 'rgba(15, 23, 42, 0.92)',
+        borderWidth: 0,
+        textStyle: { color: '#fff', fontSize: 12 },
+        formatter: function(params) {
+        let html = `<div style="margin-bottom:4px;font-weight:600">${params[0].axisValue}</div>`;
+        params.forEach(p => {
+            if (p.seriesName === 'K线') {
+            const d = p.data;
+            const color = d[1] >= d[0] ? upColor : downColor;
+            html += `<div style="color:${color}">开 ${d[0]} 收 ${d[1]} 低 ${d[2]} 高 ${d[3]}</div>`;
+            } else if (p.value != null) {
+            html += `<div>${p.marker}${p.seriesName}: ${p.value}</div>`;
+            }
+        });
+        return html;
+        }
+    },
+    legend: {
+        data: ['K线', 'MA5', 'MA10', 'MA20'],
+        top: 0,
+        textStyle: { color: '#64748b', fontSize: 11 }
+    },
+    grid: [
+        { left: 60, right: 20, top: 40, height: '55%' },
+        { left: 60, right: 20, top: '72%', height: '16%' }
+    ],
+    xAxis: [
+        {
+        type: 'category', data: dates, boundaryGap: true,
+        axisLine: { lineStyle: { color: '#cbd5e1' } },
+        axisLabel: { color: '#64748b', fontSize: 10, hideOverlap: true }
+        },
+        {
+        type: 'category', gridIndex: 1, data: dates, boundaryGap: true,
+        axisLine: { lineStyle: { color: '#cbd5e1' } },
+        axisLabel: { show: false }
+        }
+    ],
+    yAxis: [
+        {
+        scale: true,
+        axisLabel: { color: '#64748b', fontSize: 10 },
+        splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } }
+        },
+        {
+        scale: true, gridIndex: 1,
+        axisLabel: { color: '#64748b', fontSize: 10 },
+        splitLine: { show: false }
+        }
+    ],
+    dataZoom: [
+        { type: 'inside', xAxisIndex: [0, 1], start: 60, end: 100 },
+        { type: 'slider', xAxisIndex: [0, 1], bottom: 4, height: 18, borderColor: '#e2e8f0', fillerColor: 'rgba(37,99,235,0.1)' }
+    ],
+    series: [
+        {
+        name: 'K线', type: 'candlestick', data: ohlc,
+        itemStyle: { color: upColor, color0: downColor, borderColor: upColor, borderColor0: downColor }
+        },
+        { name: 'MA5', type: 'line', data: ma5, smooth: true, symbol: 'none', lineStyle: { width: 1.2, color: '#f59e0b' } },
+        { name: 'MA10', type: 'line', data: ma10, smooth: true, symbol: 'none', lineStyle: { width: 1.2, color: '#3b82f6' } },
+        { name: 'MA20', type: 'line', data: ma20, smooth: true, symbol: 'none', lineStyle: { width: 1.2, color: '#8b5cf6' } },
+        {
+        name: '成交量', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: volumes,
+        itemStyle: {
+            color: function(params) {
+            const idx = params.dataIndex;
+            return ohlc[idx] && ohlc[idx][1] >= ohlc[idx][0] ? 'rgba(239,35,42,0.5)' : 'rgba(20,177,67,0.5)';
+            }
+        }
+        }
+    ]
+    };
+    indexChart.setOption(option, true);
 }
 </script>
 {% endblock %}

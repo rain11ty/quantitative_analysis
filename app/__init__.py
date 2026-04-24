@@ -2,13 +2,19 @@
 import os
 from datetime import timedelta
 
-from flask import Flask, flash, g, jsonify, redirect, request, session, url_for
+from flask import Flask, flash, g, jsonify, redirect, render_template, request, session, url_for
 from flask_cors import CORS
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+except ImportError:
+    Limiter = None
+
+    def get_remote_address():
+        return request.remote_addr
 
 from config import config
-from app.extensions import db
+from app.extensions import db, init_redis
 from app.utils.logger import setup_logger
 
 
@@ -18,6 +24,25 @@ PUBLIC_ENDPOINTS = {
     'auth.forgot_password',
     'admin.login',
     'static',
+    'healthz',
+    'metrics',
+    'api.get_stock_realtime',
+    'api.get_monitor_stock_detail',
+    'api.get_monitor_dashboard',
+    'api.get_market_overview',
+    'api.get_market_health',
+    'api.get_market_akshare_health',
+    'api.get_stocks',
+    'api.get_stock_detail',
+    'api.get_stock_history',
+    'api.get_stock_factors',
+    'api.get_stock_moneyflow',
+    'api.get_stock_cyq',
+    'api.get_index_kline',
+    'api.get_monitor_intraday',
+    'api.get_realtime_ranking',
+    'api.get_industries',
+    'api.get_areas',
 }
 
 PUBLIC_PATH_PREFIXES = (
@@ -75,6 +100,11 @@ def create_app(config_name='default'):
 
     db.init_app(app)
 
+    # 初始化 Redis（连接失败自动降级为内存缓存）
+    init_redis(app)
+    from app.utils.cache_utils import init_cache
+    init_cache(app)
+
     from loguru import logger
 
     # --- CORS 配置 ---
@@ -100,7 +130,7 @@ def create_app(config_name='default'):
     # --- API 速率限制 ---
     # 开发环境不启用速率限制；生产环境对敏感接口限流
     limiter = None
-    if not app.config.get('DEBUG', False):
+    if not app.config.get('DEBUG', False) and Limiter is not None:
         limiter = Limiter(
             key_func=get_remote_address,
             app=app,
@@ -113,14 +143,46 @@ def create_app(config_name='default'):
         def exempt_options():
             return request.method == 'OPTIONS'
     else:
+        if not app.config.get('DEBUG', False) and Limiter is None:
+            logger.warning("Flask-Limiter is not installed; rate limiting is disabled.")
+
         class _NoOpLimiter:
-            def limit(self, *a, **kw): 
-                def decorator(fn): 
+            def limit(self, *a, **kw):
+                def decorator(fn):
                     return fn
                 return decorator
+
+            def request_filter(self, fn):
+                return fn
+
         limiter = _NoOpLimiter()
 
     setup_logger(app.config['LOG_LEVEL'], app.config['LOG_FILE'])
+
+    # --- Sentry 错误监控 ---
+    sentry_dsn = os.getenv('SENTRY_DSN', '')
+    if sentry_dsn:
+        try:
+            import sentry_sdk
+            from sentry_sdk.integrations.flask import FlaskIntegration
+            sentry_sdk.init(
+                dsn=sentry_dsn,
+                integrations=[FlaskIntegration()],
+                traces_sample_rate=float(os.getenv('SENTRY_TRACES_SAMPLE_RATE', '0.1')),
+                environment=os.getenv('FLASK_ENV', 'production'),
+                release='1.0.0',
+            )
+            logger.info("[Sentry] 错误监控已激活")
+        except ImportError:
+            logger.warning("[Sentry] sentry-sdk 未安装，跳过初始化")
+
+    # --- Prometheus 指标 ---
+    try:
+        from prometheus_flask_instrumentator import Instrumentator
+        Instrumentator().instrument(app).expose(app, endpoint='/metrics')
+        logger.info("[Prometheus] /metrics 端点已启用")
+    except ImportError:
+        logger.warning("[Prometheus] prometheus_flask_instrumentator 未安装，跳过")
 
     @app.after_request
     def ensure_utf8_charset(response):
@@ -230,6 +292,18 @@ def create_app(config_name='default'):
         except Exception as e:
             status['status'] = 'degraded'
             status['components']['database'] = {'status': 'error', 'message': str(e)}
+
+        # 检查 Redis 连接
+        try:
+            from app.extensions import redis_client
+            if redis_client is not None:
+                redis_client.ping()
+                status['components']['redis'] = {'status': 'ok'}
+            else:
+                status['components']['redis'] = {'status': 'disabled', 'message': 'using memory cache'}
+        except Exception as e:
+            status['status'] = 'degraded'
+            status['components']['redis'] = {'status': 'error', 'message': str(e)}
 
         return jsonify(status)
 

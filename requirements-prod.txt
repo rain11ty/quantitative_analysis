@@ -15,6 +15,7 @@ flower>=2.0.0  # Celery监控
 
 # 监控和日志
 prometheus-client>=0.17.0
+prometheus-flask-instrumentator>=6.0.0
 sentry-sdk[flask]>=1.32.0
 
 # 数据可视化增强

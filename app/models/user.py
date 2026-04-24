@@ -6,6 +6,9 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.extensions import db
 
+# 强制使用 pbkdf2:sha256，兼容 Werkzeug 1.x / 2.x
+_HASH_METHOD = 'pbkdf2:sha256'
+
 
 class User(db.Model):
     __tablename__ = 'user_account'
@@ -44,10 +47,22 @@ class User(db.Model):
         return self.status == self.STATUS_ACTIVE
 
     def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+        self.password_hash = generate_password_hash(password, method=_HASH_METHOD)
 
     def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
+        try:
+            result = check_password_hash(self.password_hash, password)
+            if result:
+                self._upgrade_hash_if_needed(password)
+            return result
+        except ValueError:
+            # scrypt 等不支持的哈希算法 —— 旧密码需重置
+            return False
+
+    def _upgrade_hash_if_needed(self, password):
+        """如果当前哈希不是 pbkdf2:sha256，自动升级"""
+        if not self.password_hash.startswith('pbkdf2:sha256'):
+            self.password_hash = generate_password_hash(password, method=_HASH_METHOD)
 
     def to_dict(self):
         return {

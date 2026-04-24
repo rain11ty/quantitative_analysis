@@ -18,9 +18,10 @@ class Config:
     SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}?charset={DB_CHARSET}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_size': 10,
+        'pool_size': 20,
         'pool_recycle': 3600,
-        'pool_pre_ping': True
+        'pool_pre_ping': True,
+        'pool_timeout': 30,
     }
     
     # --- 安全配置 ---
@@ -44,6 +45,13 @@ class Config:
     
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     LOG_FILE = os.getenv('LOG_FILE', 'logs/stock_analysis.log')
+
+    # --- Redis 配置 ---
+    REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
+    REDIS_PORT = int(os.getenv('REDIS_PORT', '6379'))
+    REDIS_DB = int(os.getenv('REDIS_DB', '0'))
+    REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', '') or None
+    REDIS_ENABLED = os.getenv('REDIS_ENABLED', 'true').lower() == 'true'
     
     DEFAULT_PAGE_SIZE = 20
     MAX_PAGE_SIZE = 100
@@ -80,6 +88,11 @@ class Config:
 
 class DevelopmentConfig(Config):
     DEBUG = True
+    # 开发环境也启用 HttpOnly 和 SameSite（Secure 仅 HTTPS 下生效，开发环境不设）
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = 'Lax'
 
 class ProductionConfig(Config):
     DEBUG = False

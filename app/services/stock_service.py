@@ -13,6 +13,7 @@ from app.models import (
 from loguru import logger
 import pandas as pd
 import numpy as np
+from app.utils.cache_utils import cache as _cache
 
 
 class StockService:
@@ -164,8 +165,13 @@ class StockService:
     
     @staticmethod
     def get_daily_history(ts_code: str, start_date: str = None, end_date: str = None, limit: int = 60):
-        """获取股票日线历史数据"""
+        """获取股票日线历史数据（带2分钟缓存）"""
         try:
+            cache_key = f'daily_history_{ts_code}_{start_date}_{end_date}_{limit}'
+            cached = _cache.get(cache_key)
+            if cached is not None:
+                return cached
+
             query = StockDailyHistory.query.filter_by(ts_code=ts_code)
             
             if start_date:
@@ -176,7 +182,9 @@ class StockService:
             # 按日期倒序排列，获取最新的数据（最新的在前面）
             history = query.order_by(desc(StockDailyHistory.trade_date)).limit(limit).all()
             
-            return [item.to_dict() for item in history]
+            result = [item.to_dict() for item in history]
+            _cache.set(cache_key, result, ttl=120)
+            return result
         except Exception as e:
             logger.error(f"获取日线历史数据失败: {ts_code}, 错误: {e}")
             return []
@@ -201,8 +209,14 @@ class StockService:
     
     @staticmethod
     def get_stock_factors(ts_code: str, start_date: str = None, end_date: str = None, limit: int = 60):
-        """获取股票技术因子数据"""
+        """获取股票技术因子数据（带5分钟缓存）"""
         try:
+            # 构建缓存键
+            cache_key = f'stock_factors_{ts_code}_{start_date}_{end_date}_{limit}'
+            cached = _cache.get(cache_key)
+            if cached is not None:
+                return cached
+
             # 首先尝试从stock_factor表获取数据
             query = StockFactor.query.filter_by(ts_code=ts_code)
             
@@ -216,20 +230,33 @@ class StockService:
             
             factor_data = [item.to_dict() for item in factors]
             
-            # 如果stock_factor表数据不足，基于历史数据计算技术指标
-            if len(factor_data) < limit:
-                logger.info(f"stock_factor表数据不足({len(factor_data)}条)，基于历史数据计算技术指标")
-                history_data = StockService.get_daily_history(ts_code, start_date, end_date, limit)
+            # 检查因子数据是否有效：技术指标字段是否为空
+            # 如果数据条数不足，或者关键指标字段全为 None，则回退到计算
+            needs_calculation = len(factor_data) < limit
+            if not needs_calculation and factor_data:
+                # 检查最近一条数据的关键指标是否为空
+                sample = factor_data[0]
+                key_indicators = ['macd_dif', 'macd_dea', 'macd', 'kdj_k', 'kdj_d', 'rsi_6']
+                if all(sample.get(k) is None for k in key_indicators):
+                    needs_calculation = True
+                    logger.info(f"stock_factor表数据指标全为空，回退到基于历史数据计算: {ts_code}")
+            
+            if needs_calculation:
+                logger.info(f"基于历史数据计算技术指标: {ts_code} (表数据不足或无效)")
+                history_data = StockService.get_daily_history(ts_code, start_date, end_date, max(limit, 120))
                 if history_data:
                     calculated_factors = StockService._calculate_technical_indicators(history_data)
-                    return calculated_factors
+                    if calculated_factors:
+                        _cache.set(cache_key, calculated_factors, ttl=300)
+                        return calculated_factors
             
+            _cache.set(cache_key, factor_data, ttl=300)
             return factor_data
         except Exception as e:
             logger.error(f"获取技术因子数据失败: {ts_code}, 错误: {e}")
             # 如果出错，尝试基于历史数据计算
             try:
-                history_data = StockService.get_daily_history(ts_code, start_date, end_date, limit)
+                history_data = StockService.get_daily_history(ts_code, start_date, end_date, max(limit, 120))
                 if history_data:
                     return StockService._calculate_technical_indicators(history_data)
             except Exception as calc_error:
@@ -625,6 +652,12 @@ class StockService:
             boll_upper = boll_mid + (boll_std * 2)
             boll_lower = boll_mid - (boll_std * 2)
             
+            # --- CCI ---
+            tp = (high + low + close) / 3
+            ma_tp = tp.rolling(window=14).mean()
+            md_tp = tp.rolling(window=14).apply(lambda x: np.abs(x - x.mean()).mean(), raw=True)
+            cci = (tp - ma_tp) / (0.015 * md_tp.replace(0, np.nan))
+            
             # --- 组装结果 ---
             result = []
             for i in range(len(df)):
@@ -633,14 +666,14 @@ class StockService:
                     
                 row = df.iloc[i]
                 factor_data = {
-                    'ts_code': row['ts_code'],
+                    'ts_code': str(row['ts_code']),
                     'trade_date': row['trade_date'].strftime('%Y-%m-%d'),
-                    'close': row['close'],
-                    'open': row['open'],
-                    'high': row['high'],
-                    'low': row['low'],
-                    'vol': row['vol'],
-                    'amount': row['amount']
+                    'close': float(row['close']) if pd.notna(row['close']) else None,
+                    'open': float(row['open']) if pd.notna(row['open']) else None,
+                    'high': float(row['high']) if pd.notna(row['high']) else None,
+                    'low': float(row['low']) if pd.notna(row['low']) else None,
+                    'vol': float(row['vol']) if pd.notna(row['vol']) else None,
+                    'amount': float(row['amount']) if pd.notna(row['amount']) else None,
                 }
                 
                 # 直接取预计算好的向量结果
@@ -659,6 +692,8 @@ class StockService:
                 factor_data['boll_upper'] = round(float(boll_upper.iloc[i]) if not pd.isna(boll_upper.iloc[i]) else 0, 2)
                 factor_data['boll_mid'] = round(float(boll_mid.iloc[i]) if not pd.isna(boll_mid.iloc[i]) else 0, 2)
                 factor_data['boll_lower'] = round(float(boll_lower.iloc[i]) if not pd.isna(boll_lower.iloc[i]) else 0, 2)
+                
+                factor_data['cci'] = round(float(cci.iloc[i]) if not pd.isna(cci.iloc[i]) else 0, 2)
                 
                 result.append(factor_data)
             

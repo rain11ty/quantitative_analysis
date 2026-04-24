@@ -13,7 +13,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-changeme}
       - DB_NAME=${DB_NAME:-stock_cursor}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
-      - DEBUG=True
+      - DEBUG=False
       - REDIS_HOST=redis
       - TUSHARE_TOKEN=${TUSHARE_TOKEN}
       - TUSHARE_PROXY_URL=${TUSHARE_PROXY_URL:-}
@@ -21,7 +21,8 @@ services:
       - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
       - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-chat}
       - LLM_PROVIDER=${LLM_PROVIDER:-deepseek}
-      - FLASK_ENV=development
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+      - FLASK_ENV=production
       - GUNICORN_DAEMON=False
     volumes:
       - ./logs:/app/logs          # 日志持久化
@@ -65,7 +66,7 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql           # MySQL 数据持久化
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro   # 初始化 SQL（可选）
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --innodb-buffer-pool-size=1G --innodb-log-file-size=256M --max-connections=200
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s

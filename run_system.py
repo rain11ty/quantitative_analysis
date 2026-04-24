@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Project launcher with UTF-8 safe startup behavior."""
+"""Interactive launcher for local development and maintenance."""
 
 from __future__ import annotations
 
-import subprocess
 import sys
 import webbrowser
 from pathlib import Path
@@ -33,17 +32,31 @@ class SystemManager:
         print(f'Python version: {python_version.major}.{python_version.minor}.{python_version.micro}')
 
         required_packages = [
-            'flask', 'sqlalchemy', 'pandas', 'numpy', 'scikit-learn',
-            'xgboost', 'lightgbm', 'cvxpy', 'loguru', 'requests',
+            ('flask', 'Flask'),
+            ('flask_cors', 'Flask-CORS'),
+            ('flask_limiter', 'Flask-Limiter'),
+            ('sqlalchemy', 'SQLAlchemy'),
+            ('pandas', 'pandas'),
+            ('numpy', 'numpy'),
+            ('sklearn', 'scikit-learn'),
+            ('xgboost', 'xgboost'),
+            ('lightgbm', 'lightgbm'),
+            ('cvxpy', 'cvxpy'),
+            ('loguru', 'loguru'),
+            ('requests', 'requests'),
+            ('apscheduler', 'APScheduler'),
+            ('baostock', 'baostock'),
+            ('tushare', 'tushare'),
+            ('akshare', 'akshare'),
         ]
         missing_packages = []
-        for package in required_packages:
+        for module_name, package_name in required_packages:
             try:
-                __import__(package)
-                print(f'OK  {package}')
+                __import__(module_name)
+                print(f'OK  {package_name}')
             except ImportError:
-                missing_packages.append(package)
-                print(f'MISS {package}')
+                missing_packages.append(package_name)
+                print(f'MISS {package_name}')
 
         if missing_packages:
             print('Please install missing packages:')
@@ -79,16 +92,23 @@ class SystemManager:
         except Exception as exc:
             print(f'Failed to start server: {exc}')
 
-    def run_demo(self) -> None:
-        demo_script = project_root / 'examples' / 'complete_system_example.py'
-        print('Running demo...')
-        if not demo_script.exists():
-            print('Demo script not found.')
-            return
-        try:
-            subprocess.run([sys.executable, str(demo_script)], check=False)
-        except Exception as exc:
-            print(f'Demo failed: {exc}')
+    def show_project_layout(self) -> None:
+        print('=' * 60)
+        print('Current project layout')
+        print('=' * 60)
+        print('app/                Flask app, templates, services, models')
+        print('scripts/diagnostics Manual smoke checks and connectivity checks')
+        print('scripts/db_tools    Database inspection utilities')
+        print('docs/guides         Current setup and structure docs')
+        print('docs/archive        Archived documents for removed modules')
+        print('deploy/             Deployment examples')
+        print('models/             Demo model assets')
+        print('images/             Screenshots used by documentation')
+        print('=' * 60)
+        print('Recommended start commands:')
+        print('  python run.py')
+        print('  python quick_start.py')
+        print('  python run_system.py --menu')
 
     def show_system_info(self) -> None:
         print('=' * 60)
@@ -98,7 +118,7 @@ class SystemManager:
         print('2. Initialize database')
         print('3. Start web server (debug)')
         print('4. Start web server (production mode)')
-        print('5. Run demo')
+        print('5. Show project layout')
         print('0. Exit')
         print('=' * 60)
 
@@ -126,7 +146,7 @@ def main() -> None:
         elif choice == '4':
             manager.start_web_server(debug=False)
         elif choice == '5':
-            manager.run_demo()
+            manager.show_project_layout()
         else:
             print('Invalid option. Please try again.')
 

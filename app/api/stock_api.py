@@ -3,6 +3,7 @@ from flask import jsonify, request
 from loguru import logger
 
 from app.api import api_bp
+from app.services.akshare_service import AkshareService
 from app.services.market_overview_service import MarketOverviewService
 from app.services.stock_service import StockService
 from app.utils.api_helpers import api_error_handler
@@ -31,6 +32,8 @@ def get_stocks():
 @api_error_handler(default_message='获取市场概览失败')
 def get_market_overview():
     result = MarketOverviewService.get_market_overview()
+    # 三级降级保证 success=True（即使数据来自缓存/空），始终返回 200
+    # 前端通过 result.get('degraded') 判断是否需要展示降级提示
     status_code = 200 if result.get('success') else 503
     return jsonify({'code': status_code, 'message': result.get('message'), 'data': result}), status_code
 
@@ -43,7 +46,15 @@ def ping_market_api():
     return jsonify({'code': status_code, 'message': result.get('message'), 'data': result}), status_code
 
 
-@api_bp.route('/stocks/<ts_code>', methods=['GET'])
+@api_bp.route('/market/akshare/health', methods=['GET'])
+@api_error_handler(default_message='检测行情快照服务状态失败')
+def ping_akshare_api():
+    result = AkshareService.ping()
+    status_code = 200 if result.get('success') else 503
+    return jsonify({'code': status_code, 'message': result.get('message'), 'data': result}), status_code
+
+
+@api_bp.route('/stocks/<path:ts_code>', methods=['GET'])
 @api_error_handler(default_message='获取股票详情失败')
 def get_stock_detail(ts_code):
     result = StockService.get_stock_info(ts_code)
@@ -52,7 +63,23 @@ def get_stock_detail(ts_code):
     return jsonify({'code': 200, 'message': 'success', 'data': result})
 
 
-@api_bp.route('/stocks/<ts_code>/history', methods=['GET'])
+@api_bp.route('/stocks/<path:ts_code>/realtime', methods=['GET'])
+@api_error_handler(default_message='获取实时行情失败')
+def get_stock_realtime(ts_code):
+    """获取个股实时行情（含K线走势）"""
+    from app.services.realtime_monitor_service import RealtimeMonitorService
+    from flask import g
+
+    freq = (request.args.get('freq') or 'daily').strip()
+    result = RealtimeMonitorService.get_stock_detail(
+        user_id=getattr(getattr(g, 'current_user', None), 'id', None),
+        ts_code=ts_code,
+        freq=freq,
+    )
+    return jsonify({'code': 200, 'message': 'success', 'data': result})
+
+
+@api_bp.route('/stocks/<path:ts_code>/history', methods=['GET'])
 @api_error_handler(default_message='获取历史数据失败')
 def get_stock_history(ts_code):
     start_date = request.args.get('start_date')
@@ -68,7 +95,7 @@ def get_stock_history(ts_code):
     return jsonify({'code': 200, 'message': 'success', 'data': result})
 
 
-@api_bp.route('/stocks/<ts_code>/factors', methods=['GET'])
+@api_bp.route('/stocks/<path:ts_code>/factors', methods=['GET'])
 @api_error_handler(default_message='获取技术因子数据失败')
 def get_stock_factors(ts_code):
     start_date = request.args.get('start_date')
@@ -84,7 +111,7 @@ def get_stock_factors(ts_code):
     return jsonify({'code': 200, 'message': 'success', 'data': result})
 
 
-@api_bp.route('/stocks/<ts_code>/moneyflow', methods=['GET'])
+@api_bp.route('/stocks/<path:ts_code>/moneyflow', methods=['GET'])
 @api_error_handler(default_message='获取资金流向数据失败')
 def get_stock_moneyflow(ts_code):
     start_date = request.args.get('start_date')
@@ -100,7 +127,7 @@ def get_stock_moneyflow(ts_code):
     return jsonify({'code': 200, 'message': 'success', 'data': result})
 
 
-@api_bp.route('/stocks/<ts_code>/cyq', methods=['GET'])
+@api_bp.route('/stocks/<path:ts_code>/cyq', methods=['GET'])
 @api_error_handler(default_message='获取筹码分布数据失败')
 def get_stock_cyq(ts_code):
     start_date = request.args.get('start_date')
@@ -132,6 +159,17 @@ def get_areas():
 
 # ========== 自选股相关接口 ==========
 
+@api_bp.route('/market/index/<path:ts_code>/kline', methods=['GET'])
+@api_error_handler(default_message='获取指数K线数据失败')
+def get_index_kline(ts_code):
+    """获取指数历史K线数据"""
+    period = request.args.get('period', '1Y')
+    if period not in ('1M', '3M', '6M', '1Y', '3Y'):
+        period = '1Y'
+    result = MarketOverviewService.get_index_kline(ts_code, period=period)
+    return jsonify({'code': 200, 'message': 'success', 'data': result})
+
+
 @api_bp.route('/watchlist', methods=['GET'])
 @api_error_handler(default_message='获取自选列表失败')
 def get_watchlist():
@@ -150,7 +188,7 @@ def get_watchlist():
     })
 
 
-@api_bp.route('/watchlist/<ts_code>', methods=['POST'])
+@api_bp.route('/watchlist/<path:ts_code>', methods=['POST'])
 @api_error_handler(default_message='添加自选失败')
 def add_to_watchlist(ts_code):
     """将股票加入自选"""
@@ -188,7 +226,7 @@ def add_to_watchlist(ts_code):
     })
 
 
-@api_bp.route('/watchlist/<ts_code>', methods=['DELETE'])
+@api_bp.route('/watchlist/<path:ts_code>', methods=['DELETE'])
 @api_error_handler(default_message='移除自选失败')
 def remove_from_watchlist(ts_code):
     """从自选中移除股票"""

@@ -26,6 +26,34 @@
 </div>
 </div>
 </div>
+<!-- 实时行情卡片 -->
+<div class="row mb-4">
+<div class="col-12">
+<div class="page-card">
+<div class="card-header border-0 bg-transparent pt-3 pb-0">
+<div class="d-flex justify-content-between align-items-center">
+<h5 class="mb-0 fw-bold">实时行情</h5>
+<div class="d-flex align-items-center gap-2">
+<span class="badge bg-secondary" id="realtime-source">加载中</span>
+<span class="text-muted small" id="realtime-updated-at">--</span>
+<button class="btn btn-sm btn-outline-primary" onclick="loadRealtimeQuote()" title="刷新行情">
+<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/></svg>
+</button>
+</div>
+</div>
+</div>
+<div class="card-body">
+<div id="realtime-content">
+<div class="text-center py-3">
+<div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+<span class="ms-2 text-muted">正在加载实时行情...</span>
+</div>
+</div>
+<div id="realtime-chart" style="height:360px; display:none;"></div>
+</div>
+</div>
+</div>
+</div>
 <!-- 功能选项卡 -->
 <div class="row">
 <div class="col-12">
@@ -48,13 +76,21 @@
 <div class="tab-pane fade show active" id="history" role="tabpanel">
 <div class="page-card">
 <div class="card-header border-0 bg-transparent pt-3 pb-0">
-<div class="d-flex justify-content-between align-items-center">
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
 <h6 class="mb-0 fw-bold">历史价格数据</h6>
+<div class="d-flex align-items-center gap-2 flex-wrap">
 <div class="btn-group btn-group-sm" role="group">
 <button type="button" class="btn btn-outline-primary" onclick="loadHistoryData(30)">30天</button>
 <button type="button" class="btn btn-outline-primary active" onclick="loadHistoryData(60)">60天</button>
 <button type="button" class="btn btn-outline-primary" onclick="loadHistoryData(120)">120天</button>
 <button type="button" class="btn btn-outline-primary" onclick="loadHistoryData(500)">500天</button>
+</div>
+<div class="d-flex align-items-center gap-1">
+<input type="date" id="history-start-date" class="form-control form-control-sm" style="width:140px;" title="起始日期">
+<span class="text-muted small">至</span>
+<input type="date" id="history-end-date" class="form-control form-control-sm" style="width:140px;" title="结束日期">
+<button type="button" class="btn btn-sm btn-primary" onclick="loadHistoryByDate()">查询</button>
+</div>
 </div>
 </div>
 </div>
@@ -153,6 +189,7 @@ document.addEventListener('DOMContentLoaded', function() {
  });
 
  loadStockInfo();
+ loadRealtimeQuote();
  loadHistoryData(60); // 默认加载60天数据
  // 绑定标签页切换事件
  document.querySelectorAll('#stockTabs button[data-bs-toggle="tab"]').forEach(tab => {
@@ -254,7 +291,270 @@ function renderStockInfo(stock) {
  container.innerHTML = html;
 
 }
- // 加载历史数据
+
+// ========== 实时行情 ==========
+
+let realtimeChart = null;
+
+async function loadRealtimeQuote() {
+    const container = document.getElementById('realtime-content');
+    container.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary" role="status"></div><span class="ms-2 text-muted">正在加载实时行情...</span></div>';
+
+    try {
+        const response = await apiRequest(`/stocks/${tsCode}/realtime`);
+        if (response.code === 200 && response.data) {
+            renderRealtimeQuote(response.data);
+        } else {
+            container.innerHTML = '<div class="text-center py-3 text-muted">实时行情暂不可用，请稍后刷新重试</div>';
+        }
+    } catch (error) {
+        console.error('加载实时行情失败:', error);
+        container.innerHTML = '<div class="text-center py-3 text-muted">实时行情加载失败</div>';
+    }
+}
+
+function renderRealtimeQuote(data) {
+    const quote = data.quote || {};
+    const container = document.getElementById('realtime-content');
+    const sourceBadge = document.getElementById('realtime-source');
+    const updatedAt = document.getElementById('realtime-updated-at');
+
+    // 更新来源标签
+    const sourceMap = {
+        'sina_realtime': '新浪实时',
+        'realtime_quote': 'Tushare实时',
+        'latest_trade_day': '最近交易日',
+        'local_cache': '本地缓存',
+    };
+    sourceBadge.textContent = sourceMap[quote.source] || quote.source || '行情数据';
+    updatedAt.textContent = data.updated_at || '--';
+
+    const price = quote.price;
+    const change = quote.change;
+    const pctChg = quote.pct_chg;
+    const isUp = change !== null && change > 0;
+    const isDown = change !== null && change < 0;
+    const colorClass = isUp ? 'text-danger' : isDown ? 'text-success' : 'text-muted';
+    const arrow = isUp ? '▲' : isDown ? '▼' : '—';
+
+    const html = `
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div class="text-center py-2">
+                <div class="${colorClass}" style="font-size:2.2rem; font-weight:700; line-height:1.2;">${price !== null && price !== undefined ? Number(price).toFixed(2) : '--'}</div>
+                <div class="${colorClass} mt-1" style="font-size:1rem;">
+                    <span>${arrow} ${change !== null && change !== undefined ? Number(change).toFixed(2) : '--'}</span>
+                    <span class="ms-2">${pctChg !== null && pctChg !== undefined ? Number(pctChg).toFixed(2) + '%' : '--'}</span>
+                </div>
+                <div class="text-muted small mt-1">${quote.trade_date || ''} ${quote.trade_time || ''}</div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="row g-2">
+                <div class="col-4">
+                    <div class="bg-light rounded p-2 text-center">
+                        <div class="text-muted small">今开</div>
+                        <div class="fw-bold">${quote.open !== null && quote.open !== undefined ? Number(quote.open).toFixed(2) : '--'}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="bg-light rounded p-2 text-center">
+                        <div class="text-muted small">昨收</div>
+                        <div class="fw-bold">${quote.pre_close !== null && quote.pre_close !== undefined ? Number(quote.pre_close).toFixed(2) : '--'}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="bg-light rounded p-2 text-center">
+                        <div class="text-muted small">最高</div>
+                        <div class="fw-bold text-danger">${quote.high !== null && quote.high !== undefined ? Number(quote.high).toFixed(2) : '--'}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="bg-light rounded p-2 text-center">
+                        <div class="text-muted small">最低</div>
+                        <div class="fw-bold text-success">${quote.low !== null && quote.low !== undefined ? Number(quote.low).toFixed(2) : '--'}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="bg-light rounded p-2 text-center">
+                        <div class="text-muted small">成交量</div>
+                        <div class="fw-bold">${quote.volume ? formatCompactNumber(quote.volume) : '--'}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="bg-light rounded p-2 text-center">
+                        <div class="text-muted small">成交额</div>
+                        <div class="fw-bold">${quote.amount ? formatCompactNumber(quote.amount) : '--'}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="bg-light rounded p-2 text-center">
+                        <div class="text-muted small">振幅</div>
+                        <div class="fw-bold">${quote.amplitude !== null && quote.amplitude !== undefined ? Number(quote.amplitude).toFixed(2) + '%' : '--'}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="bg-light rounded p-2 text-center">
+                        <div class="text-muted small">换手率</div>
+                        <div class="fw-bold">${quote.turnover_rate !== null && quote.turnover_rate !== undefined ? Number(quote.turnover_rate).toFixed(2) + '%' : '--'}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>`;
+
+    container.innerHTML = html;
+
+    // 渲染K线图
+    const series = data.series || [];
+    if (series.length > 0) {
+        renderRealtimeChart(series, data.series_mode || 'daily', quote.name || tsCode);
+    }
+}
+
+function formatCompactNumber(num) {
+    const n = Number(num);
+    if (isNaN(n)) return '--';
+    if (n >= 1e8) return (n / 1e8).toFixed(2) + '亿';
+    if (n >= 1e4) return (n / 1e4).toFixed(2) + '万';
+    return n.toLocaleString();
+}
+
+function renderRealtimeChart(series, mode, title) {
+    const chartDom = document.getElementById('realtime-chart');
+    if (!chartDom) return;
+
+    chartDom.style.display = 'block';
+
+    if (!realtimeChart) {
+        realtimeChart = echarts.init(chartDom);
+        window.addEventListener('resize', () => realtimeChart && realtimeChart.resize());
+    }
+
+    if (!Array.isArray(series) || !series.length) {
+        chartDom.style.display = 'none';
+        return;
+    }
+
+    const labels = series.map(item => item.label || '--');
+    const prices = series.map(item => Number(item.price || 0));
+    const volumes = series.map(item => Number(item.volume || 0));
+
+    // 计算均线
+    let ma5 = [], ma10 = [], ma20 = [];
+    if (mode === 'daily') {
+        function calcMA(data, n) {
+            const result = [];
+            for (let i = 0; i < data.length; i++) {
+                if (i < n - 1) { result.push(null); continue; }
+                let sum = 0;
+                for (let j = 0; j < n; j++) sum += data[i - j];
+                result.push(+(sum / n).toFixed(2));
+            }
+            return result;
+        }
+        ma5 = calcMA(prices, 5);
+        ma10 = calcMA(prices, 10);
+        ma20 = calcMA(prices, 20);
+    }
+
+    // 构建K线数据
+    const candleData = series.map(item => [
+        Number(item.open || 0),
+        Number(item.price || item.close || 0),
+        Number(item.low || 0),
+        Number(item.high || 0),
+    ]);
+
+    realtimeChart.setOption({
+        animation: false,
+        grid: [
+            { left: 48, right: 24, top: 46, height: '55%' },
+            { left: 48, right: 24, top: '75%', height: '14%' }
+        ],
+        xAxis: [
+            { type: 'category', data: labels, gridIndex: 0, axisLabel: { color: '#94a3b8', fontSize: 11 }, axisLine: { lineStyle: { color: '#334155' } } },
+            { type: 'category', data: labels, gridIndex: 1, axisLabel: { show: false }, axisLine: { lineStyle: { color: '#334155' } } }
+        ],
+        yAxis: [
+            { type: 'value', gridIndex: 0, scale: true, axisLabel: { color: '#94a3b8', fontSize: 11 }, splitLine: { lineStyle: { color: '#1e293b' } } },
+            { type: 'value', gridIndex: 1, axisLabel: { show: false }, splitLine: { show: false } }
+        ],
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'cross' },
+            backgroundColor: '#0f172a',
+            borderColor: '#334155',
+            textStyle: { color: '#e2e8f0', fontSize: 12 },
+            formatter: function(params) {
+                if (!params || !params.length) return '';
+                const date = params[0].axisValue;
+                let html = `<div style="margin-bottom:4px;font-weight:600">${date}</div>`;
+                params.forEach(p => {
+                    if (p.seriesType === 'candlestick') {
+                        const d = p.data;
+                        html += `<div>开: ${d[1]} 收: ${d[2]} 低: ${d[3]} 高: ${d[4]}</div>`;
+                    } else if (p.seriesType === 'line') {
+                        html += `<div>${p.seriesName}: ${p.value}</div>`;
+                    } else if (p.seriesType === 'bar') {
+                        html += `<div>成交量: ${formatCompactNumber(p.value)}</div>`;
+                    }
+                });
+                return html;
+            }
+        },
+        series: [
+            {
+                name: 'K线',
+                type: 'candlestick',
+                data: candleData,
+                xAxisIndex: 0,
+                yAxisIndex: 0,
+                itemStyle: { color: '#ef4444', color0: '#22c55e', borderColor: '#ef4444', borderColor0: '#22c55e' },
+            },
+            {
+                name: 'MA5',
+                type: 'line',
+                data: ma5,
+                xAxisIndex: 0,
+                yAxisIndex: 0,
+                smooth: true,
+                showSymbol: false,
+                lineStyle: { width: 1, color: '#f59e0b' },
+            },
+            {
+                name: 'MA10',
+                type: 'line',
+                data: ma10,
+                xAxisIndex: 0,
+                yAxisIndex: 0,
+                smooth: true,
+                showSymbol: false,
+                lineStyle: { width: 1, color: '#3b82f6' },
+            },
+            {
+                name: 'MA20',
+                type: 'line',
+                data: ma20,
+                xAxisIndex: 0,
+                yAxisIndex: 0,
+                smooth: true,
+                showSymbol: false,
+                lineStyle: { width: 1, color: '#a855f7' },
+            },
+            {
+                name: '成交量',
+                type: 'bar',
+                data: volumes,
+                xAxisIndex: 1,
+                yAxisIndex: 1,
+                itemStyle: { color: '#64748b' },
+            }
+        ]
+    }, true);
+}
+
+// 加载历史数据
 
 async function loadHistoryData(days = 60) {
  // 切换按钮 active 状态
@@ -265,8 +565,11 @@ async function loadHistoryData(days = 60) {
  const btnClicked = Array.from(document.querySelectorAll('.btn-group[role="group"] .btn'))
      .find(btn => btn.getAttribute('onclick') === `loadHistoryData(${days})`);
  if (btnClicked) btnClicked.classList.add('active');
+ // 清空日期选择器
+ document.getElementById('history-start-date').value = '';
+ document.getElementById('history-end-date').value = '';
 
- showLoading('history-content');
+ showLoading('history-content', 'skeleton');
  try {
  const response = await apiRequest(`/stocks/${tsCode}/history?limit=${days}`);
  if (response.code === 200) {
@@ -279,6 +582,34 @@ async function loadHistoryData(days = 60) {
  console.error('加载历史数据失败:', error);
  }
 
+}
+
+async function loadHistoryByDate() {
+ const startDate = document.getElementById('history-start-date').value;
+ const endDate = document.getElementById('history-end-date').value;
+ if (!startDate && !endDate) {
+     alert('请至少选择一个日期');
+     return;
+ }
+ // 取消天数按钮的 active
+ document.querySelectorAll('.btn-group[role="group"] .btn').forEach(btn => btn.classList.remove('active'));
+
+ showLoading('history-content', 'skeleton');
+ try {
+     let url = `/stocks/${tsCode}/history?limit=5000`;
+     if (startDate) url += `&start_date=${startDate}`;
+     if (endDate) url += `&end_date=${endDate}`;
+     const response = await apiRequest(url);
+     if (response.code === 200) {
+         const label = (startDate || '') + ' ~ ' + (endDate || '今天');
+         renderHistoryData(response.data, label);
+     } else {
+         showError('history-content', '历史数据加载失败');
+     }
+ } catch (error) {
+     showError('history-content', '历史数据加载失败');
+     console.error('加载历史数据失败:', error);
+ }
 }
  // 渲染历史数据
 
@@ -394,9 +725,9 @@ function _scrollToHistoryTop() {
 
 async function loadFactorsData() {
  if (document.getElementById('factors-content').innerHTML.includes('加载中')) return;
- showLoading('factors-content');
+ showLoading('factors-content', 'skeleton');
  try {
- const response = await apiRequest(`/stocks/${tsCode}/factors?limit=20`);
+ const response = await apiRequest(`/stocks/${tsCode}/factors?limit=120`);
  if (response.code === 200) {
  renderFactorsData(response.data);
  } else {
@@ -631,9 +962,9 @@ function renderFactorsChart(data) {
 
 async function loadMoneyflowData() {
  if (document.getElementById('moneyflow-content').innerHTML.includes('加载中')) return;
- showLoading('moneyflow-content');
+ showLoading('moneyflow-content', 'skeleton');
  try {
- const response = await apiRequest(`/stocks/${tsCode}/moneyflow?limit=20`);
+ const response = await apiRequest(`/stocks/${tsCode}/moneyflow?limit=60`);
  if (response.code === 200) {
  renderMoneyflowData(response.data);
  } else {
@@ -880,7 +1211,11 @@ function renderMoneyflowCharts(data) {
  }]
  }
  }
- }]
+ }],
+ dataZoom: [
+  { type: 'inside', start: 0, end: 100 },
+  { type: 'slider', bottom: 4, height: 18, borderColor: '#e2e8f0', fillerColor: 'rgba(37,99,235,0.1)' }
+ ]
  };
  netflowChart.setOption(netflowOption);
  // 渲染资金形态指标
@@ -931,9 +1266,9 @@ function renderMoneyIndicators(data) {
 
 async function loadCyqData() {
  if (document.getElementById('cyq-content').innerHTML.includes('加载中')) return;
- showLoading('cyq-content');
+ showLoading('cyq-content', 'skeleton');
  try {
- const response = await apiRequest(`/stocks/${tsCode}/cyq?limit=20`);
+ const response = await apiRequest(`/stocks/${tsCode}/cyq?limit=60`);
  if (response.code === 200) {
  renderCyqData(response.data);
  } else {
@@ -1126,8 +1461,12 @@ function renderCyqCharts(data) {
  type: 'line',
  data: data.map(item => item.weight_avg || 0).reverse(),
  itemStyle: { color: '#f759ab' },
- lineStyle: { width: 2, type: 'dashed' }
- }
+lineStyle: { width: 2, type: 'dashed' }
+}
+],
+ dataZoom: [
+  { type: 'inside', start: 0, end: 100 },
+  { type: 'slider', bottom: 4, height: 18, borderColor: '#e2e8f0', fillerColor: 'rgba(37,99,235,0.1)' }
  ]
  };
  costChart.setOption(costOption);
@@ -1199,7 +1538,11 @@ function renderCyqCharts(data) {
  type: 'dashed'
  }
  }
- }]
+}],
+ dataZoom: [
+  { type: 'inside', start: 0, end: 100 },
+  { type: 'slider', bottom: 4, height: 18, borderColor: '#e2e8f0', fillerColor: 'rgba(37,99,235,0.1)' }
+ ]
  };
  winnerChart.setOption(winnerOption);
  // 渲染筹码分析指标
@@ -1255,7 +1598,7 @@ async function addToWatchlist() {
  btn.disabled = true;
  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>添加中...';
 
- const response = await apiRequest(`/api/watchlist/${tsCode}`, { method: 'POST' });
+ const response = await apiRequest(`/watchlist/${tsCode}`, { method: 'POST' });
  if (response.code === 200) {
  // 切换按钮状态为已选中
  btn.className = 'btn btn-sm btn-outline-danger';
@@ -1277,7 +1620,7 @@ async function addToWatchlist() {
  btn.disabled = true;
  btn.innerHTML = '移除中...';
 
- const response = await apiRequest(`/api/watchlist/${tsCode}`, { method: 'DELETE' });
+ const response = await apiRequest(`/watchlist/${tsCode}`, { method: 'DELETE' });
  if (response.code === 200) {
  btn.className = 'btn btn-primary btn-sm';
  btn.innerHTML = ' 加入自选';

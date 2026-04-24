@@ -108,4 +108,11 @@ _verify_improvements.py
 _check_encoding.py
 
 # gunicorn pid 文件
+tool_calls.txt
+screen_dump.txt
+screen_tool_dump.txt
+git-push.err.txt
+git-push.out.txt
+db_schema_dump.json
+_docker-daemon-config.json
 gunicorn.pid

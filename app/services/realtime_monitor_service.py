@@ -1,22 +1,32 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 import tushare as ts
+import pandas as pd
 from loguru import logger
 
 from app.models import StockBasic, UserWatchlist
+from app.services.akshare_service import AkshareService
 from app.services.market_overview_service import MarketOverviewService
 from app.services.stock_service import StockService
+from app.utils.cache_utils import cache as _cache
 from app.utils.db_utils import DatabaseUtils
 
 
 class RealtimeMonitorService:
     DEFAULT_CODES = ['000001.SZ', '600519.SH', '300750.SZ']
+    # 市场指数代码，在监控面板顶部展示（与 MarketOverviewService.INDEX_ITEMS 同步）
+    MARKET_INDEX_CODES = ['000001.SH', '399001.SZ', '399006.SZ', '000016.SH', '000300.SH', '000905.SH', '000688.SH']
     MAX_CODES = 12
-    SUPPORTED_FREQS = {'1min', '5min', '15min', '30min', '60min'}
+    SUPPORTED_FREQS = {'daily'}
+
+    # 缓存 TTL
+    CACHE_TTL_QUOTES = 15   # 秒（监控页面缓存更短，保证实时性）
+    CACHE_TTL_RANKING = 60  # 秒（排名数据缓存更长，减少请求频率）
 
     @classmethod
     def normalize_ts_code(cls, value: str) -> str:
@@ -48,7 +58,6 @@ class RealtimeMonitorService:
 
     @classmethod
     def _create_tushare_client(cls):
-        DatabaseUtils.reload_from_env()
         return DatabaseUtils.init_tushare_api()
 
     @staticmethod
@@ -70,7 +79,13 @@ class RealtimeMonitorService:
         if not codes:
             return {}
         stocks = StockBasic.query.filter(StockBasic.ts_code.in_(codes)).all()
-        return {stock.ts_code: stock.name for stock in stocks}
+        name_map = {stock.ts_code: stock.name for stock in stocks}
+        # 补充指数名称
+        index_names = {item['ts_code']: item['name'] for item in MarketOverviewService.INDEX_ITEMS}
+        for code in codes:
+            if code not in name_map and code in index_names:
+                name_map[code] = index_names[code]
+        return name_map
 
     @classmethod
     def _get_user_watchlist(cls, user_id: Optional[int]) -> List[UserWatchlist]:
@@ -195,15 +210,30 @@ class RealtimeMonitorService:
 
     @classmethod
     def _load_realtime_quotes(cls, codes: List[str]) -> Dict[str, Any]:
+        """获取实时行情（Akshare优先 → Tushare降级 → 本地缓存兜底）"""
         if not codes:
             return {'quotes': [], 'source': 'empty', 'message': 'No codes provided.'}
 
+        # ========== ① 优先：Akshare（免费、实时、无需积分） ==========
+        try:
+            ak_result = AkshareService.get_realtime_quotes(codes)
+            if ak_result.get('quotes') and any(q.get('price') is not None for q in ak_result['quotes']):
+                return {
+                    'quotes': ak_result['quotes'],
+                    'source': ak_result.get('source', 'sina_realtime'),
+                    'message': ak_result.get('message', '已通过新浪快照加载实时行情。'),
+                }
+            logger.warning(f'Akshare quotes returned no price data, trying next source.')
+        except Exception as exc:
+            logger.warning(f'Akshare realtime quote failed: {exc}')
+
+        # ========== ② 降级：Tushare Pro realtime_quote ==========
         errors: List[str] = []
         code_str = ','.join(codes)
 
         try:
-            pro = cls._create_tushare_client()
-            df = pro.realtime_quote(ts_code=code_str)
+            ts_mod = DatabaseUtils.init_tushare_realtime()
+            df = ts_mod.realtime_quote(ts_code=code_str)
             if df is not None and not df.empty:
                 quotes = cls._normalize_realtime_quotes(df.to_dict('records'), codes)
                 if any(item.get('price') is not None for item in quotes):
@@ -213,28 +243,10 @@ class RealtimeMonitorService:
                         'message': '已通过 Tushare 实时行情接口加载数据。',
                     }
         except Exception as exc:
-            logger.warning(f'Realtime quote via pro failed: {exc}')
+            logger.warning(f'Realtime quote failed: {exc}')
             errors.append(str(exc))
 
-        try:
-            DatabaseUtils.reload_from_env()
-            ts.set_token(DatabaseUtils._tushare_token)
-            pro = ts.pro_api()
-            if DatabaseUtils._tushare_proxy_url:
-                pro._DataApi__http_url = DatabaseUtils._tushare_proxy_url
-            df = ts.realtime_quote(ts_code=code_str)
-            if df is not None and not df.empty:
-                quotes = cls._normalize_realtime_quotes(df.to_dict('records'), codes)
-                if any(item.get('price') is not None for item in quotes):
-                    return {
-                        'quotes': quotes,
-                        'source': 'realtime_quote',
-                        'message': '已通过 Tushare 实时行情接口加载数据。',
-                    }
-        except Exception as exc:
-            logger.warning(f'Realtime quote via module call failed: {exc}')
-            errors.append(str(exc))
-
+        # ========== ③ 兜底：最近交易日数据 / 本地缓存 ==========
         fallback = cls._load_latest_trade_quotes(codes)
         fallback_message = '实时接口暂不可用，已自动降级为最近交易日监控数据。'
         if errors:
@@ -244,6 +256,7 @@ class RealtimeMonitorService:
 
     @classmethod
     def _load_latest_trade_quotes(cls, codes: List[str]) -> Dict[str, Any]:
+        """获取最近交易日行情数据（优化：批量按日期查询，避免 N+1）"""
         name_map = cls._get_name_map(codes)
         quotes: List[Dict[str, Any]] = []
 
@@ -252,40 +265,123 @@ class RealtimeMonitorService:
             end_date = datetime.now().strftime('%Y%m%d')
             start_date = (datetime.now() - timedelta(days=20)).strftime('%Y%m%d')
 
+            # 区分指数和个股
+            stock_codes = [c for c in codes if not c.startswith(('0000', '3990', '0006')) or c[5:7] not in ('SH', 'SZ') or c[:6] in ('000001',)]
+            # 实际上简化处理：指数用 index_daily，个股用 daily
+            index_codes = []
+            stock_codes_list = []
+            index_ts_map = {item['ts_code']: item['name'] for item in MarketOverviewService.INDEX_ITEMS}
+
             for code in codes:
-                daily_df = pro.daily(ts_code=code, start_date=start_date, end_date=end_date)
-                if daily_df is None or daily_df.empty:
-                    quotes.append(cls._build_quote_item(code, name_map.get(code, code), None, None, None, None, None, None, None, None, None, source='latest_trade_day'))
-                    continue
+                if code in index_ts_map:
+                    index_codes.append(code)
+                else:
+                    stock_codes_list.append(code)
 
-                daily_df = daily_df.sort_values('trade_date', ascending=False)
-                latest = daily_df.iloc[0]
-                turnover_rate = None
-                latest_trade_date = cls._safe_text(latest.get('trade_date'))
+            # 批量获取指数行情
+            for code in index_codes:
                 try:
-                    basic_df = pro.daily_basic(ts_code=code, trade_date=latest_trade_date)
-                    if basic_df is not None and not basic_df.empty:
-                        turnover_rate = basic_df.iloc[0].get('turnover_rate')
+                    df = pro.index_daily(ts_code=code, start_date=start_date, end_date=end_date)
+                    if df is not None and not df.empty:
+                        df = df.sort_values('trade_date', ascending=False)
+                        latest = df.iloc[0]
+                        quotes.append(
+                            cls._build_quote_item(
+                                ts_code=code,
+                                name=index_ts_map.get(code, code),
+                                price=latest.get('close'),
+                                pre_close=latest.get('pre_close'),
+                                open_price=latest.get('open'),
+                                high=latest.get('high'),
+                                low=latest.get('low'),
+                                volume=latest.get('vol'),
+                                amount=latest.get('amount'),
+                                trade_date=cls._safe_text(latest.get('trade_date')),
+                                trade_time='latest_trade_day',
+                                source='latest_trade_day',
+                            )
+                        )
+                        continue
                 except Exception as exc:
-                    logger.warning(f'Daily basic fetch failed for {code}: {exc}')
+                    logger.warning(f'Index daily fetch failed for {code}: {exc}')
 
-                quotes.append(
-                    cls._build_quote_item(
-                        ts_code=code,
-                        name=name_map.get(code, code),
-                        price=latest.get('close'),
-                        pre_close=latest.get('pre_close'),
-                        open_price=latest.get('open'),
-                        high=latest.get('high'),
-                        low=latest.get('low'),
-                        volume=latest.get('vol'),
-                        amount=latest.get('amount'),
-                        trade_date=latest_trade_date,
-                        trade_time='latest_trade_day',
-                        turnover_rate=turnover_rate,
-                        source='latest_trade_day',
-                    )
-                )
+                quotes.append(cls._build_quote_item(code, index_ts_map.get(code, code), None, None, None, None, None, None, None, None, None, source='latest_trade_day'))
+
+            # 批量获取个股行情：按 trade_date 一次性获取全市场，再过滤
+            if stock_codes_list:
+                try:
+                    # 获取最近交易日
+                    cal_df = pro.trade_cal(exchange='SSE', is_open='1', start_date=start_date, end_date=end_date)
+                    if cal_df is not None and not cal_df.empty:
+                        latest_date = str(cal_df.sort_values('cal_date', ascending=False).iloc[0]['cal_date'])
+                    else:
+                        latest_date = end_date
+
+                    # 按日期批量获取全市场日线
+                    daily_df = pro.daily(trade_date=latest_date)
+                    if daily_df is not None and not daily_df.empty:
+                        code_set = set(stock_codes_list)
+                        filtered = daily_df[daily_df['ts_code'].isin(code_set)]
+                        for code in stock_codes_list:
+                            row_df = filtered[filtered['ts_code'] == code]
+                            if not row_df.empty:
+                                latest = row_df.iloc[0]
+                                turnover_rate = None
+                                try:
+                                    basic_df = pro.daily_basic(ts_code=code, trade_date=latest_date, fields='ts_code,turnover_rate')
+                                    if basic_df is not None and not basic_df.empty:
+                                        turnover_rate = basic_df.iloc[0].get('turnover_rate')
+                                except Exception:
+                                    pass
+
+                                quotes.append(
+                                    cls._build_quote_item(
+                                        ts_code=code,
+                                        name=name_map.get(code, code),
+                                        price=latest.get('close'),
+                                        pre_close=latest.get('pre_close'),
+                                        open_price=latest.get('open'),
+                                        high=latest.get('high'),
+                                        low=latest.get('low'),
+                                        volume=latest.get('vol'),
+                                        amount=latest.get('amount'),
+                                        trade_date=latest_date,
+                                        trade_time='latest_trade_day',
+                                        turnover_rate=turnover_rate,
+                                        source='latest_trade_day',
+                                    )
+                                )
+                            else:
+                                quotes.append(cls._build_quote_item(code, name_map.get(code, code), None, None, None, None, None, None, None, None, None, source='latest_trade_day'))
+                    else:
+                        # 按日期获取失败，逐只获取
+                        for code in stock_codes_list:
+                            daily_single = pro.daily(ts_code=code, start_date=start_date, end_date=end_date)
+                            if daily_single is not None and not daily_single.empty:
+                                daily_single = daily_single.sort_values('trade_date', ascending=False)
+                                latest = daily_single.iloc[0]
+                                quotes.append(
+                                    cls._build_quote_item(
+                                        ts_code=code,
+                                        name=name_map.get(code, code),
+                                        price=latest.get('close'),
+                                        pre_close=latest.get('pre_close'),
+                                        open_price=latest.get('open'),
+                                        high=latest.get('high'),
+                                        low=latest.get('low'),
+                                        volume=latest.get('vol'),
+                                        amount=latest.get('amount'),
+                                        trade_date=cls._safe_text(latest.get('trade_date')),
+                                        trade_time='latest_trade_day',
+                                        source='latest_trade_day',
+                                    )
+                                )
+                            else:
+                                quotes.append(cls._build_quote_item(code, name_map.get(code, code), None, None, None, None, None, None, None, None, None, source='latest_trade_day'))
+                except Exception as exc:
+                    logger.warning(f'Batch daily fetch failed: {exc}')
+                    for code in stock_codes_list:
+                        quotes.append(cls._build_quote_item(code, name_map.get(code, code), None, None, None, None, None, None, None, None, None, source='latest_trade_day'))
 
             return {
                 'quotes': quotes,
@@ -295,6 +391,7 @@ class RealtimeMonitorService:
         except Exception as exc:
             logger.warning(f'Latest trade quote via Tushare failed: {exc}')
 
+        # 最终兜底：本地数据库
         for code in codes:
             history = StockService.get_daily_history(code, limit=1)
             latest = history[0] if history else {}
@@ -319,6 +416,239 @@ class RealtimeMonitorService:
             'quotes': quotes,
             'source': 'local_cache',
             'message': 'Tushare 接口暂不可用，已切换到本地缓存数据。',
+        }
+
+    @classmethod
+    def _normalize_date(cls, date_str: str) -> str:
+        """将日期统一为 YYYY-MM-DD 格式，方便比较和前端显示"""
+        s = cls._safe_text(date_str)
+        if not s:
+            return ''
+        # 已经是 YYYY-MM-DD 格式
+        if len(s) == 10 and s[4] == '-' and s[7] == '-':
+            return s
+        # YYYYMMDD 格式 → YYYY-MM-DD
+        if len(s) == 8 and s.isdigit():
+            return f'{s[:4]}-{s[4:6]}-{s[6:8]}'
+        return s
+
+    @classmethod
+    def _merge_realtime_quote_into_daily_history(
+        cls,
+        history: List[Dict[str, Any]],
+        realtime_quote: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
+        merged = [dict(item) for item in history]
+        quote = realtime_quote or {}
+        trade_date_raw = cls._safe_text(quote.get('trade_date'))
+        trade_date = cls._normalize_date(trade_date_raw)
+        price = cls._safe_float(quote.get('price'))
+        if not trade_date or price is None:
+            return merged
+
+        open_price = cls._safe_float(quote.get('open'))
+        pre_close = cls._safe_float(quote.get('pre_close'))
+        high = cls._safe_float(quote.get('high'))
+        low = cls._safe_float(quote.get('low'))
+        candidate_values = [value for value in (open_price, price, pre_close) if value is not None]
+        fallback_high = max(candidate_values) if candidate_values else price
+        fallback_low = min(candidate_values) if candidate_values else price
+
+        today_candle = {
+            'trade_date': trade_date,
+            'open': open_price if open_price is not None else pre_close if pre_close is not None else price,
+            'high': high if high is not None else fallback_high,
+            'low': low if low is not None else fallback_low,
+            'close': price,
+            'vol': cls._safe_float(quote.get('volume'), 0),
+            'amount': cls._safe_float(quote.get('amount'), 0),
+        }
+
+        # 统一日期格式后比较，避免 '20260424' vs '2026-04-24' 不匹配
+        if merged and cls._normalize_date(merged[-1].get('trade_date')) == trade_date:
+            merged[-1].update({key: value for key, value in today_candle.items() if value not in (None, '')})
+        else:
+            merged.append(today_candle)
+
+        return merged
+
+    @classmethod
+    def _build_realtime_daily_series(
+        cls,
+        ts_code: str,
+        realtime_quote: Optional[Dict[str, Any]] = None,
+        limit: int = 60,
+    ) -> Dict[str, Any]:
+        # 指数使用 index_daily 接口或本地数据库
+        index_ts_map = {item['ts_code']: item['name'] for item in MarketOverviewService.INDEX_ITEMS}
+
+        if ts_code in index_ts_map:
+            return cls._build_index_daily_series(ts_code, realtime_quote=realtime_quote, limit=limit)
+
+        history = list(reversed(StockService.get_daily_history(ts_code, limit=limit)))
+
+        # 检测本地数据是否过旧（最后一天距今超过3天），如果是则从 Tushare 补全
+        history = cls._ensure_history_up_to_date(ts_code, history, limit=limit)
+
+        merged_history = cls._merge_realtime_quote_into_daily_history(history, realtime_quote=realtime_quote)
+
+        has_realtime_candle = bool(
+            realtime_quote
+            and realtime_quote.get('price') is not None
+            and realtime_quote.get('trade_date')
+        )
+        series_source = 'sina_daily_candle' if has_realtime_candle else 'stock_daily_history'
+        series_message = '已使用新浪快照更新今日K线。' if has_realtime_candle else '已加载本地日线历史。'
+
+        return {
+            'series': cls._normalize_series(merged_history),
+            'mode': 'daily',
+            'source': series_source,
+            'message': series_message,
+        }
+
+    @classmethod
+    def _ensure_history_up_to_date(
+        cls,
+        ts_code: str,
+        history: List[Dict[str, Any]],
+        limit: int = 60,
+    ) -> List[Dict[str, Any]]:
+        """确保日线历史数据是最新的，如果本地数据过旧则从 Tushare 补全"""
+        if not history:
+            # 本地完全没有数据，直接从 Tushare 拉取
+            return cls._fetch_tushare_daily_series(ts_code, limit=limit)
+
+        last_date_str = cls._safe_text(history[-1].get('trade_date')) if history else ''
+        if not last_date_str:
+            return history
+
+        # 统一日期格式为 YYYYMMDD
+        last_date_normalized = last_date_str.replace('-', '')
+        try:
+            last_date = datetime.strptime(last_date_normalized, '%Y%m%d')
+        except ValueError:
+            return history
+
+        days_gap = (datetime.now() - last_date).days
+        if days_gap <= 3:
+            # 数据足够新，无需补全
+            return history
+
+        # 本地数据过旧，从 Tushare 拉取完整历史
+        logger.info(f'[DailySeries] {ts_code} 本地数据最后日期={last_date_str}，距今{days_gap}天，从 Tushare 补全')
+        tushare_history = cls._fetch_tushare_daily_series(ts_code, limit=limit)
+        if tushare_history:
+            return tushare_history
+
+        # Tushare 也失败了，返回本地数据
+        return history
+
+    @classmethod
+    def _fetch_tushare_daily_series(
+        cls,
+        ts_code: str,
+        limit: int = 60,
+    ) -> List[Dict[str, Any]]:
+        """从 Tushare 获取日线历史数据（用于补全本地数据的缺口）"""
+        try:
+            pro = cls._create_tushare_client()
+            end_date = datetime.now().strftime('%Y%m%d')
+            start_date = (datetime.now() - timedelta(days=limit * 2)).strftime('%Y%m%d')
+            df = pro.daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
+            if df is None or df.empty:
+                return []
+
+            df = df.sort_values('trade_date', ascending=True).tail(limit)
+            history = []
+            for _, row in df.iterrows():
+                history.append({
+                    'trade_date': str(row.get('trade_date', '')),
+                    'open': cls._safe_float(row.get('open')),
+                    'high': cls._safe_float(row.get('high')),
+                    'low': cls._safe_float(row.get('low')),
+                    'close': cls._safe_float(row.get('close')),
+                    'vol': cls._safe_float(row.get('vol'), 0),
+                    'amount': cls._safe_float(row.get('amount'), 0),
+                })
+            return history
+        except Exception as exc:
+            logger.warning(f'[DailySeries] Tushare daily fetch failed for {ts_code}: {exc}')
+            return []
+
+    @classmethod
+    def _build_index_daily_series(
+        cls,
+        ts_code: str,
+        realtime_quote: Optional[Dict[str, Any]] = None,
+        limit: int = 60,
+    ) -> Dict[str, Any]:
+        """指数日线走势（优先本地数据库，其次Tushare index_daily）"""
+        history = []
+        try:
+            conn, cursor = DatabaseUtils.connect_to_mysql()
+            cursor.execute(
+                "SELECT trade_date, open, high, low, close, vol, amount "
+                "FROM stock_daily_history "
+                "WHERE ts_code = %s "
+                "ORDER BY trade_date DESC LIMIT %s",
+                (ts_code, limit),
+            )
+            rows = cursor.fetchall()
+            conn.close()
+            for row in reversed(rows):
+                history.append({
+                    'trade_date': str(row[0]),
+                    'open': cls._safe_float(row[1]),
+                    'high': cls._safe_float(row[2]),
+                    'low': cls._safe_float(row[3]),
+                    'close': cls._safe_float(row[4]),
+                    'vol': cls._safe_float(row[5], 0),
+                    'amount': cls._safe_float(row[6], 0),
+                })
+        except Exception as exc:
+            logger.warning(f'Local DB index history failed for {ts_code}: {exc}')
+
+        # 检测本地数据是否过旧或不足，如果是则从 Tushare 补全
+        need_tushare_fallback = len(history) < 10
+        if not need_tushare_fallback and history:
+            last_date_str = cls._safe_text(history[-1].get('trade_date'))
+            last_date_normalized = last_date_str.replace('-', '')
+            try:
+                last_date = datetime.strptime(last_date_normalized, '%Y%m%d')
+                if (datetime.now() - last_date).days > 3:
+                    need_tushare_fallback = True
+            except ValueError:
+                pass
+
+        if need_tushare_fallback:
+            try:
+                pro = cls._create_tushare_client()
+                end_date = datetime.now().strftime('%Y%m%d')
+                start_date = (datetime.now() - timedelta(days=limit * 2)).strftime('%Y%m%d')
+                df = pro.index_daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
+                if df is not None and not df.empty:
+                    df = df.sort_values('trade_date', ascending=True).tail(limit)
+                    history = []
+                    for _, row in df.iterrows():
+                        history.append({
+                            'trade_date': str(row.get('trade_date', '')),
+                            'open': cls._safe_float(row.get('open')),
+                            'high': cls._safe_float(row.get('high')),
+                            'low': cls._safe_float(row.get('low')),
+                            'close': cls._safe_float(row.get('close')),
+                            'vol': cls._safe_float(row.get('vol'), 0),
+                            'amount': cls._safe_float(row.get('amount'), 0),
+                        })
+            except Exception as exc:
+                logger.warning(f'Tushare index_daily failed for {ts_code}: {exc}')
+
+        merged_history = cls._merge_realtime_quote_into_daily_history(history, realtime_quote=realtime_quote)
+        return {
+            'series': cls._normalize_series(merged_history),
+            'mode': 'daily',
+            'source': 'index_daily',
+            'message': '已加载指数日线走势。',
         }
 
     @classmethod
@@ -401,7 +731,9 @@ class RealtimeMonitorService:
     def _normalize_series(cls, raw_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         items: List[Dict[str, Any]] = []
         for row in raw_rows:
-            label = cls._safe_text(cls._first_value(row, 'trade_time', 'TRADE_TIME', 'datetime', 'trade_date', 'DATE'))
+            raw_label = cls._safe_text(cls._first_value(row, 'trade_time', 'TRADE_TIME', 'datetime', 'trade_date', 'DATE'))
+            # 日线模式优先用 trade_date 作为标签，统一格式
+            label = cls._normalize_date(raw_label) if raw_label and len(raw_label) <= 10 else raw_label
             items.append(
                 {
                     'label': label,
@@ -416,16 +748,22 @@ class RealtimeMonitorService:
         return [item for item in items if item.get('price') is not None]
 
     @classmethod
-    def get_price_series(cls, ts_code: str, freq: str = '1min') -> Dict[str, Any]:
-        # 支持的频率：分钟级（1min/5min/15min/30min/60min）或更高粒度（日/周/月）
+    def get_price_series(
+        cls,
+        ts_code: str,
+        freq: str = 'daily',
+        realtime_quote: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         minute_freqs = {'1min', '5min', '15min', '30min', '60min'}
         higher_freqs = {'daily', 'weekly', 'monthly'}
-        f = (freq or '1min').strip()
+        f = (freq or 'daily').strip()
+
+        if f == 'daily':
+            return cls._build_realtime_daily_series(ts_code, realtime_quote=realtime_quote)
 
         try:
             pro = cls._create_tushare_client()
 
-            # 1) 分钟级优先：先按指定分钟级取，不行则自动退到 60min
             if f in minute_freqs:
                 try:
                     df = pro.stk_mins(ts_code=ts_code, freq=f, limit=120)
@@ -439,7 +777,6 @@ class RealtimeMonitorService:
                         }
                 except Exception as exc_minute:
                     logger.warning(f'Minute data fetch failed for {ts_code}({f}): {exc_minute}')
-                    # 尝试 60min 作为降级
                     if f != '60min':
                         try:
                             df60 = pro.stk_mins(ts_code=ts_code, freq='60min', limit=120)
@@ -454,13 +791,12 @@ class RealtimeMonitorService:
                         except Exception as exc60:
                             logger.warning(f'60min fallback failed for {ts_code}: {exc60}')
 
-            # 2) 更高粒度：daily/weekly/monthly
             if f in higher_freqs:
                 if f == 'daily':
                     ddf = pro.daily(ts_code=ts_code)
                 elif f == 'weekly':
                     ddf = pro.weekly(ts_code=ts_code)
-                else:  # 'monthly'
+                else:
                     ddf = pro.monthly(ts_code=ts_code)
 
                 if ddf is not None and not ddf.empty:
@@ -477,21 +813,29 @@ class RealtimeMonitorService:
         else:
             minute_error = ''
 
-        # 3) 最终降级：使用本地日线历史（数据库/缓存）
-        history = list(reversed(StockService.get_daily_history(ts_code, limit=30)))
-        return {
-            'series': cls._normalize_series(history),
-            'mode': 'daily',
-            'source': 'stock_daily_history',
-            'message': f'分钟级接口暂不可用，已降级为日线走势。{minute_error}'.strip(),
-        }
+        daily_payload = cls._build_realtime_daily_series(ts_code, realtime_quote=realtime_quote)
+        daily_payload['message'] = f"分钟级接口暂不可用，已降级为实时日线走势。{minute_error}".strip()
+        return daily_payload
 
 
     @classmethod
     def get_dashboard(cls, user_id: Optional[int], raw_codes: str = '') -> Dict[str, Any]:
+        """获取监控面板数据，包含市场指数和自选股"""
+        watchlist = cls._get_user_watchlist(user_id)
+        watchlist_items = [item.to_dict() for item in watchlist]
         codes = cls._pick_codes(user_id, raw_codes)
-        watchlist_items = [item.to_dict() for item in cls._get_user_watchlist(user_id)]
+
+        logger.debug(
+            f'[MonitorDashboard] user_id={user_id}, raw_codes={raw_codes!r}, '
+            f'watchlist_count={len(watchlist)}, picked_codes={codes}'
+        )
+
+        # 获取自选股行情
         quote_payload = cls._load_realtime_quotes(codes)
+
+        # 获取市场指数行情
+        market_quotes = cls._load_market_index_quotes()
+
         market_overview = MarketOverviewService.get_market_overview()
 
         return {
@@ -500,6 +844,7 @@ class RealtimeMonitorService:
             'quote_source': quote_payload.get('source'),
             'quote_message': quote_payload.get('message'),
             'selected_ts_code': quote_payload.get('quotes', [{}])[0].get('ts_code') if quote_payload.get('quotes') else '',
+            'market_quotes': market_quotes,
             'market_overview': market_overview,
             'watchlist_items': watchlist_items,
             'watchlist_count': len(watchlist_items),
@@ -507,15 +852,237 @@ class RealtimeMonitorService:
         }
 
     @classmethod
-    def get_stock_detail(cls, user_id: Optional[int], ts_code: str, freq: str = '1min') -> Dict[str, Any]:
+    def _load_market_index_quotes(cls) -> List[Dict[str, Any]]:
+        """加载市场指数的实时行情（Akshare优先 → Tushare降级 → MarketOverview兜底）"""
+        cached = _cache.get('market_index_quotes')
+        if cached is not None:
+            return cached
+
+        index_ts_map = {item['ts_code']: item['name'] for item in MarketOverviewService.INDEX_ITEMS}
+        codes = cls.MARKET_INDEX_CODES
+        name_map = {code: index_ts_map.get(code, code) for code in codes}
+
+        quotes = []
+
+        # ========== ① 优先：Akshare（新浪快照，免费实时） ==========
+        try:
+            ak_result = AkshareService.get_realtime_quotes(codes)
+            ak_quotes = ak_result.get('quotes', [])
+            if ak_quotes and any(q.get('price') is not None for q in ak_quotes):
+                for code in codes:
+                    matched = next((q for q in ak_quotes if q.get('ts_code') == code), None)
+                    if matched and matched.get('price') is not None:
+                        quotes.append(cls._build_quote_item(
+                            ts_code=code,
+                            name=name_map.get(code, code),
+                            price=matched.get('price'),
+                            pre_close=matched.get('pre_close'),
+                            open_price=matched.get('open'),
+                            high=matched.get('high'),
+                            low=matched.get('low'),
+                            volume=matched.get('volume'),
+                            amount=matched.get('amount'),
+                            trade_date=matched.get('trade_date'),
+                            trade_time=matched.get('trade_time'),
+                            turnover_rate=matched.get('turnover_rate'),
+                            source='sina_realtime',
+                        ))
+                    else:
+                        quotes.append(cls._build_quote_item(code, name_map.get(code, code), None, None, None, None, None, None, None, None, None, source='sina_realtime'))
+                _cache.set('market_index_quotes', quotes, ttl=cls.CACHE_TTL_QUOTES)
+                return quotes
+        except Exception as exc:
+            logger.warning(f'Akshare market index quotes failed: {exc}')
+
+        # ========== ② 降级：Tushare realtime_quote ==========
+        try:
+            ts_mod = DatabaseUtils.init_tushare_realtime()
+            code_str = ','.join(codes)
+            df = ts_mod.realtime_quote(ts_code=code_str)
+            if df is not None and not df.empty:
+                for code in codes:
+                    row_df = df[df['TS_CODE'] == code] if 'TS_CODE' in df.columns else pd.DataFrame()
+                    if not row_df.empty:
+                        row = row_df.iloc[0]
+                        quotes.append(
+                            cls._build_quote_item(
+                                ts_code=code,
+                                name=name_map.get(code, code),
+                                price=row.get('PRICE'),
+                                pre_close=row.get('PRE_CLOSE'),
+                                open_price=row.get('OPEN'),
+                                high=row.get('HIGH'),
+                                low=row.get('LOW'),
+                                volume=row.get('VOLUME'),
+                                amount=row.get('AMOUNT'),
+                                trade_date=row.get('DATE'),
+                                trade_time=row.get('TIME'),
+                                source='realtime_quote',
+                            )
+                        )
+                    else:
+                        quotes.append(cls._build_quote_item(code, name_map.get(code, code), None, None, None, None, None, None, None, None, None, source='realtime_quote'))
+                _cache.set('market_index_quotes', quotes, ttl=cls.CACHE_TTL_QUOTES)
+                return quotes
+        except Exception as exc:
+            logger.warning(f'Tushare realtime_quote for market indices failed: {exc}')
+
+        # ========== ③ 兜底：MarketOverviewService ==========
+        overview = MarketOverviewService.get_market_overview()
+        for item in overview.get('items', []):
+            if item.get('ts_code') in codes:
+                quotes.append(cls._build_quote_item(
+                    ts_code=item['ts_code'],
+                    name=item.get('name', item['ts_code']),
+                    price=item.get('close'),
+                    pre_close=None,
+                    open_price=None,
+                    high=None,
+                    low=None,
+                    volume=item.get('vol'),
+                    amount=item.get('amount'),
+                    trade_date=item.get('trade_date'),
+                    trade_time=None,
+                    source='market_overview',
+                ))
+        # 补充缺失的指数
+        existing_codes = {q['ts_code'] for q in quotes}
+        for code in codes:
+            if code not in existing_codes:
+                quotes.append(cls._build_quote_item(code, name_map.get(code, code), None, None, None, None, None, None, None, None, None, source='market_overview'))
+
+        _cache.set('market_index_quotes', quotes, ttl=cls.CACHE_TTL_QUOTES)
+        return quotes
+
+    @classmethod
+    def get_intraday_series(cls, ts_code: str, period: str = '1') -> Dict[str, Any]:
+        """获取分时走势数据（Akshare优先 → Tushare stk_mins降级）
+
+        Args:
+            ts_code: 股票代码，如 600519.SH
+            period: 分钟频率 '1' / '5' / '15' / '30' / '60'
+
+        Returns:
+            {
+                'intraday': [{'time': '09:31', 'close': 1458.5, 'volume': 3600, ...}],
+                'pre_close': 1450.0,
+                'date': '2026-04-24',
+                'source': 'akshare_sina_minute',
+                'message': '...',
+            }
+        """
+        normalized_code = cls.normalize_ts_code(ts_code)
+        cache_key = f'intraday_{normalized_code}_{period}'
+        cached = _cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        result = None
+
+        # ========== ① 优先：Akshare stock_zh_a_minute ==========
+        try:
+            ak_result = AkshareService.get_intraday_minute(
+                symbol=normalized_code, period=period,
+            )
+            if ak_result.get('data'):
+                result = {
+                    'intraday': ak_result['data'],
+                    'pre_close': ak_result.get('pre_close'),
+                    'date': ak_result.get('date', ''),
+                    'source': ak_result.get('source', 'akshare_sina_minute'),
+                    'message': ak_result.get('message', '分时数据已加载'),
+                }
+        except Exception as exc:
+            logger.warning(f'Akshare intraday failed for {normalized_code}: {exc}')
+
+        # ========== ② 降级：Tushare stk_mins ==========
+        if not result or not result.get('intraday'):
+            try:
+                pro = cls._create_tushare_client()
+                freq_map = {'1': '1min', '5': '5min', '15': '15min', '30': '30min', '60': '60min'}
+                ts_freq = freq_map.get(period, '1min')
+                df = pro.stk_mins(ts_code=normalized_code, freq=ts_freq, limit=500)
+                if df is not None and not df.empty:
+                    df = df.sort_values('trade_time', ascending=True)
+                    # 只取最近交易日
+                    df['trade_date'] = df['trade_time'].str[:10]
+                    latest_date = df['trade_date'].max()
+                    df_today = df[df['trade_date'] == latest_date]
+
+                    records = []
+                    for _, row in df_today.iterrows():
+                        time_str = cls._safe_text(row.get('trade_time', ''))
+                        # 取 HH:MM 部分
+                        if len(time_str) >= 16:
+                            time_str = time_str[11:16]
+                        records.append({
+                            'time': time_str,
+                            'open': cls._safe_float(row.get('open')),
+                            'high': cls._safe_float(row.get('high')),
+                            'low': cls._safe_float(row.get('low')),
+                            'close': cls._safe_float(row.get('close')),
+                            'volume': cls._safe_float(row.get('vol'), 0),
+                            'amount': cls._safe_float(row.get('amount'), 0),
+                        })
+
+                    if records:
+                        pre_close = cls._safe_float(records[0].get('open'))
+                        # 尝试从实时行情获取更准确的昨收价
+                        try:
+                            quote_payload = cls._load_realtime_quotes([normalized_code])
+                            quote = (quote_payload.get('quotes') or [{}])[0]
+                            if quote.get('pre_close') is not None:
+                                pre_close = quote['pre_close']
+                        except Exception:
+                            pass
+
+                        result = {
+                            'intraday': records,
+                            'pre_close': pre_close,
+                            'date': latest_date,
+                            'source': 'tushare_stk_mins',
+                            'message': '分时数据已加载（Tushare）',
+                        }
+            except Exception as exc:
+                logger.warning(f'Tushare stk_mins failed for {normalized_code}: {exc}')
+
+        if not result:
+            result = {
+                'intraday': [],
+                'pre_close': None,
+                'date': '',
+                'source': 'empty',
+                'message': '分时数据暂不可用，请检查网络或在交易时间段重试。',
+            }
+
+        _cache.set(cache_key, result, ttl=15)
+        return result
+
+    @classmethod
+    def get_stock_detail(cls, user_id: Optional[int], ts_code: str, freq: str = 'daily') -> Dict[str, Any]:
         normalized_code = cls.normalize_ts_code(ts_code)
         if not normalized_code:
             raise ValueError('Invalid ts_code')
 
+        normalized_freq = 'daily'
         quote_payload = cls._load_realtime_quotes([normalized_code])
         quote = (quote_payload.get('quotes') or [{}])[0]
-        series_payload = cls.get_price_series(normalized_code, freq=freq)
+        series_payload = cls.get_price_series(normalized_code, freq=normalized_freq, realtime_quote=quote)
         watch_codes = {item.ts_code for item in cls._get_user_watchlist(user_id)}
+
+        index_ts_map = {item['ts_code']: item['name'] for item in MarketOverviewService.INDEX_ITEMS}
+        is_index = normalized_code in index_ts_map
+
+        stock_info = {}
+        if not is_index:
+            stock_info = StockService.get_stock_info(normalized_code) or {}
+        else:
+            stock_info = {
+                'ts_code': normalized_code,
+                'name': index_ts_map.get(normalized_code, normalized_code),
+                'industry': '指数',
+                'area': '',
+            }
 
         return {
             'quote': quote,
@@ -525,8 +1092,338 @@ class RealtimeMonitorService:
             'series_mode': series_payload.get('mode'),
             'series_source': series_payload.get('source'),
             'series_message': series_payload.get('message'),
-            'signals': cls.build_signals(quote),
-            'stock_info': StockService.get_stock_info(normalized_code),
+            'signals': cls.build_signals(quote) if not is_index else cls._build_index_signals(quote),
+            'stock_info': stock_info,
             'is_watchlist': normalized_code in watch_codes,
+            'is_index': is_index,
             'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         }
+
+    @classmethod
+    def get_realtime_ranking(cls, sort_by: str = 'pct_change', limit: int = 20, src: str = 'sina') -> Dict[str, Any]:
+        """获取实时涨跌幅排名
+
+        数据源优先级：
+        ① 新浪财经 HTTP API（免费、快速、直接请求）
+        ② Tushare realtime_list（需验证token，可能失败）
+        ③ Akshare stock_zh_a_spot（Sina 爬虫，慢但可靠）
+
+        Args:
+            sort_by: 排序字段，可选 pct_change(涨跌幅) / turnover_rate(换手率) / amount(成交额)
+            limit: 返回条数，默认20
+            src: 数据源标识（sina/dc），实际数据源按优先级自动选择
+        """
+        cache_key = f'realtime_ranking_{sort_by}'
+        # 排名数据使用独立的较长缓存
+        ranking_cache = _cache.get(cache_key)
+        if ranking_cache is not None:
+            return ranking_cache
+
+        result = None
+
+        # ========== ① 优先：直接请求新浪财经 API（最快） ==========
+        result = cls._fetch_ranking_from_sina_direct(sort_by=sort_by, limit=limit)
+
+        # ========== ② 降级：Tushare realtime_list ==========
+        if not result or not result.get('success'):
+            result = cls._fetch_ranking_from_tushare(sort_by=sort_by, limit=limit, src=src)
+
+        # ========== ③ 兜底：Akshare ==========
+        if not result or not result.get('success'):
+            result = cls._fetch_ranking_from_akshare(sort_by=sort_by, limit=limit)
+
+        if result is None:
+            result = {
+                'success': False,
+                'message': '所有数据源均不可用，请检查网络连接或在交易时间段重试。',
+                'sort_by': sort_by,
+                'src': src,
+                'top_gainers': [],
+                'top_losers': [],
+                'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            }
+
+        _cache.set(cache_key, result, ttl=cls.CACHE_TTL_RANKING)
+        return result
+
+    @classmethod
+    def _fetch_ranking_from_sina_direct(cls, sort_by: str = 'pct_change', limit: int = 20) -> Optional[Dict[str, Any]]:
+        """直接请求新浪财经 API 获取涨跌幅排名（快速，约0.5秒）"""
+        try:
+            import requests as req
+
+            # 新浪API排序字段映射
+            sina_sort_map = {
+                'pct_change': 'changepercent',
+                'turnover_rate': 'turnoverratio',
+                'amount': 'amount',
+            }
+            sina_sort = sina_sort_map.get(sort_by, 'changepercent')
+
+            session = req.Session()
+            session.trust_env = False  # 绕过系统代理
+
+            url = 'http://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeData'
+            base_params = {
+                'num': str(min(limit, 80)),
+                'node': 'hs_a',
+                '_s_r_a': 'page',
+            }
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Referer': 'http://vip.stock.finance.sina.com.cn/',
+            }
+
+            # 涨幅榜（降序）
+            params_up = {**base_params, 'page': '1', 'sort': sina_sort, 'asc': '0'}
+            r_up = session.get(url, params=params_up, headers=headers, timeout=10)
+            if r_up.status_code != 200 or not r_up.text.strip():
+                return None
+
+            import json as _json
+            data_up = _json.loads(r_up.text)
+            if not data_up:
+                return None
+
+            # 跌幅榜（升序）
+            params_down = {**base_params, 'page': '1', 'sort': sina_sort, 'asc': '1'}
+            r_down = session.get(url, params=params_down, headers=headers, timeout=10)
+            data_down = _json.loads(r_down.text) if r_down.status_code == 200 and r_down.text.strip() else []
+
+            # 转换格式
+            top_gainers = cls._format_sina_ranking_rows(data_up[:limit])
+            top_losers = cls._format_sina_ranking_rows(data_down[:limit]) if data_down else []
+
+            return {
+                'success': True,
+                'message': '实时涨跌幅排名已加载（新浪财经 API）。',
+                'sort_by': sort_by,
+                'src': 'sina_api',
+                'total_count': len(data_up),
+                'top_gainers': top_gainers,
+                'top_losers': top_losers,
+                'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            }
+        except Exception as exc:
+            logger.warning(f'Sina direct ranking failed: {exc}')
+            return None
+
+    @classmethod
+    def _format_sina_ranking_rows(cls, rows: list) -> List[Dict[str, Any]]:
+        """将新浪API返回的原始数据格式化为标准格式"""
+        result = []
+        for row in rows:
+            # 新浪symbol格式: sh600000, sz000001, bj430047
+            symbol = cls._safe_text(row.get('symbol', ''))
+            code = cls._safe_text(row.get('code', ''))
+            if symbol.startswith('sh'):
+                ts_code = f'{code}.SH'
+            elif symbol.startswith('sz'):
+                ts_code = f'{code}.SZ'
+            elif symbol.startswith('bj'):
+                ts_code = f'{code}.BJ'
+            else:
+                ts_code = cls.normalize_ts_code(code)
+
+            result.append({
+                'ts_code': ts_code,
+                'name': cls._safe_text(row.get('name', '')),
+                'price': cls._safe_float(row.get('trade')),
+                'pct_change': cls._safe_float(row.get('changepercent')),
+                'change': cls._safe_float(row.get('pricechange')),
+                'open': cls._safe_float(row.get('open')),
+                'high': cls._safe_float(row.get('high')),
+                'low': cls._safe_float(row.get('low')),
+                'close': cls._safe_float(row.get('settlement')),  # 昨收
+                'volume': cls._safe_float(row.get('volume'), 0),
+                'amount': cls._safe_float(row.get('amount'), 0),
+                'turnover_rate': cls._safe_float(row.get('turnoverratio')),
+                'pe': cls._safe_float(row.get('per'), 0),
+                'pb': cls._safe_float(row.get('pb')),
+                'total_mv': cls._safe_float(row.get('mktcap'), 0),
+                'float_mv': cls._safe_float(row.get('nmc'), 0),
+            })
+        return result
+
+    @classmethod
+    def _fetch_ranking_from_tushare(cls, sort_by: str = 'pct_change', limit: int = 20, src: str = 'dc') -> Optional[Dict[str, Any]]:
+        """通过 Tushare realtime_list 获取排名（降级方案）"""
+        sort_key_map = {
+            'pct_change': 'pct_change',
+            'pct_chg': 'pct_change',
+            'turnover_rate': 'turnover_rate',
+            'amount': 'amount',
+            'vol_ratio': 'vol_ratio',
+        }
+        actual_sort = sort_key_map.get(sort_by, 'pct_change')
+
+        try:
+            ts_mod = DatabaseUtils.init_tushare_realtime()
+            # 绕过 require_permission 装饰器，直接调用底层函数
+            if src == 'sina':
+                from tushare.stock.rtq import get_stock_all_a_sina
+                df = get_stock_all_a_sina(interval=1, page_count=2, proxies={})
+            else:
+                from tushare.stock.rtq import get_stock_all_a_dc
+                df = get_stock_all_a_dc(page_count=2, proxies={})
+
+            if df is None or df.empty:
+                return None
+
+            df.columns = [c.lower() for c in df.columns]
+            if 'pct_change' not in df.columns and 'pct_chg' in df.columns:
+                df = df.rename(columns={'pct_chg': 'pct_change'})
+
+            numeric_cols = ['price', 'pct_change', 'change', 'volume', 'amount', 'swing',
+                            'low', 'high', 'open', 'close', 'turnover_rate', 'vol_ratio']
+            for col in numeric_cols:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+
+            sort_col = actual_sort if actual_sort in df.columns else 'pct_change'
+            if sort_col not in df.columns:
+                return None
+
+            df_sorted = df.sort_values(by=sort_col, ascending=False, na_position='last')
+            top_gainers = cls._format_ranking_rows(df_sorted.head(limit), src=src)
+
+            df_losers = df.sort_values(by=sort_col, ascending=True, na_position='last')
+            top_losers = cls._format_ranking_rows(df_losers.head(limit), src=src)
+
+            return {
+                'success': True,
+                'message': '实时涨跌幅排名已加载（Tushare realtime_list）。',
+                'sort_by': actual_sort,
+                'src': f'tushare_{src}',
+                'total_count': len(df),
+                'top_gainers': top_gainers,
+                'top_losers': top_losers,
+                'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            }
+        except Exception as exc:
+            logger.warning(f'Tushare ranking failed: {exc}')
+            return None
+
+    @classmethod
+    def _fetch_ranking_from_akshare(cls, sort_by: str = 'pct_change', limit: int = 20) -> Optional[Dict[str, Any]]:
+        """通过 Akshare 获取排名（兜底方案，较慢）"""
+        try:
+            import akshare as ak
+            df = ak.stock_zh_a_spot()
+
+            if df is None or df.empty:
+                return None
+
+            # Akshare 返回中文列名，映射到标准字段
+            col_map = {
+                '代码': 'code',
+                '名称': 'name',
+                '最新价': 'price',
+                '涨跌额': 'change',
+                '涨跌幅': 'pct_change',
+                '今开': 'open',
+                '最高': 'high',
+                '最低': 'low',
+                '昨收': 'close',
+                '成交量': 'volume',
+                '成交额': 'amount',
+                '时间戳': 'time',
+            }
+            df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
+
+            # 构造 ts_code
+            if 'code' in df.columns:
+                df['ts_code'] = df['code'].apply(cls.normalize_ts_code)
+
+            # 数值转换
+            for col in ['price', 'pct_change', 'change', 'open', 'high', 'low', 'close', 'volume', 'amount']:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+
+            sort_col = sort_by if sort_by in df.columns else 'pct_change'
+            if sort_col not in df.columns:
+                return None
+
+            df_sorted = df.sort_values(by=sort_col, ascending=False, na_position='last')
+            top_gainers = cls._format_akshare_ranking_rows(df_sorted.head(limit))
+
+            df_losers = df.sort_values(by=sort_col, ascending=True, na_position='last')
+            top_losers = cls._format_akshare_ranking_rows(df_losers.head(limit))
+
+            return {
+                'success': True,
+                'message': '实时涨跌幅排名已加载（Akshare 新浪数据源）。',
+                'sort_by': sort_by,
+                'src': 'akshare_sina',
+                'total_count': len(df),
+                'top_gainers': top_gainers,
+                'top_losers': top_losers,
+                'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            }
+        except Exception as exc:
+            logger.warning(f'Akshare ranking failed: {exc}')
+            return None
+
+    @classmethod
+    def _format_akshare_ranking_rows(cls, df: pd.DataFrame) -> List[Dict[str, Any]]:
+        """将 Akshare 排名 DataFrame 行格式化"""
+        rows = []
+        for _, row in df.iterrows():
+            rows.append({
+                'ts_code': cls._safe_text(row.get('ts_code', '')),
+                'name': cls._safe_text(row.get('name', '')),
+                'price': cls._safe_float(row.get('price')),
+                'pct_change': cls._safe_float(row.get('pct_change')),
+                'change': cls._safe_float(row.get('change')),
+                'open': cls._safe_float(row.get('open')),
+                'high': cls._safe_float(row.get('high')),
+                'low': cls._safe_float(row.get('low')),
+                'close': cls._safe_float(row.get('close')),
+                'volume': cls._safe_float(row.get('volume'), 0),
+                'amount': cls._safe_float(row.get('amount'), 0),
+                'turnover_rate': None,
+            })
+        return rows
+
+    @classmethod
+    def _format_ranking_rows(cls, df: pd.DataFrame, src: str = 'dc') -> List[Dict[str, Any]]:
+        """将 Tushare ranking DataFrame 行格式化为前端友好的字典列表"""
+        rows = []
+        for _, row in df.iterrows():
+            item = {
+                'ts_code': cls._safe_text(row.get('ts_code', '')),
+                'name': cls._safe_text(row.get('name', '')),
+                'price': cls._safe_float(row.get('price')),
+                'pct_change': cls._safe_float(row.get('pct_change')),
+                'change': cls._safe_float(row.get('change')),
+                'open': cls._safe_float(row.get('open')),
+                'high': cls._safe_float(row.get('high')),
+                'low': cls._safe_float(row.get('low')),
+                'close': cls._safe_float(row.get('close')),
+                'volume': cls._safe_float(row.get('volume'), 0),
+                'amount': cls._safe_float(row.get('amount'), 0),
+                'swing': cls._safe_float(row.get('swing')),
+                'turnover_rate': cls._safe_float(row.get('turnover_rate')),
+                'vol_ratio': cls._safe_float(row.get('vol_ratio')),
+            }
+            if src == 'dc':
+                item.update({
+                    'pe': cls._safe_float(row.get('pe'), 0),
+                    'pb': cls._safe_float(row.get('pb')),
+                    'total_mv': cls._safe_float(row.get('total_mv'), 0),
+                    'float_mv': cls._safe_float(row.get('float_mv'), 0),
+                })
+            rows.append(item)
+        return rows
+
+    @classmethod
+    def _build_index_signals(cls, quote: Dict[str, Any]) -> List[Dict[str, str]]:
+        """指数专用信号"""
+        pct_chg = quote.get('pct_chg') or 0
+        level = 'bullish' if pct_chg >= 1 else 'bearish' if pct_chg <= -1 else 'neutral'
+        status = '偏强' if pct_chg >= 1 else '偏弱' if pct_chg <= -1 else '震荡'
+
+        return [
+            {'title': '指数涨跌', 'status': status, 'text': f'当前涨跌幅 {pct_chg:.2f}%，{"市场情绪偏积极" if pct_chg > 0 else "市场情绪偏谨慎" if pct_chg < 0 else "市场多空均衡"}。', 'level': level},
+            {'title': '数据来源', 'status': '实时数据', 'text': '指数行情来自实时快照或最近交易日数据。', 'level': 'neutral'},
+        ]
