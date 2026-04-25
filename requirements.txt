@@ -1,9 +1,6 @@
 # 安全
 Flask-Limiter>=1.5,<2.0
 
-# 邮件服务
-flask-mailman>=1.0.0
-
 # Web框架
 Flask>=2.3.0
 Flask-RESTful>=0.3.10

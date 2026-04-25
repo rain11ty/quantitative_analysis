@@ -4,7 +4,6 @@ from sqlalchemy import or_
 
 from app.extensions import db
 from app.models import User, UserAnalysisRecord, UserChatHistory, UserWatchlist
-from app.services.email_service import EmailService
 from app.services.system_log_service import SystemLogService
 from app.services.user_activity_service import UserActivityService
 from app.utils.auth import login_required
@@ -40,10 +39,6 @@ MSG_REGISTER_SUCCESS = '注册成功，请登录。'
 MSG_LOGOUT_SUCCESS = '你已安全退出登录。'
 MSG_ACCOUNT_DISABLED = '当前账号已被管理员停用。'
 MSG_ACCOUNT_BANNED = '当前账号已被管理员封禁。'
-
-MSG_VERIFY_CODE_SENT = '验证码已发送，请查收邮件。'
-MSG_VERIFY_CODE_ERROR = '验证码错误或已过期，请重新获取。'
-MSG_EMAIL_NOT_FOUND = '该账号未绑定此邮箱，无法找回密码。'
 
 
 
@@ -113,8 +108,6 @@ def login():
     return render_template('auth/login.html', next_page=_get_safe_redirect())
 
 
-# ---- 注册（含邮箱验证） ----
-
 @auth_routes.route('/register', methods=['GET', 'POST'])
 @_limiter.limit("3 per minute")  # 防恶意注册：每分钟最多 3 次注册尝试
 def register():
@@ -127,9 +120,7 @@ def register():
         password = request.form.get('password', '')
         confirm_password = request.form.get('confirm_password', '')
         phone = request.form.get('phone', '').strip()
-        verify_code = request.form.get('verify_code', '').strip()
 
-        # 基础校验
         if not username or not email or not password:
             flash(MSG_REGISTER_REQUIRED, 'warning')
             return render_template('auth/register.html')
@@ -158,27 +149,10 @@ def register():
             flash(MSG_EMAIL_EXISTS, 'danger')
             return render_template('auth/register.html')
 
-        # 邮箱验证码校验
-        if not verify_code:
-            flash('请输入邮箱验证码。', 'warning')
-            return render_template('auth/register.html')
-
-        ok, msg = EmailService.verify_code(EmailService.TYPE_REGISTER, email, verify_code)
-        if not ok:
-            flash(msg, 'danger')
-            return render_template('auth/register.html')
-
-        # 创建用户（已验证邮箱）
         user = User(username=username, email=email, phone=phone or None)
-        user.email_verified = True
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
-
-        try:
-            SystemLogService.write('register', f'Register: {user.username}, email_verified=True', user=user, status='success')
-        except Exception:
-            db.session.rollback()
 
         flash(MSG_REGISTER_SUCCESS, 'success')
         return redirect(url_for('auth.login'))
@@ -186,161 +160,44 @@ def register():
     return render_template('auth/register.html')
 
 
-# ---- 发送验证码（AJAX 接口 + 页面回退） ----
-
-@auth_routes.route('/send-verify-code', methods=['POST'])
-@_limiter.limit("6 per minute")  # 每分钟最多 6 次发送请求
-def send_verify_code():
-    """
-    发送邮箱验证码。
-
-    参数：
-      code_type : register | reset_password | change_email
-      email     : 目标邮箱地址
-
-    返回 JSON：{code, message}
-      AJAX 调用使用 JSON 响应。
-      非 AJAX 回退时也返回 JSON（前端 JavaScript 处理）。
-    """
-    code_type = request.form.get('code_type', '').strip()
-    email = request.form.get('email', '').strip()
-
-    if not code_type:
-        return jsonify({'code': 400, 'message': '缺少验证码类型。', 'data': None}), 400
-
-    if not email or '@' not in email or '.' not in email:
-        return jsonify({'code': 400, 'message': '请输入有效的邮箱地址。', 'data': None}), 400
-
-    # 类型合法性检查
-    valid_types = {EmailService.TYPE_REGISTER, EmailService.TYPE_RESET_PASSWORD, EmailService.TYPE_CHANGE_EMAIL}
-    if code_type not in valid_types:
-        return jsonify({'code': 400, 'message': '不支持的验证码类型。', 'data': None}), 400
-
-    # 注册/改绑邮箱时检查是否已被占用
-    if code_type == EmailService.TYPE_REGISTER:
-        existing = User.query.filter_by(email=email.lower()).first()
-        if existing:
-            return jsonify({'code': 409, 'message': MSG_EMAIL_EXISTS, 'data': None}), 409
-
-    if code_type == EmailService.TYPE_CHANGE_EMAIL:
-        existing = User.query.filter_by(email=email.lower()).first()
-        if existing:
-            return jsonify({'code': 409, 'message': '该邮箱已被其他账号使用。', 'data': None}), 409
-
-    # 找回密码时检查账号是否存在
-    if code_type == EmailService.TYPE_RESET_PASSWORD:
-        account = request.form.get('account', '').strip()
-        if account:
-            user = User.query.filter(or_(User.username == account, User.email == account.lower())).first()
-            if not user:
-                return jsonify({'code': 404, 'message': '该账号不存在。', 'data': None}), 404
-            if user.email != email.lower():
-                return jsonify({'code': 400, 'message': MSG_EMAIL_NOT_FOUND, 'data': None}), 400
-
-    success, message = EmailService.send_verify_code(code_type, email)
-
-    return jsonify({
-        'code': 200 if success else 500,
-        'message': message,
-        'data': None,
-    }), 200 if success else 500
-
-
-# ---- 忘记密码（分两步：发验证码 → 验证+重置） ----
-
 @auth_routes.route('/forgot-password', methods=['GET', 'POST'])
-@_limiter.limit("3 per minute")
+@_limiter.limit("3 per minute")  # 防密码重置滥用
 def forgot_password():
-    """Step 1: 输入账号/邮箱，发送验证码到绑定邮箱"""
     if request.method == 'POST':
         account = request.form.get('account', '').strip()
-        email = request.form.get('email', '').strip()
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
 
-        if not account or not email:
-            flash('请填写账号和绑定的邮箱地址。', 'warning')
+        if not account or not new_password or not confirm_password:
+            flash('Please complete all required fields.', 'warning')
             return render_template('auth/forgot_password.html')
 
-        if '@' not in email or '.' not in email:
-            flash(MSG_EMAIL_INVALID, 'warning')
+        if new_password != confirm_password:
+            flash('Passwords do not match.', 'warning')
+            return render_template('auth/forgot_password.html')
+
+        if len(new_password) < 6:
+            flash('New password must be at least 6 characters.', 'warning')
             return render_template('auth/forgot_password.html')
 
         user = User.query.filter(or_(User.username == account, User.email == account.lower())).first()
         if not user:
-            flash('该账号不存在。', 'danger')
+            flash('Account not found.', 'danger')
             return render_template('auth/forgot_password.html')
 
-        if user.email != email.lower():
-            flash('该账号未绑定此邮箱，无法找回密码。', 'danger')
-            return render_template('auth/forgot_password.html')
+        user.set_password(new_password)
+        db.session.commit()
 
-        # 发送重置验证码
-        ok, msg = EmailService.send_verify_code(EmailService.TYPE_RESET_PASSWORD, email)
-        if ok:
-            flash(f'{msg} 请在页面中输入验证码和新密码完成重置。', 'success')
-        else:
-            flash(f'发送失败：{msg}', 'danger')
+        try:
+            SystemLogService.write('password_reset', f'Password reset: {user.username}', user=user, status='success')
+        except Exception:
+            db.session.rollback()
 
-        # 将 account 和 email 传给模板（隐藏域保留）
-        return render_template('auth/forgot_password.html',
-                               _step2=True,
-                               _account=account,
-                               _email=email)
+        flash('Password has been reset. Please login again.', 'success')
+        return redirect(url_for('auth.login'))
 
     return render_template('auth/forgot_password.html')
 
-
-@auth_routes.route('/forgot-password/reset', methods=['POST'])
-@_limiter.limit("6 per minute")
-def forgot_password_reset():
-    """Step 2: 输入验证码 + 新密码，完成重置"""
-    account = request.form.get('account', '').strip()
-    email = request.form.get('email', '').strip().lower()
-    verify_code = request.form.get('verify_code', '').strip()
-    new_password = request.form.get('new_password', '')
-    confirm_password = request.form.get('confirm_password', '')
-
-    if not all([account, email, verify_code, new_password, confirm_password]):
-        flash('请完整填写所有字段（账号、邮箱、验证码、新密码）。', 'warning')
-        return render_template('auth/forgot_password.html',
-                               _step2=True, _account=account, _email=email)
-
-    # 校验验证码
-    ok, msg = EmailService.verify_code(EmailService.TYPE_RESET_PASSWORD, email, verify_code)
-    if not ok:
-        flash(msg, 'danger')
-        return render_template('auth/forgot_password.html',
-                               _step2=True, _account=account, _email=email)
-
-    # 新密码校验
-    if new_password != confirm_password:
-        flash('两次输入的新密码不一致。', 'warning')
-        return render_template('auth/forgot_password.html',
-                               _step2=True, _account=account, _email=email)
-
-    if len(new_password) < 6:
-        flash(MSG_PASSWORD_SHORT, 'warning')
-        return render_template('auth/forgot_password.html',
-                               _step2=True, _account=account, _email=email)
-
-    # 查找用户并重置
-    user = User.query.filter(or_(User.username == account, User.email == email)).first()
-    if not user:
-        flash('该账号不存在。', 'danger')
-        return redirect(url_for('auth.forgot_password'))
-
-    user.set_password(new_password)
-    db.session.commit()
-
-    try:
-        SystemLogService.write('password_reset', f'Password reset via email: {user.username}', user=user, status='success')
-    except Exception:
-        db.session.rollback()
-
-    flash('密码已成功重置，请使用新密码登录。', 'success')
-    return redirect(url_for('auth.login'))
-
-
-# ---- 退出登录 ----
 
 @auth_routes.route('/logout')
 def logout():
@@ -356,8 +213,6 @@ def logout():
     return redirect(url_for('auth.login'))
 
 
-
-# ---- 个人中心 ----
 
 @auth_routes.route('/profile')
 @login_required
@@ -420,62 +275,9 @@ def update_password():
     g.current_user.set_password(new_password)
     db.session.commit()
 
-    flash('密码已更新。', 'success')
+    flash('Password updated.', 'success')
     return redirect(url_for('auth.profile'))
 
-
-@auth_routes.route('/profile/email', methods=['POST'])
-@login_required
-def change_email():
-    """修改绑定邮箱：输入新邮箱 → 发送验证码 → 验证后更新"""
-    new_email = request.form.get('new_email', '').strip().lower()
-    verify_code = request.form.get('email_verify_code', '').strip()
-
-    if not new_email:
-        flash('请输入新的邮箱地址。', 'warning')
-        return redirect(url_for('auth.profile'))
-
-    if '@' not in new_email or '.' not in new_email:
-        flash(MSG_EMAIL_INVALID, 'warning')
-        return redirect(url_for('auth.profile'))
-
-    if new_email == g.current_user.email:
-        flash('新邮箱不能与当前邮箱相同。', 'warning')
-        return redirect(url_for('auth.profile'))
-
-    # 检查新邮箱是否被其他账号占用
-    existing = User.query.filter_by(email=new_email).first()
-    if existing:
-        flash('该邮箱已被其他账号使用。', 'danger')
-        return redirect(url_for('auth.profile'))
-
-    if not verify_code:
-        flash('请先发送并输入邮箱验证码。', 'warning')
-        return redirect(url_for('auth.profile'))
-
-    # 验证验证码
-    ok, msg = EmailService.verify_code(EmailService.TYPE_CHANGE_EMAIL, new_email, verify_code)
-    if not ok:
-        flash(msg, 'danger')
-        return redirect(url_for('auth.profile'))
-
-    old_email = g.current_user.email
-    g.current_user.email = new_email
-    g.current_user.email_verified = True
-    db.session.commit()
-
-    try:
-        SystemLogService.write('change_email',
-                               f'Email changed: {old_email} -> {new_email}',
-                               user=g.current_user, status='success')
-    except Exception:
-        db.session.rollback()
-
-    flash(f'邮箱已成功更改为 {new_email}。', 'success')
-    return redirect(url_for('auth.profile'))
-
-
-# ---- 自选股 & 记录（保持不变） ----
 
 @auth_routes.route('/profile/watchlist', methods=['POST'])
 def add_watchlist():

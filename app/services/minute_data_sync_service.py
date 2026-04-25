@@ -284,36 +284,49 @@ class MinuteDataSyncService:
             # 转换为字典列表
             data_list = df.to_dict('records')
             
-            # 批量插入数据库
+            # 批量插入数据库（使用 bulk_save_objects 替代逐行查询）
             success_count = 0
             error_count = 0
-            
+            new_objects = []
+            update_map = {}
+
+            # 先批量查已有记录
+            existing_records = {}
+            if data_list:
+                conditions = []
+                for data in data_list:
+                    conditions.append(
+                        db.and_(
+                            StockMinuteData.ts_code == data['ts_code'],
+                            StockMinuteData.datetime == data['datetime'],
+                            StockMinuteData.period_type == data['period_type']
+                        )
+                    )
+                if conditions:
+                    existing_rows = StockMinuteData.query.filter(db.or_(*conditions)).all()
+                    for row in existing_rows:
+                        existing_records[(row.ts_code, row.datetime, row.period_type)] = row
+
             for data in data_list:
                 try:
-                    # 检查是否已存在
-                    existing = StockMinuteData.query.filter_by(
-                        ts_code=data['ts_code'],
-                        datetime=data['datetime'],
-                        period_type=data['period_type']
-                    ).first()
-                    
+                    key = (data['ts_code'], data['datetime'], data['period_type'])
+                    existing = existing_records.get(key)
                     if existing:
-                        # 更新现有记录
-                        for key, value in data.items():
-                            if hasattr(existing, key):
-                                setattr(existing, key, value)
+                        for key_name, value in data.items():
+                            if hasattr(existing, key_name):
+                                setattr(existing, key_name, value)
                     else:
-                        # 创建新记录
                         minute_data = StockMinuteData(**data)
-                        db.session.add(minute_data)
-                    
+                        new_objects.append(minute_data)
                     success_count += 1
-                    
                 except Exception as e:
                     logger.error(f"插入数据失败: {data}, 错误: {e}")
                     error_count += 1
                     continue
-            
+
+            if new_objects:
+                db.session.bulk_save_objects(new_objects)
+
             # 提交事务
             db.session.commit()
             

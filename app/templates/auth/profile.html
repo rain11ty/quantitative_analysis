@@ -55,14 +55,7 @@
                                 {{ '管理员账号' if current_user.is_admin else '普通用户' }}
                             </div>
                             <h2 class="workspace-panel-title mt-3 mb-1">{{ current_user.username }}</h2>
-                            <p class="text-muted mb-0">
-                                {{ current_user.email }}
-                                {% if current_user.email_verified %}
-                                <span class="badge bg-success ms-1">已验证</span>
-                                {% else %}
-                                <span class="badge bg-warning text-dark ms-1">未验证</span>
-                                {% endif %}
-                            </p>
+                            <p class="text-muted mb-0">{{ current_user.email }}</p>
                         </div>
                     </div>
                     <div class="workspace-meta-grid mb-4">
@@ -106,37 +99,6 @@
                             <input class="form-control" name="avatar" value="{{ current_user.avatar or '' }}" placeholder="https://...">
                         </div>
                         <button class="btn btn-primary w-100" type="submit">保存资料</button>
-                    </form>
-                </div>
-
-                <div class="workspace-panel workspace-form mb-4">
-                    <div class="workspace-panel-header">
-                        <div>
-                            <h3 class="workspace-panel-title">修改绑定邮箱</h3>
-                            <p class="workspace-panel-desc">更换绑定的邮箱地址，需要验证新邮箱的有效性。</p>
-                        </div>
-                    </div>
-                    <form method="post" action="{{ url_for('auth.change_email') }}">
-                        <div class="mb-3">
-                            <label class="form-label">当前邮箱</label>
-                            <input class="form-control" value="{{ current_user.email }}" disabled>
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label">新邮箱</label>
-                            <div class="input-group">
-                                <input type="email" class="form-control" name="new_email"
-                                       placeholder="请输入新的邮箱地址" required id="newEmailInput">
-                                <button class="btn btn-outline-secondary" type="button" id="sendEmailCodeBtn"
-                                        onclick="sendEmailVerifyCode()">发送验证码</button>
-                            </div>
-                            <div class="form-text" id="emailChangeHint"></div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">新邮箱验证码</label>
-                            <input type="text" class="form-control" name="email_verify_code"
-                                   placeholder="请输入发送到新邮箱的6位验证码" maxlength="6" autocomplete="one-time-code">
-                        </div>
-                        <button class="btn btn-outline-info w-100" type="submit">确认修改邮箱</button>
                     </form>
                 </div>
 
@@ -288,72 +250,4 @@
         </div>
     </div>
 </div>
-
-<script>
-// ---- 修改邮箱验证码 ----
-let emailChangeTimer = null;
-let emailChangeSeconds = 0;
-
-function sendEmailVerifyCode() {
-    const newEmail = document.getElementById('newEmailInput').value.trim();
-    const hintEl = document.getElementById('emailChangeHint');
-    const btn = document.getElementById('sendEmailCodeBtn');
-
-    if (!newEmail || newEmail.indexOf('@') === -1 || newEmail.indexOf('.') === -1) {
-        hintEl.innerHTML = '<span class="text-danger">请先输入有效的新邮箱地址。</span>';
-        return;
-    }
-
-    if (emailChangeSeconds > 0) return;
-
-    btn.disabled = true;
-    btn.textContent = '发送中...';
-    hintEl.innerHTML = '<span class="text-muted">正在发送...</span>';
-
-    const formData = new FormData();
-    formData.append('code_type', 'change_email');
-    formData.append('email', newEmail);
-
-    fetch('{{ url_for("auth.send_verify_code") }}', {
-        method: 'POST',
-        body: formData,
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.code === 200) {
-            hintEl.innerHTML = '<span class="text-success">' + data.message + '</span>';
-            startEmailChangeCountdown(btn, 60);
-        } else if (data.code === 409) {
-            hintEl.innerHTML = '<span class="text-danger">' + data.message + '</span>';
-            btn.disabled = false;
-            btn.textContent = '重新发送';
-        } else {
-            hintEl.innerHTML = '<span class="text-danger">' + data.message + '</span>';
-            btn.disabled = false;
-            btn.textContent = '重新发送';
-        }
-    })
-    .catch(err => {
-        hintEl.innerHTML = '<span class="text-danger">网络错误，请重试。</span>';
-        btn.disabled = false;
-        btn.textContent = '发送验证码';
-    });
-}
-
-function startEmailChangeCountdown(btn, seconds) {
-    emailChangeSeconds = seconds;
-    btn.disabled = true;
-    emailChangeTimer = setInterval(function() {
-        emailChangeSeconds--;
-        if (emailChangeSeconds <= 0) {
-            clearInterval(emailChangeTimer);
-            emailChangeTimer = null;
-            btn.disabled = false;
-            btn.textContent = '重新发送';
-        } else {
-            btn.textContent = emailChangeSeconds + 's 后重发';
-        }
-    }, 1000);
-}
-</script>
 {% endblock %}

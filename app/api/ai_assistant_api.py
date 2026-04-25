@@ -219,14 +219,19 @@ def ai_chat():
                         full_answer += chunk
                         chunk_index += 1
                         AIConversationService.persist_stream_chunk(conversation_id, assistant_message_id, full_answer, chunk_index)
+                        # 每次 persist 后立即释放连接回连接池，避免长时间占用
+                        if chunk_index % AIConversationService.STREAM_SAVE_INTERVAL == 0:
+                            db.session.remove()
                         yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
 
                     AIConversationService.finalize_assistant_reply(conversation_id, assistant_message_id, full_answer)
+                    db.session.remove()
                     try:
                         if full_answer.strip():
                             UserActivityService.record_chat(current_user_id, question, full_answer)
                     except Exception as legacy_exc:
                         db.session.rollback()
+                        db.session.remove()
                         logger.error(f'Failed to save legacy ai chat history: {legacy_exc}')
 
                     latest_conversation = AIConversationService.require_conversation(current_user_id, conversation_id)
@@ -235,11 +240,14 @@ def ai_chat():
                         conversation_id=conversation_id,
                     )
                     yield f"data: {json.dumps({'done': True, 'conversation': latest_conversation.to_dict(), 'assistant_message': latest_assistant_message.to_dict()}, ensure_ascii=False)}\n\n"
+                    db.session.remove()
                 except Exception as exc:
                     try:
                         AIConversationService.mark_stream_failed(conversation_id, assistant_message_id, full_answer)
+                        db.session.remove()
                     except Exception as save_exc:
                         db.session.rollback()
+                        db.session.remove()
                         logger.error(f'Failed to mark ai stream error state: {save_exc}')
                     logger.error(f'Streaming response error: {exc}')
                     from config import Config

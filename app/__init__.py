@@ -21,7 +21,6 @@ from app.utils.logger import setup_logger
 PUBLIC_ENDPOINTS = {
     'auth.login',
     'auth.register',
-    'auth.send_verify_code',
     'auth.forgot_password',
     'admin.login',
     'static',
@@ -50,7 +49,6 @@ PUBLIC_PATH_PREFIXES = (
     '/static/',
     '/auth/login',
     '/auth/register',
-    '/auth/send-verify-code',
     '/auth/forgot-password',
     '/admin/login',
 )
@@ -106,10 +104,6 @@ def create_app(config_name='default'):
     init_redis(app)
     from app.utils.cache_utils import init_cache
     init_cache(app)
-
-    # 初始化邮件服务
-    from app.extensions import init_mail
-    init_mail(app)
 
     from loguru import logger
 
@@ -206,6 +200,19 @@ def create_app(config_name='default'):
             if 'charset=' not in content_type.lower():
                 response.headers['Content-Type'] = f'{response.mimetype}; charset=utf-8'
         return response
+
+    @app.teardown_appcontext
+    def shutdown_session(exception=None):
+        """确保每个请求/上下文结束后释放 DB 连接回连接池
+        
+        Flask-SQLAlchemy 自身也会注册一个 teardown_appcontext 调用 db.session.remove()，
+        这里显式再调用一次作为双保险，确保 SSE 等长连接场景也能正确释放。
+        db.session.remove() 是幂等操作，重复调用不会有副作用。
+        """
+        try:
+            db.session.remove()
+        except Exception:
+            pass
 
     @app.context_processor
     def inject_auth_context():

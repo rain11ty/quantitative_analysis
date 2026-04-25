@@ -442,9 +442,16 @@ function renderRealtimeChart(series, mode, title) {
             }
         },
         legend: {
-            data: ['K线', 'MA5', 'MA10', 'MA20'],
+            data: [
+                { name: 'K线', icon: 'roundRect', textStyle: { color: '#94a3b8' } },
+                { name: 'MA5', icon: 'roundRect', textStyle: { color: '#f59e0b' } },
+                { name: 'MA10', icon: 'roundRect', textStyle: { color: '#3b82f6' } },
+                { name: 'MA20', icon: 'roundRect', textStyle: { color: '#8b5cf6' } }
+            ],
             top: 0,
-            textStyle: { color: '#64748b', fontSize: 11 }
+            textStyle: { fontSize: 11 },
+            itemWidth: 14,
+            itemHeight: 8
         },
         grid: [
             { left: 60, right: 20, top: 40, height: '55%' },
@@ -908,8 +915,10 @@ function _formatTradeDate(td) { const n = _normalizeTradeDate(td); return n.leng
 function _average(values) { const v = values.filter(x => Number.isFinite(x) && x > 0); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : 0; }
 
 // ========== 资金流向 ==========
+let _moneyflowLoaded = false;
 async function loadMoneyflowData() {
-    if (document.getElementById('moneyflow-content').innerHTML.includes('加载中')) return;
+    if (_moneyflowLoaded) return;
+    _moneyflowLoaded = true;
     showLoading('moneyflow-content', 'skeleton');
     try {
         const response = await apiRequest(`/stocks/${tsCode}/moneyflow?limit=60`);
@@ -991,9 +1000,10 @@ function renderMoneyIndicators(data) {
 }
 
 // ========== 筹码分布 ==========
-let _cyqChipsLoaded = false;
+let _cyqLoaded = false;
 async function loadCyqData() {
-    if (document.getElementById('cyq-content').innerHTML.includes('加载中')) return;
+    if (_cyqLoaded) return;
+    _cyqLoaded = true;
     showLoading('cyq-content', 'skeleton');
     try {
         // 并行加载筹码分布详情和筹码胜率数据

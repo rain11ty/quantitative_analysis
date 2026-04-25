@@ -22,7 +22,6 @@ class User(db.Model):
     id = Column(Integer, primary_key=True, comment='id')
     username = Column(String(50), unique=True, nullable=False, index=True, comment='username')
     email = Column(String(120), unique=True, nullable=False, index=True, comment='email')
-    email_verified = Column(db.Boolean, default=False, nullable=False, comment='邮箱是否已验证')
     password_hash = Column(String(255), nullable=False, comment='password hash')
     nickname = Column(String(50), nullable=True, comment='nickname')
     avatar = Column(String(255), nullable=True, comment='avatar url')
@@ -70,7 +69,6 @@ class User(db.Model):
             'id': self.id,
             'username': self.username,
             'email': self.email,
-            'email_verified': self.email_verified,
             'nickname': self.nickname,
             'avatar': self.avatar,
             'phone': self.phone,

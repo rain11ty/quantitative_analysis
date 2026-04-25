@@ -39,12 +39,6 @@ def ai_assistant():
     return render_template('ai_assistant.html')
 
 
-@main_bp.route('/news')
-def news():
-    """新闻资讯页面"""
-    return render_template('news.html')
-
-
 @main_bp.route('/monitor')
 def monitor():
     """实时监控页面"""
