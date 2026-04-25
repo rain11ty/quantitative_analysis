@@ -97,7 +97,7 @@
                 {% if chat_records %}
                 {% for item in chat_records %}
                 <div class="workspace-list-item">
-                    <div class="fw-semibold text-dark">{{ item.question[:56] }}{% if item.question|length > 56 %}...{% endif %}</div>
+                    <div class="fw-semibold">{{ item.question[:56] }}{% if item.question|length > 56 %}...{% endif %}</div>
                     <div class="small text-muted mt-1">{{ item.answer[:78] }}{% if item.answer|length > 78 %}...{% endif %}</div>
                 </div>
                 {% endfor %}
