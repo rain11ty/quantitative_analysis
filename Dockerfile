@@ -44,6 +44,9 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
+# 复制应用代码和配置文件
+COPY . .
+
 # 创建非 root 用户运行应用
 RUN useradd --create-home --shell=/bin/bash appuser && \
     chown -R appuser:appuser /app
