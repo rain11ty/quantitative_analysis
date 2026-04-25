@@ -20,14 +20,19 @@
 </div>
 <div class="col-lg-7">
 <div class="page-card h-100 p-4 p-lg-5">
-<form method="post">
+<form method="post" id="registerForm">
 <div class="mb-3">
 <label for="username" class="form-label">用户名</label>
 <input type="text" class="form-control" id="username" name="username" value="{{ request.form.get('username', '') }}" placeholder="至少 3 个字符" required>
 </div>
 <div class="mb-3">
-<label for="email" class="form-label">邮箱</label>
+<label for="email" class="form-label">邮箱 <span class="text-danger">*</span>（用于验证与找回密码）</label>
+<div class="input-group">
 <input type="email" class="form-control" id="email" name="email" value="{{ request.form.get('email', '') }}" placeholder="请输入常用邮箱" required>
+<button class="btn btn-outline-secondary" type="button" id="sendRegisterCodeBtn"
+        onclick="sendVerifyCode('register')">发送验证码</button>
+</div>
+<div class="form-text" id="emailCodeHint"></div>
 </div>
 <div class="row g-3 mb-1">
 <div class="col-md-6">
@@ -35,8 +40,8 @@
 <input type="text" class="form-control" id="phone" name="phone" value="{{ request.form.get('phone', '') }}" placeholder="选填">
 </div>
 <div class="col-md-6">
-<label for="verify_code" class="form-label">验证码（演示字段）</label>
-<input type="text" class="form-control" id="verify_code" name="verify_code" value="{{ request.form.get('verify_code', '') }}" placeholder="当前仅做界面保留">
+<label for="verify_code" class="form-label">邮箱验证码 <span class="text-danger">*</span></label>
+<input type="text" class="form-control" id="verify_code" name="verify_code" value="{{ request.form.get('verify_code', '') }}" placeholder="请输入6位验证码" maxlength="6" required autocomplete="one-time-code">
 </div>
 </div>
 <div class="row g-3">
@@ -59,5 +64,79 @@
 </div>
 </div>
 </div>
-</div> {% endblock %}
 
+<script>
+// ---- 验证码发送倒计时 ----
+let countdownTimer = null;
+let countdownSeconds = 0;
+
+function sendVerifyCode(codeType) {
+    const emailInput = document.getElementById('email');
+    const email = emailInput.value.trim();
+    const hintEl = document.getElementById('emailCodeHint');
+    const btn = document.getElementById('sendRegisterCodeBtn');
+
+    if (!email || email.indexOf('@') === -1 || email.indexOf('.') === -1) {
+        hintEl.innerHTML = '<span class="text-danger">请先输入有效的邮箱地址。</span>';
+        return;
+    }
+
+    if (countdownSeconds > 0) {
+        return; // 倒计时中，不重复发送
+    }
+
+    btn.disabled = true;
+    btn.textContent = '发送中...';
+    hintEl.innerHTML = '<span class="text-muted">正在发送...</span>';
+
+    const formData = new FormData();
+    formData.append('code_type', codeType);
+    formData.append('email', email);
+
+    fetch('{{ url_for("auth.send_verify_code") }}', {
+        method: 'POST',
+        body: formData,
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.code === 200) {
+            hintEl.innerHTML = '<span class="text-success">' + data.message + '</span>';
+            startCountdown(btn, 60);
+        } else {
+            hintEl.innerHTML = '<span class="text-danger">' + data.message + '</span>';
+            btn.disabled = false;
+            btn.textContent = '重新发送';
+        }
+    })
+    .catch(err => {
+        hintEl.innerHTML = '<span class="text-danger">网络错误，请重试。</span>';
+        btn.disabled = false;
+        btn.textContent = '发送验证码';
+    });
+}
+
+function startCountdown(btn, seconds) {
+    countdownSeconds = seconds;
+    btn.disabled = true;
+
+    countdownTimer = setInterval(function() {
+        countdownSeconds--;
+        if (countdownSeconds <= 0) {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+            btn.disabled = false;
+            btn.textContent = '重新发送';
+        } else {
+            btn.textContent = countdownSeconds + 's 后重发';
+        }
+    }, 1000);
+}
+
+// 页面卸载时清理定时器
+window.addEventListener('beforeunload', function() {
+    if (countdownTimer) {
+        clearInterval(countdownTimer);
+    }
+});
+</script>
+ {% endblock %}

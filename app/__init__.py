@@ -21,6 +21,7 @@ from app.utils.logger import setup_logger
 PUBLIC_ENDPOINTS = {
     'auth.login',
     'auth.register',
+    'auth.send_verify_code',
     'auth.forgot_password',
     'admin.login',
     'static',
@@ -49,6 +50,7 @@ PUBLIC_PATH_PREFIXES = (
     '/static/',
     '/auth/login',
     '/auth/register',
+    '/auth/send-verify-code',
     '/auth/forgot-password',
     '/admin/login',
 )
@@ -104,6 +106,10 @@ def create_app(config_name='default'):
     init_redis(app)
     from app.utils.cache_utils import init_cache
     init_cache(app)
+
+    # 初始化邮件服务
+    from app.extensions import init_mail
+    init_mail(app)
 
     from loguru import logger
 
