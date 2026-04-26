@@ -98,6 +98,26 @@ class TushareDataSync:
         self._call_count += 1
         time.sleep(self.RATE_LIMIT_INTERVAL)
 
+    def _call_with_retry(self, func, max_retries=5, *args, **kwargs):
+        """带重试的API调用（处理代理服务器临时不可用）"""
+        for attempt in range(max_retries):
+            try:
+                self._rate_limit()
+                return func(*args, **kwargs)
+            except Exception as e:
+                err_str = str(e).lower()
+                is_network_err = any(kw in err_str for kw in [
+                    'connection refused', 'connection reset', 'max retries',
+                    'newconnectionerror', 'socket hang up', 'timeout',
+                    'temporary failure'
+                ])
+                if not is_network_err:
+                    raise  # 非网络错误，直接抛出
+                wait = min(2 ** attempt, 30)  # 指数退避：2s,4s,8s,16s,30s
+                print(f"\n    ⚠ 网络错误(第{attempt+1}次): {type(e).__name__}，{wait}s后重试...")
+                time.sleep(wait)
+        raise Exception(f"重试{max_retries}次后仍然失败")
+
     def _print_progress(self, current, total, prefix=''):
         """打印进度"""
         pct = current / total * 100 if total > 0 else 0
@@ -179,7 +199,7 @@ class TushareDataSync:
             self.conn.commit()
 
             self._rate_limit()
-            df = self.pro.stock_basic(exchange='', list_status='L',
+            df = self._call_with_retry(self.pro.stock_basic, exchange='', list_status='L',
                                       fields='ts_code,symbol,name,area,industry,list_date')
 
             if df is None or df.empty:
@@ -204,7 +224,10 @@ class TushareDataSync:
                     list_date,
                 ))
 
-            self.cursor.execute("TRUNCATE TABLE stock_basic")
+            # 用 DELETE 替代 TRUNCATE，避免外键约束错误（trading_signals 表引用了 stock_basic）
+            self.cursor.execute("SET FOREIGN_KEY_CHECKS=0")
+            self.cursor.execute("DELETE FROM stock_basic")
+            self.cursor.execute("SET FOREIGN_KEY_CHECKS=1")
             self.conn.commit()
 
             columns = ['ts_code', 'symbol', 'name', 'area', 'industry', 'list_date']
@@ -240,7 +263,7 @@ class TushareDataSync:
             self.conn.commit()
 
             self._rate_limit()
-            df = self.pro.trade_cal(exchange='SSE', start_date=start_date, end_date=end_date)
+            df = self._call_with_retry(self.pro.trade_cal, exchange='SSE', start_date=start_date, end_date=end_date)
 
             if df is None or df.empty:
                 print("  未获取到数据")
@@ -258,7 +281,10 @@ class TushareDataSync:
                         pass
                 data.append((row.get('exchange'), cal_date, row.get('is_open'), pretrade_date))
 
-            self.cursor.execute("TRUNCATE TABLE stock_trade_calendar")
+            # 用 DELETE 替代 TRUNCATE，避免潜在的外键依赖问题
+            self.cursor.execute("SET FOREIGN_KEY_CHECKS=0")
+            self.cursor.execute("DELETE FROM stock_trade_calendar")
+            self.cursor.execute("SET FOREIGN_KEY_CHECKS=1")
             self.conn.commit()
 
             columns = ['exchange', 'cal_date', 'is_open', 'pretrade_date']
@@ -325,7 +351,7 @@ class TushareDataSync:
             for idx, trade_date in enumerate(trade_dates, 1):
                 try:
                     self._rate_limit()
-                    df = self.pro.daily(trade_date=trade_date)
+                    df = self._call_with_retry(self.pro.daily, trade_date=trade_date)
 
                     if df is None or df.empty:
                         self._print_progress(idx, total, f'日期{trade_date}: 无数据')
@@ -435,7 +461,7 @@ class TushareDataSync:
             for idx, trade_date in enumerate(trade_dates, 1):
                 try:
                     self._rate_limit()
-                    df = self.pro.adj_factor(trade_date=trade_date)
+                    df = self._call_with_retry(self.pro.adj_factor, trade_date=trade_date)
 
                     if df is None or df.empty:
                         self._print_progress(idx, total, f'{trade_date}: 无数据')
@@ -533,7 +559,7 @@ class TushareDataSync:
             for idx, trade_date in enumerate(trade_dates, 1):
                 try:
                     self._rate_limit()
-                    df = self.pro.daily_basic(trade_date=trade_date,
+                    df = self._call_with_retry(self.pro.daily_basic, trade_date=trade_date,
                                               fields='ts_code,trade_date,close,turnover_rate,turnover_rate_f,volume_ratio,pe,pe_ttm,pb,ps,ps_ttm,dv_ratio,dv_ttm,total_share,float_share,free_share,total_mv,circ_mv')
 
                     if df is None or df.empty:
@@ -635,7 +661,7 @@ class TushareDataSync:
             for idx, trade_date in enumerate(trade_dates, 1):
                 try:
                     self._rate_limit()
-                    df = self.pro.moneyflow(trade_date=trade_date)
+                    df = self._call_with_retry(self.pro.moneyflow, trade_date=trade_date)
 
                     if df is None or df.empty:
                         self._print_progress(idx, total, f'{trade_date}: 无数据')
@@ -711,7 +737,7 @@ class TushareDataSync:
 
             # moneyflow_hsgt 支持按日期范围一次拉取
             self._rate_limit()
-            df = self.pro.moneyflow_hsgt(start_date=start_date, end_date=end_date)
+            df = self._call_with_retry(self.pro.moneyflow_hsgt, start_date=start_date, end_date=end_date)
 
             if df is None or df.empty:
                 print("  未获取到数据")
@@ -802,7 +828,7 @@ class TushareDataSync:
                         current_end = min(end_date, current_end_dt.strftime('%Y%m%d'))
 
                         self._rate_limit()
-                        df = self.pro.cyq_chips(ts_code=ts_code,
+                        df = self._call_with_retry(self.pro.cyq_chips, ts_code=ts_code,
                                                 start_date=current_start,
                                                 end_date=current_end)
 

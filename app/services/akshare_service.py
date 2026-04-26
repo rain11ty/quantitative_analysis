@@ -16,7 +16,10 @@ import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-import akshare as ak
+try:
+    import akshare as ak
+except ImportError:
+    ak = None
 import pandas as pd
 import requests
 from loguru import logger

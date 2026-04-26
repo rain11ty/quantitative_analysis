@@ -5,7 +5,10 @@ import pandas as pd
 from loguru import logger
 from app.utils.cache_utils import cache
 from app.services.akshare_service import call_with_no_proxy
-import akshare as ak
+try:
+    import akshare as ak
+except ImportError:
+    ak = None
 
 
 class NewsService:
@@ -102,7 +105,7 @@ class NewsService:
                     'title': NewsService._safe_str(row.get('标题')),
                     'summary': NewsService._safe_str(row.get('内容')),
                     'time': time_str,
-                    'link': '',
+                    'link': 'https://www.cls.cn/telegraph',
                     'source': '财联社',
                 })
 

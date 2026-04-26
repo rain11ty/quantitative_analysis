@@ -196,17 +196,44 @@ class EmailService:
             expire_minutes=expire // 60,
         )
 
-        # 发送邮件
+        # 发送邮件（使用 Python 内置 smtplib，无第三方依赖）
         try:
             mail = cls._get_mail()
-            from django.core.mail import send_mail as django_send_mail
-            django_send_mail(
-                subject=subject,
-                message=body,
-                from_email=None,  # 使用 DEFAULT_FROM_EMAIL
-                recipient_list=[email],
-                fail_silently=False,
-            )
+            if not mail:
+                return False, '邮件服务未初始化'
+
+            app_obj = current_app._get_current_object()
+            smtp_server = app_obj.config.get('MAIL_SERVER', 'smtp.qq.com')
+            smtp_port = int(app_obj.config.get('MAIL_PORT', 465))
+            mail_use_ssl = app_obj.config.get('MAIL_USE_SSL', True)
+            mail_use_tls = app_obj.config.get('MAIL_USE_TLS', False)
+            username = app_obj.config.get('MAIL_USERNAME', '')
+            password = app_obj.config.get('MAIL_PASSWORD', '')
+
+            DEFAULT_SENDER = app_obj.config.get('MAIL_DEFAULT_SENDER', ('noreply@stock-analysis.local', 'StockAnalysis'))
+            sender_addr = DEFAULT_SENDER[0] if isinstance(DEFAULT_SENDER, tuple) else DEFAULT_SENDER
+
+            import smtplib
+            from email.mime.text import MIMEText
+            from email.utils import formatdate
+
+            msg = MIMEText(body, 'plain', 'utf-8')
+            msg['From'] = sender_addr
+            msg['To'] = email
+            msg['Subject'] = subject
+            msg['Date'] = formatdate(localtime=True)
+
+            if mail_use_ssl:
+                server = smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=15)
+            else:
+                server = smtplib.SMTP(smtp_server, smtp_port, timeout=15)
+                if mail_use_tls:
+                    server.starttls()
+
+            server.login(username, password)
+            server.sendmail(sender_addr, [email], msg.as_string())
+            server.quit()
+
             current_app.logger.info(f'[EmailService] 验证码已发送至 {email} (类型={code_type})')
             return True, f'验证码已发送至 {email}，请在{expire//60}分钟内查收。'
         except Exception as exc:

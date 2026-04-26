@@ -11,7 +11,10 @@ import pandas as pd
 from loguru import logger
 
 from app.models import StockBasic, UserWatchlist
-from app.services.akshare_service import AkshareService
+try:
+    from app.services.akshare_service import AkshareService
+except ImportError:
+    AkshareService = None
 from app.services.market_overview_service import MarketOverviewService
 from app.services.stock_service import StockService
 from app.utils.cache_utils import cache as _cache
@@ -470,14 +473,18 @@ class RealtimeMonitorService:
         fallback_high = max(candidate_values) if candidate_values else price
         fallback_low = min(candidate_values) if candidate_values else price
 
+        # 实时行情（Sina快照）单位：volume=股, amount=元
+        # 需要转换为日线历史（Tushare）单位：vol=手, amount=千元
+        raw_vol = cls._safe_float(quote.get('volume'), 0)
+        raw_amt = cls._safe_float(quote.get('amount'), 0)
         today_candle = {
             'trade_date': trade_date,
             'open': open_price if open_price is not None else pre_close if pre_close is not None else price,
             'high': high if high is not None else fallback_high,
             'low': low if low is not None else fallback_low,
             'close': price,
-            'vol': cls._safe_float(quote.get('volume'), 0),
-            'amount': cls._safe_float(quote.get('amount'), 0),
+            'vol': round(raw_vol / 100, 2) if raw_vol > 0 else 0,       # 股→手
+            'amount': round(raw_amt / 1000, 2) if raw_amt > 0 else 0,     # 元→千元
         }
 
         # 统一日期格式后比较，避免 '20260424' vs '2026-04-24' 不匹配
