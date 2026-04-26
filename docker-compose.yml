@@ -24,6 +24,8 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-}
       - FLASK_ENV=production
       - GUNICORN_DAEMON=False
+    env_file:
+      - .env
     volumes:
       - ./logs:/app/logs          # 日志持久化
       - ./data:/app/data          # 数据缓存持久化
