@@ -112,13 +112,13 @@ class ProductionConfig(Config):
     DEBUG = False
 
     # --- Session Cookie 安全配置 ---
-    # Secure: 仅 HTTPS 传输（Nginx 做 SSL 终结时，后端 Gunicorn 是 HTTP，需视情况调整）
+    # Secure: 仅 HTTPS 传输（可通过 .env 设为 False 用于 HTTP 测试）
     # HttpOnly: 禁止 JavaScript 读取 Cookie（防 XSS 窃取）
     # SameSite=Lax: 跨站请求不携带 Cookie，防止 CSRF
-    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'true').lower() == 'true'
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
-    REMEMBER_COOKIE_SECURE = True
+    REMEMBER_COOKIE_SECURE = os.getenv('REMEMBER_COOKIE_SECURE', 'true').lower() == 'true'
     REMEMBER_COOKIE_HTTPONLY = True
     REMEMBER_COOKIE_SAMESITE = 'Lax'
 
