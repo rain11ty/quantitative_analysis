@@ -54,7 +54,7 @@ class Config:
     REDIS_ENABLED = os.getenv('REDIS_ENABLED', 'true').lower() == 'true'
 
     # --- 静态文件版本号（每次更新代码后修改此值，强制浏览器刷新缓存）---
-    STATIC_VERSION = '20260427'
+    STATIC_VERSION = '20260428'
 
     DEFAULT_PAGE_SIZE = 20
     MAX_PAGE_SIZE = 100
