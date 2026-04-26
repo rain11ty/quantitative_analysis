@@ -59,14 +59,14 @@ class Config:
     DEFAULT_PAGE_SIZE = 20
     MAX_PAGE_SIZE = 100
 
-    # --- 邮件配置（Resend SMTP）---
+    # --- 邮件配置（Resend SMTP，需在 .env 中设置）---
     MAIL_SERVER = os.getenv('MAIL_SERVER', 'smtp.resend.com')
     MAIL_PORT = int(os.getenv('MAIL_PORT', '465'))
     MAIL_USE_SSL = os.getenv('MAIL_USE_SSL', 'true').lower() == 'true'
     MAIL_USE_TLS = os.getenv('MAIL_USE_TLS', 'false').lower() == 'true'
-    MAIL_USERNAME = os.getenv('MAIL_USERNAME', 'resend')                     # Resend 固定用户名
-    MAIL_PASSWORD = os.getenv('MAIL_PASSWORD', 're_5J6TtJZ2_AAo8dkA4RRHUjRLZtkxMNR97')  # Resend API Token
-    _MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', 'noreply@rain11t.xyz')
+    MAIL_USERNAME = os.getenv('MAIL_USERNAME', '')                     # Resend 固定填 resend
+    MAIL_PASSWORD = os.getenv('MAIL_PASSWORD', '')                     # Resend API Token（勿提交到 Git）
+    _MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', '')
     if _MAIL_DEFAULT_SENDER:
         MAIL_DEFAULT_SENDER = (_MAIL_DEFAULT_SENDER, _MAIL_DEFAULT_SENDER.split('@')[0] if '@' in _MAIL_DEFAULT_SENDER else 'StockAnalysis')
     else:
