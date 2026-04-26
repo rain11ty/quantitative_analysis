@@ -52,12 +52,12 @@ class Config:
     REDIS_DB = int(os.getenv('REDIS_DB', '0'))
     REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', '') or None
     REDIS_ENABLED = os.getenv('REDIS_ENABLED', 'true').lower() == 'true'
-    
-# --- 静态文件版本号（每次更新代码后修改此值，强制浏览器刷新缓存）---
-STATIC_VERSION = '20260427'
 
-DEFAULT_PAGE_SIZE = 20
-MAX_PAGE_SIZE = 100
+    # --- 静态文件版本号（每次更新代码后修改此值，强制浏览器刷新缓存）---
+    STATIC_VERSION = '20260427'
+
+    DEFAULT_PAGE_SIZE = 20
+    MAX_PAGE_SIZE = 100
 
     # --- 邮件配置 ---
     MAIL_SERVER = os.getenv('MAIL_SERVER', 'smtp.qq.com')
