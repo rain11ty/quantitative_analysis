@@ -209,7 +209,10 @@ def create_app(config_name='default'):
 
     @app.context_processor
     def inject_auth_context():
-        return {'current_user': getattr(g, 'current_user', None)}
+        return {
+            'current_user': getattr(g, 'current_user', None),
+            'v': app.config.get('STATIC_VERSION', ''),
+        }
 
     @app.before_request
     def load_current_user_and_guard_routes():
