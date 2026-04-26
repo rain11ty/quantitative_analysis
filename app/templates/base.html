@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>{% block title %}股票量化分析系统{% endblock %}</title>
-<link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
 <!-- Google Fonts: Inter -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -209,6 +209,7 @@ padding-top: 84px;
 <nav class="navbar navbar-expand-xl navbar-dark navbar-financial fixed-top">
 <div class="container-fluid container-xxl px-3 px-xl-4">
 <a class="navbar-brand d-flex align-items-center" href="{{ url_for('main.index') if current_user else url_for('auth.login') }}">
+<img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" width="36" height="36" class="me-2 rounded-circle">
 <span>股票量化分析系统</span>
 </a>
 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="切换导航">
