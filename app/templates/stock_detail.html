@@ -271,9 +271,9 @@ function renderStockInfo(stock) {
         <hr class="my-3">
         <div class="row g-2">
             <div class="col-12"><small class="text-muted">估值指标 <span class="badge bg-light text-dark">${db.trade_date || ''}</span></small></div>
-            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">PE(TTM)</div><div class="fw-bold">${fmtVal(db.pe_ttm)}</div></div></div>
-            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">PB</div><div class="fw-bold">${fmtVal(db.pb)}</div></div></div>
-            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">PS(TTM)</div><div class="fw-bold">${fmtVal(db.ps_ttm)}</div></div></div>
+            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">市盈率(PE-TTM)</div><div class="fw-bold">${fmtVal(db.pe_ttm)}</div></div></div>
+            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">市净率(PB)</div><div class="fw-bold">${fmtVal(db.pb)}</div></div></div>
+            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">市销率(PS-TTM)</div><div class="fw-bold">${fmtVal(db.ps_ttm)}</div></div></div>
             <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">股息率</div><div class="fw-bold">${fmtVal(db.dv_ratio, '%')}</div></div></div>
             <div class="col-12 mt-1"><small class="text-muted">市值与交易</small></div>
             <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">总市值</div><div class="fw-bold">${fmtMV(db.total_mv)}</div></div></div>
@@ -791,15 +791,22 @@ function renderIndicatorChart(indicator) {
     const chart = _safeInitChart('indicator-chart');
     if (!chart) return;
 
+    // 统一按日期正序排列（旧的在左，新的在右）
+    // history 和 factors 从API返回的都是倒序（新→旧），需要反转
     const reversedHistory = [..._analysisHistoryData].reverse();
-    const reversedFactors = [..._analysisFactorsData].reverse();
-    const dates = reversedFactors.map(item => item.trade_date);
+    // factors 数据可能来自 DB（倒序）或回退计算（正序），统一按 trade_date 排序确保一致
+    const sortedFactors = [..._analysisFactorsData].sort((a, b) => {
+        const da = String(a.trade_date || '').replace(/-/g, '');
+        const db = String(b.trade_date || '').replace(/-/g, '');
+        return da.localeCompare(db);
+    });
+    const dates = sortedFactors.map(item => _formatTradeDate(item.trade_date));
 
     switch(indicator) {
-        case 'macd': _renderMACDChart(chart, dates, reversedFactors); break;
-        case 'kdj': _renderKDJChart(chart, dates, reversedFactors); break;
-        case 'rsi': _renderRSIChart(chart, dates, reversedFactors); break;
-        case 'boll': _renderBollChart(chart, reversedHistory, reversedFactors); break;
+        case 'macd': _renderMACDChart(chart, dates, sortedFactors); break;
+        case 'kdj': _renderKDJChart(chart, dates, sortedFactors); break;
+        case 'rsi': _renderRSIChart(chart, dates, sortedFactors); break;
+        case 'boll': _renderBollChart(chart, reversedHistory, sortedFactors); break;
     }
 }
 
@@ -853,12 +860,16 @@ function _renderRSIChart(chart, dates, data) {
     }, true);
 }
 
-function _renderBollChart(chart, reversedHistory, reversedFactors) {
+function _renderBollChart(chart, reversedHistory, sortedFactors) {
     const dates = reversedHistory.map(i => i.trade_date);
     const closeData = reversedHistory.map(i => i.close);
     const bollUpper = [], bollMid = [], bollLower = [];
     dates.forEach(date => {
-        const factor = reversedFactors.find(f => f.trade_date === date);
+        const factor = sortedFactors.find(f => {
+            const fd = _normalizeTradeDate(f.trade_date);
+            const dd = _normalizeTradeDate(date);
+            return fd === dd;
+        });
         bollUpper.push(factor ? factor.boll_upper || 0 : 0);
         bollMid.push(factor ? factor.boll_mid || 0 : 0);
         bollLower.push(factor ? factor.boll_lower || 0 : 0);
@@ -912,7 +923,7 @@ async function loadMoneyflowData() {
     if (document.getElementById('moneyflow-content').innerHTML.includes('加载中')) return;
     showLoading('moneyflow-content', 'skeleton');
     try {
-        const response = await apiRequest(`/stocks/${tsCode}/moneyflow?limit=60`);
+        const response = await apiRequest(`/stocks/${tsCode}/moneyflow?limit=250`);
         if (response.code === 200) { renderMoneyflowData(response.data); }
         else { showError('moneyflow-content', '资金流向数据加载失败'); }
     } catch (error) { showError('moneyflow-content', '资金流向数据加载失败'); console.error(error); }
@@ -921,8 +932,24 @@ async function loadMoneyflowData() {
 function renderMoneyflowData(data) {
     const container = document.getElementById('moneyflow-content');
     if (!data || data.length === 0) { container.innerHTML = '<div class="text-center py-4"><p class="text-muted">暂无资金流向数据</p></div>'; return; }
+
+    // 保存到全局供日期选择使用
+    window._moneyflowAllData = data;
+
+    const allDates = data.map(item => item.trade_date).filter(Boolean);
+    const latestDate = allDates[0] || '';
+
     container.innerHTML = `
-    <div class="mb-3"><small class="text-muted">资金流向数据，共 ${data.length} 条记录</small></div>
+    <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <small class="text-muted">资金流向数据，共 ${data.length} 条记录</small>
+        <div class="d-flex align-items-center gap-2">
+            <small class="text-muted">查询日期:</small>
+            <select id="mf-date-select" class="form-select form-select-sm" style="width:auto;" onchange="onMfDateChange(this.value)">
+                ${allDates.slice(0, 60).map(d => `<option value="${d}" ${d===latestDate?'selected':''}>${d}</option>`).join('')}
+            </select>
+            <span class="text-muted small">（共${allDates.length}个交易日）</span>
+        </div>
+    </div>
     <div class="row mb-4">
         <div class="col-md-8"><div class="card"><div class="card-header"><h6 class="mb-0">分单资金买卖对比</h6></div><div class="card-body"><div id="moneyflow-chart" style="height:400px;"></div></div></div></div>
         <div class="col-md-4"><div class="card"><div class="card-header"><h6 class="mb-0">净流入趋势</h6></div><div class="card-body"><div id="netflow-chart" style="height:400px;"></div></div></div></div>
@@ -939,24 +966,32 @@ function renderMoneyflowData(data) {
             <td class="text-danger">${formatNumber(item.buy_sm_amount,0)}</td><td class="text-success">${formatNumber(item.sell_sm_amount,0)}</td>
         </tr>`).join('')}</tbody></table>
     </div></div></div>`;
-    renderMoneyflowCharts(data);
+    renderMoneyflowCharts(data, latestDate);
 }
 
-function renderMoneyflowCharts(data) {
+// 切换分单资金查询日期
+function onMfDateChange(tradeDate) {
+    const data = window._moneyflowAllData;
+    if (!data) return;
+    renderMoneyflowCharts(data, tradeDate);
+}
+
+function renderMoneyflowCharts(data, selectedDate) {
     const moneyflowChart = _safeInitChart('moneyflow-chart');
     if (!moneyflowChart) return;
     const dates = data.map(item => item.trade_date).reverse();
-    const latestData = data[0];
+    const targetDate = selectedDate || (data[0] && data[0].trade_date);
+    const targetData = data.find(item => item.trade_date === targetDate) || data[0] || {};
     moneyflowChart.setOption({
-        title: { text: '分单资金买卖对比', subtext: latestData.trade_date, left: 'center' },
+        title: { text: '分单资金买卖对比', subtext: targetDate || '--', left: 'center' },
         tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
         legend: { data: ['买入', '卖出'], top: 30 },
         grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
         xAxis: { type: 'category', data: ['特大单', '大单', '中单', '小单'] },
         yAxis: { type: 'value', axisLabel: { formatter: v => formatNumber(Math.abs(v), 0) + '万' } },
         series: [
-            { name: '买入', type: 'bar', data: [latestData.buy_elg_amount||0, latestData.buy_lg_amount||0, latestData.buy_md_amount||0, latestData.buy_sm_amount||0], itemStyle: { color: '#ff4d4f' } },
-            { name: '卖出', type: 'bar', data: [-(latestData.sell_elg_amount||0), -(latestData.sell_lg_amount||0), -(latestData.sell_md_amount||0), -(latestData.sell_sm_amount||0)], itemStyle: { color: '#52c41a' } }
+            { name: '买入', type: 'bar', data: [targetData.buy_elg_amount||0, targetData.buy_lg_amount||0, targetData.buy_md_amount||0, targetData.buy_sm_amount||0], itemStyle: { color: '#ff4d4f' } },
+            { name: '卖出', type: 'bar', data: [-(targetData.sell_elg_amount||0), -(targetData.sell_lg_amount||0), -(targetData.sell_md_amount||0), -(targetData.sell_sm_amount||0)], itemStyle: { color: '#52c41a' } }
         ]
     });
 
@@ -972,7 +1007,7 @@ function renderMoneyflowCharts(data) {
         dataZoom: [{ type: 'inside', start: 0, end: 100 }, { type: 'slider', bottom: 4, height: 18, borderColor: '#e2e8f0', fillerColor: 'rgba(37,99,235,0.1)' }]
     });
 
-    renderMoneyIndicators(latestData);
+    renderMoneyIndicators(targetData);
 }
 
 function renderMoneyIndicators(data) {

@@ -1,0 +1,224 @@
+<mxfile host="app.diagrams.net" modified="2026-04-26T17:37:00" agent="Draw.io" version="21.0.0">
+  <diagram id="arch-tree" name="系统总体架构（层次图）">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- ==================== 第一层：系统名称 ==================== -->
+        <mxCell id="L1_main" value="&lt;b&gt;A 股量化智能分析平台&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontSize=16;verticalAlign=middle;align=center;" vertex="1" parent="1">
+          <mxGeometry x="480" y="30" width="400" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- L1 → L2 的主干竖线 -->
+        <mxCell id="line_L1_L2" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="680" y="80" as="sourcePoint"/>
+            <mxPoint x="680" y="120" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- L2 的横向分支线 -->
+        <mxCell id="line_L2_h" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="270" y="120" as="sourcePoint"/>
+            <mxPoint x="1090" y="120" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== 第二层：三个子系统 ==================== -->
+
+        <!-- 子系统1: 数据采集与存储 -->
+        <mxCell id="L2_data" value="&lt;b&gt;数据采集与存储子系统&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=14;verticalAlign=middle;align=center;" vertex="1" parent="1">
+          <mxGeometry x="120" y="120" width="300" height="45" as="geometry"/>
+        </mxCell>
+
+        <!-- 子系统2: 分析计算 -->
+        <mxCell id="L2_analyze" value="&lt;b&gt;分析计算子系统&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=14;verticalAlign=middle;align=center;" vertex="1" parent="1">
+          <mxGeometry x="530" y="120" width="300" height="45" as="geometry"/>
+        </mxCell>
+
+        <!-- 子系统3: Web应用 -->
+        <mxCell id="L2_web" value="&lt;b&gt;Web 应用子系统&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=14;verticalAlign=middle;align=center;" vertex="1" parent="1">
+          <mxGeometry x="940" y="120" width="300" height="45" as="geometry"/>
+        </mxCell>
+
+        <!-- L2→L3 竖线 (每个子系统向下) -->
+        <mxCell id="v_data" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="270" y="165" as="sourcePoint"/><mxPoint x="270" y="210" as="targetPoint"/></mxGeometry>
+        </mxCell>
+        <mxCell id="v_analyze" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="680" y="165" as="sourcePoint"/><mxPoint x="680" y="210" as="targetPoint"/></mxGeometry>
+        </mxCell>
+        <mxCell id="v_web" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1090" y="165" as="sourcePoint"/><mxPoint x="1090" y="210" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+        <!-- ==================== 第三层：功能模块 ==================== -->
+
+        <!-- ===== 数据采集子系统的功能模块 (4个) ===== -->
+        <mxCell id="h_data" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="95" y="210" as="sourcePoint"/><mxPoint x="445" y="210" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="d1" value="Tushare Pro&#xa;数据接口" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontSize=12;verticalAlign=middle;align=center;spacing=3;" vertex="1" parent="1">
+          <mxGeometry x="55" y="210" width="80" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="vd1" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="95" y="210" as="sourcePoint"/><mxPoint x="95" y="370" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="d2" value="AkShare&#xa;数据接口" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontSize=12;verticalAlign=middle;align=center;spacing=3;" vertex="1" parent="1">
+          <mxGeometry x="155" y="210" width="80" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="vd2" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="195" y="210" as="sourcePoint"/><mxPoint x="195" y="370" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="d3" value="新浪财经&#xa;实时行情" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontSize=12;verticalAlign=middle;align=center;spacing=3;" vertex="1" parent="1">
+          <mxGeometry x="255" y="210" width="80" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="vd3" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="295" y="210" as="sourcePoint"/><mxPoint x="295" y="370" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="d4" value="定时任务&#xa;调度管理" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontSize=12;verticalAlign=middle;align=center;spacing=3;" vertex="1" parent="1">
+          <mxGeometry x="355" y="210" width="80" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="vd4" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="395" y="210" as="sourcePoint"/><mxPoint x="395" y="370" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+
+        <!-- ===== 分析计算子系统的功能模块 (4个) ===== -->
+        <mxCell id="h_analyze" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="505" y="210" as="sourcePoint"/><mxPoint x="855" y="210" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="a1" value="技术指标&#xa;计算引擎" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontSize=12;verticalAlign=middle;align=center;spacing=3;" vertex="1" parent="1">
+          <mxGeometry x="465" y="210" width="80" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="va1" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="505" y="210" as="sourcePoint"/><mxPoint x="505" y="370" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="a2" value="资金流向&#xa;分析模块" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontSize=12;verticalAlign=middle;align=center;spacing=3;" vertex="1" parent="1">
+          <mxGeometry x="565" y="210" width="80" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="va2" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="605" y="210" as="sourcePoint"/><mxPoint x="605" y="370" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="a3" value="AI 智能&#xa;分析服务" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontSize=12;verticalAlign=middle;align=center;spacing=3;" vertex="1" parent="1">
+          <mxGeometry x="625" y="210" width="80" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="va3" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="665" y="210" as="sourcePoint"/><mxPoint x="665" y="370" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="a4" value="实时行情&#xa;监控服务" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontSize=12;verticalAlign=middle;align=center;spacing=3;" vertex="1" parent="1">
+          <mxGeometry x="775" y="210" width="80" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="va4" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="815" y="210" as="sourcePoint"/><mxPoint x="815" y="370" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+
+        <!-- ===== Web应用子系统的功能模块 (5个) ===== -->
+        <mxCell id="h_web" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="915" y="210" as="sourcePoint"/><mxPoint x="1265" y="210" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="w1" value="市场行情&#xa;看板" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontSize=12;verticalAlign=middle;align=center;spacing=3;" vertex="1" parent="1">
+          <mxGeometry x="875" y="210" width="80" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="vw1" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="915" y="210" as="sourcePoint"/><mxPoint x="915" y="370" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="w2" value="个股深度&#xa;分析" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontSize=12;verticalAlign=middle;align=center;spacing=3;" vertex="1" parent="1">
+          <mxGeometry x="975" y="210" width="80" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="vw2" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1015" y="210" as="sourcePoint"/><mxPoint x="1015" y="370" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="w3" value="AI 智能&#xa;问答" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontSize=12;verticalAlign=middle;align=center;spacing=3;" vertex="1" parent="1">
+          <mxGeometry x="1075" y="210" width="80" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="vw3" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1115" y="210" as="sourcePoint"/><mxPoint x="1115" y="370" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="w4" value="用户权限&#xa;管理" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontSize=12;verticalAlign=middle;align=center;spacing=3;" vertex="1" parent="1">
+          <mxGeometry x="1175" y="210" width="80" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="vw4" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1215" y="210" as="sourcePoint"/><mxPoint x="1215" y="370" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="w5" value="系统运维&#xa;监控" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontSize=12;verticalAlign=middle;align=center;spacing=3;" vertex="1" parent="1">
+          <mxGeometry x="1235" y="210" width="80" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="vw5" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1275" y="210" as="sourcePoint"/><mxPoint x="1275" y="370" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+
+        <!-- ==================== 第四层：底层支撑 ==================== -->
+        <!-- L3 → L4 竖线 (三条主干) -->
+        <mxCell id="v_L3L4_1" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="270" y="370" as="sourcePoint"/><mxPoint x="270" y="420" as="targetPoint"/></mxGeometry>
+        </mxCell>
+        <mxCell id="v_L3L4_2" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="680" y="370" as="sourcePoint"/><mxPoint x="680" y="420" as="targetPoint"/></mxGeometry>
+        </mxCell>
+        <mxCell id="v_L3L4_3" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1090" y="370" as="sourcePoint"/><mxPoint x="1090" y="420" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+        <!-- L4 横线 -->
+        <mxCell id="h_L4" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="200" y="420" as="sourcePoint"/><mxPoint x="1160" y="420" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+        <!-- 底层支撑组件 (5个) -->
+        <mxCell id="v_inf1" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="200" y="420" as="sourcePoint"/><mxPoint x="200" y="500" as="targetPoint"/></mxGeometry>
+        </mxCell>
+        <mxCell id="inf1" value="MySQL&#xa;数据库" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontSize=12;verticalAlign=middle;align=center;spacing=3;" vertex="1" parent="1">
+          <mxGeometry x="155" y="500" width="90" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="v_inf2" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="430" y="420" as="sourcePoint"/><mxPoint x="430" y="500" as="targetPoint"/></mxGeometry>
+        </mxCell>
+        <mxCell id="inf2" value="Redis&#xa;缓存" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontSize=12;verticalAlign=middle;align=center;spacing=3;" vertex="1" parent="1">
+          <mxGeometry x="385" y="500" width="90" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="v_inf3" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="680" y="420" as="sourcePoint"/><mxPoint x="680" y="500" as="targetPoint"/></mxGeometry>
+        </mxCell>
+        <mxCell id="inf3" value="Flask +&#xa;Gunicorn" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontSize=12;verticalAlign=middle;align=center;spacing=3;" vertex="1" parent="1">
+          <mxGeometry x="635" y="500" width="90" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="v_inf4" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="930" y="420" as="sourcePoint"/><mxPoint x="930" y="500" as="targetPoint"/></mxGeometry>
+        </mxCell>
+        <mxCell id="inf4" value="Nginx&#xa;反向代理" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontSize=12;verticalAlign=middle;align=center;spacing=3;" vertex="1" parent="1">
+          <mxGeometry x="885" y="500" width="90" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="v_inf5" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1160" y="420" as="sourcePoint"/><mxPoint x="1160" y="500" as="targetPoint"/></mxGeometry>
+        </mxCell>
+        <mxCell id="inf5" value="Docker&#xa;容器部署" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontSize=12;verticalAlign=middle;align=center;spacing=3;" vertex="1" parent="1">
+          <mxGeometry x="1115" y="500" width="90" height="70" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

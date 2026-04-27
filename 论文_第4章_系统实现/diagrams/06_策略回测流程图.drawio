@@ -1,0 +1,70 @@
+<mxfile host="app.diagrams.net" modified="2026-04-26T09:14:00">
+  <diagram id="backtest-flow" name="策略回测流程图">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="900">
+      <root>
+        <mxCell id="0"/><mxCell id="1" parent="0"/>
+        <mxCell id="t1" value="策略回测引擎 — 执行流程图" style="text;html=1;fontSize=16;fontStyle=1;align=center;fillColor=#f5f5f5;strokeColor=#666666;rounded=1;" vertex="1" parent="1"><mxGeometry x="350" y="10" width="380" height="35" as="geometry"/></mxCell>
+
+        <!-- 开始 -->
+        <mxCell id="st1" value="开始&#xa;输入参数: ts_code,&#xa;strategy_type, 日期范围," style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="500" y="60" width="160" height="50" as="geometry"/></mxCell>
+
+        <!-- 获取历史数据 -->
+        <mxCell id="p1" value="获取历史数据&#xa;(StockService)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1"><mxGeometry x="480" y="140" width="200" height="40" as="geometry"/></mxCell>
+        
+        <!-- 获取因子数据 -->
+        <mxCell id="p2" value="获取技术因子数据&#xa;(StockService)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1"><mxGeometry x="480" y="200" width="200" height="40" as="geometry"/></mxCell>
+        
+        <!-- 合并数据 -->
+        <mxCell id="p3" value="合并日线+因子数据&#xa;(pd.merge on trade_date)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1"><mxGeometry x="475" y="260" width="210" height="40" as="geometry"/></mxCell>
+        
+        <!-- 判断：数据足够？ -->
+        <mxCell id="dec1" value="数据量≥30?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d79b00;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="497" y="320" width="130" height="55" as="geometry"/></mxCell>
+        
+        <!-- 计算信号 -->
+        <mxCell id="p4" value="计算交易信号&#xa;_calculate_signals(df)&#xa;根据strategy_type:" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1"><mxGeometry x="470" y="400" width="220" height="42" as="geometry"/></mxCell>
+        
+        <!-- 策略类型判断 -->
+        <mxCell id="dec2" value="选择策略算法" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d79b00;fontSize=10;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="497" y="462" width="135" height="55" as="geometry"/></mxCell>
+        
+        <!-- 各策略分支 -->
+        <mxCell id="s1" value="均线交叉(MA_Cross)&#xa;short/long EMA交叉" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1"><mxGeometry x="220" y="545" width="155" height="38" as="geometry"/></mxCell>
+        <mxCell id="s2" value="MACD&#xa;DIF上穿/下穿DEA" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1"><mxGeometry x="398" y="545" width="145" height="38" as="geometry"/></mxCell>
+        <mxCell id="s3" value="KDJ&#xa;K值突破超卖/超买" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1"><mxGeometry x="573" y="545" width="140" height="38" as="geometry"/></mxCell>
+        <mxCell id="s4" value="RSI&#xa;RSI突破超卖区域" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1"><mxGeometry x="750" y="545" width="135" height="38" as="geometry"/></mxCell>
+        <mxCell id="s5" value="布林带&#xa;触及上轨/下轨" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1"><mxGeometry x="920" y="545" width="130" height="38" as="geometry"/></mxCell>
+
+        <!-- 模拟交易 -->
+        <mxCell id="p5" value="模拟交易执行&#xa;_execute_trades(df)&#xa;按手买入/卖出&#xa;扣手续费" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1"><mxGeometry x="475" y="610" width="210" height="48" as="geometry"/></mxCell>
+        
+        <!-- 计算绩效指标 -->
+        <mxCell id="p6" value="计算绩效指标&#xa;&#xa;• 总收益率 / 年化收益率&#xa;• 最大回撤 / 波动率&#xa;• 夏普比率 / 胜率&#xa;• 基准收益率" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="1"><mxGeometry x="465" y="682" width="230" height="72" as="geometry"/></mxCell>
+        
+        <!-- 结束 -->
+        <mxCell id="ed1" value="输出回测结果&#xa;{performance,&#xa; trades[], config}" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="495" y="782" width="170" height="52" as="geometry"/></mxCell>
+
+        <!-- 连接线 -->
+        <mxCell id="l1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.5;" edge="1" source="st1" target="p1" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.5;" edge="1" source="p1" target="p2" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.5;" edge="1" source="p2" target="p3" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.5;" edge="1" source="p3" target="dec1" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        
+        <!-- 数据不足分支 -->
+        <mxCell id="err1" value="✗ 数据不足&#xa;返回错误" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;dashed=1;dashPattern=4 3;" vertex="1" parent="1"><mxGeometry x="650" y="325" width="110" height="35" as="geometry"/></mxCell>
+        <mxCell id="l_err1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#b85450;strokeWidth=1.5;dashed=1;dashPattern=4 3;" edge="1" source="dec1" target="err1" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        
+        <mxCell id="l5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.5;" edge="1" source="dec1" target="p4" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.5;" edge="1" source="p4" target="dec2" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ls1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#9673a6;strokeWidth=1.2;" edge="1" source="dec2" target="s1" parent="1"/><mxCell id="ls2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#9673a6;strokeWidth=1.2;" edge="1" source="dec2" target="s2" parent="1"/><mxCell id="ls3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#9673a6;strokeWidth=1.2;" edge="1" source="dec2" target="s3" parent="1"/><mxCell id="ls4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#9673a6;strokeWidth=1.2;" edge="1" source="dec2" target="s4" parent="1"/><mxCell id="ls5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#9673a6;strokeWidth=1.2;" edge="1" source="dec2" target="s5" parent="1"/>
+        
+        <mxCell id="l7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.5;" edge="1" source="s1" target="p5" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l7b" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.5;" edge="1" source="s2" target="p5" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l7c" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.5;" edge="1" source="s3" target="p5" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l7d" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.5;" edge="1" source="s4" target="p5" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l7e" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.5;" edge="1" source="s5" target="p5" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        
+        <mxCell id="l8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.5;" edge="1" source="p5" target="p6" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="l9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#b85450;strokeWidth=1.5;" edge="1" source="p6" target="ed1" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

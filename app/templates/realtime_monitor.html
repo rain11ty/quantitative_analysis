@@ -1347,8 +1347,18 @@ async function loadIntradayData(period) {
     chart.showLoading({ text: '加载分时数据...', color: '#2563eb' });
 
     try {
-        const res = await apiRequest(`/monitor/intraday/${encodeURIComponent(selectedCode)}?period=${period}`);
-        const data = res.data || {};
+        // 并行请求：分时图数据 + 股票基本信息（确保切换股票时头部信息同步更新）
+        const [intradayRes, detailRes] = await Promise.all([
+            apiRequest(`/monitor/intraday/${encodeURIComponent(selectedCode)}?period=${period}`),
+            fetchStockDetail(selectedCode, document.getElementById('freqSelect')?.value || 'daily').catch(err => null)
+        ]);
+
+        // 更新头部基本信息（股票名称、代码、价格等）
+        if (detailRes && detailRes.data) {
+            renderDetail(detailRes.data);
+        }
+
+        const data = intradayRes.data || {};
         if (!data.intraday || !data.intraday.length) {
             console.warn('[Intraday] No data for', selectedCode, 'period:', period, 'msg:', data.message);
         }

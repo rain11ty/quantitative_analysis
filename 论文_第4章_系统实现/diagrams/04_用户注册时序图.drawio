@@ -1,0 +1,49 @@
+<mxfile host="app.diagrams.net" modified="2026-04-26T09:10:00">
+  <diagram id="register-seq" name="用户注册时序图">
+    <mxGraphModel dx="1200" dy="850" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="850">
+      <root>
+        <mxCell id="0"/><mxCell id="1" parent="0"/>
+        <mxCell id="t1" value="用户注册时序图（含邮箱验证）" style="text;html=1;fontSize=16;fontStyle=1;align=center;fillColor=#f5f5f5;strokeColor=#666666;rounded=1;" vertex="1" parent="1"><mxGeometry x="420" y="10" width="380" height="35" as="geometry"/></mxCell>
+
+        <mxCell id="u" value="用户" style="shape=umlLifeline;participant=用户;participantSize=70;size=18;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="40" y="70" width="70" height="720" as="geometry"/></mxCell>
+        <mxCell id="c" value="AuthRoutes" style="shape=umlLifeline;participant=控制器;participantSize=90;size=18;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="180" y="70" width="90" height="720" as="geometry"/></mxCell>
+        <mxCell id="es" value="EmailService" style="shape=umlLifeline;participant=邮件服务;participantSize=90;size=18;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="340" y="70" width="90" height="720" as="geometry"/></mxCell>
+        <mxCell id="db" value="User/DB" style="shape=umlLifeline;participant=数据库;participantSize=80;size=18;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="500" y="70" width="80" height="720" as="geometry"/></mxCell>
+        <mxCell id="r" value="Redis" style="shape=umlLifeline;participant=缓存(Redis);participantSize=85;size=18;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="650" y="70" width="85" height="720" as="geometry"/></mxCell>
+
+        <!-- 1. 发送验证码请求 -->
+        <mxCell id="s1" value="① POST /auth/send-verify-code&#xa;{email, code_type:'register'}" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" vertex="1" parent="1"><mxGeometry x="55" y="105" width="175" height="42" as="geometry"/></mxCell>
+        <mxCell id="se1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.3;" edge="1" source="s1" target="c" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- 2. 校验邮箱是否已注册 -->
+        <mxCell id="s2" value="② User.query.filter_by(email)&#xa;检查是否已存在" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1"><mxGeometry x="195" y="158" width="155" height="38" as="geometry"/></mxCell>
+        <mxCell id="se2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.3;" edge="1" source="s2" target="db" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- 3. 生成6位验证码并存储到Redis -->
+        <mxCell id="s3" value="③ 生成6位数字验证码&#xa;存储到Redis(TTL=300秒)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;" vertex="1" parent="1"><mxGeometry x="355" y="208" width="165" height="42" as="geometry"/></mxCell>
+        <mxCell id="se3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#b85450;strokeWidth=1.3;" edge="1" source="s3" target="r" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="s3b" value="④ SMTP发送验证邮件" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1"><mxGeometry x="665" y="210" width="135" height="35" as="geometry"/></mxCell>
+
+        <!-- 4. 用户提交注册表单 -->
+        <mxCell id="s4" value="⑤ POST /auth/register&#xa;{username, email, password,&#xa; verify_code}" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" vertex="1" parent="1"><mxGeometry x="55" y="280" width="175" height="48" as="geometry"/></mxCell>
+        <mxCell id="se4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.3;" edge="1" source="s4" target="c" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- 5. 从Redis读取验证码校验 -->
+        <mxCell id="s5" value="⑥ EmailService.verify_code()&#xa;'register', email, code" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;" vertex="1" parent="1"><mxGeometry x="350" y="338" width="175" height="38" as="geometry"/></mxCell>
+        <mxCell id="se5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#b85450;strokeWidth=1.3;" edge="1" source="s5" target="r" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- 6. 创建User对象写入DB -->
+        <mxCell id="s6" value="⑦ User(username,email)&#xa;set_password(hash)&#xa;email_verified=True&#xa;db.session.add(user)&#xa;commit()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" vertex="1" parent="1"><mxGeometry x="510" y="393" width="165" height="62" as="geometry"/></mxCell>
+        <mxCell id="se6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#82b366;strokeWidth=1.3;" edge="1" source="s6" target="db" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- 7. 返回成功 -->
+        <mxCell id="s7" value="⑧ 注册成功！→ 跳转登录页" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" vertex="1" parent="1"><mxGeometry x="55" y="480" width="170" height="35" as="geometry"/></mxCell>
+        <mxCell id="se7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#6c8ebf;strokeWidth=1.3;" edge="1" source="s7" target="u" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- alt分支 -->
+        <mxCell id="alt1" value="✗ 邮箱已存在 /&#xa;验证码错误/过期" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;dashed=1;dashPattern=4 3;" vertex="1" parent="1"><mxGeometry x="195" y="395" width="130" height="38" as="geometry"/></mxCell>
+        <mxCell id="alt2" value="✗ 验证码无效" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;dashed=1;dashPattern=4 3;" vertex="1" parent="1"><mxGeometry x="360" y="395" width="110" height="35" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

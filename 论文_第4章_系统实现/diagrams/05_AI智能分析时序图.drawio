@@ -1,0 +1,58 @@
+<mxfile host="app.diagrams.net" modified="2026-04-26T09:12:00">
+  <diagram id="ai-chat-seq" name="AI智能分析时序图">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="900">
+      <root>
+        <mxCell id="0"/><mxCell id="1" parent="0"/>
+        <mxCell id="t1" value="AI智能对话 — SSE流式交互时序图" style="text;html=1;fontSize=16;fontStyle=1;align=center;fillColor=#f5f5f5;strokeColor=#666666;rounded=1;" vertex="1" parent="1"><mxGeometry x="420" y="10" width="420" height="35" as="geometry"/></mxCell>
+
+        <mxCell id="u" value="前端(Browser)" style="shape=umlLifeline;participant=前端;participantSize=75;size=18;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="40" y="70" width="75" height="780" as="geometry"/></mxCell>
+        <mxCell id="api" value="AIAssistantApi" style="shape=umlLifeline;participant=API层;participantSize=100;size=18;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="185" y="70" width="100" height="780" as="geometry"/></mxCell>
+        <mxCell id="conv" value="AIService" style="shape=umlLifeline;participant=会话服务;participantSize=95;size=18;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="360" y="70" width="95" height="780" as="geometry"/></mxCell>
+        <mxCell id="llm" value="LLMService" style="shape=umlLifeline;participant=大模型服务;participantSize=95;size=18;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="540" y="70" width="95" height="780" as="geometry"/></mxCell>
+        <mxCell id="db" value="MySQL" style="shape=umlLifeline;participant=数据库;participantSize=75;size=18;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="710" y="70" width="75" height="780" as="geometry"/></mxCell>
+
+        <!-- 1. 用户发送问题 -->
+        <mxCell id="m1" value="POST /ai/chat&#xa;{question, conversation_id,&#xa; stream:true}" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" vertex="1" parent="1"><mxGeometry x="55" y="105" width="165" height="48" as="geometry"/></mxCell>
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.3;" edge="1" source="m1" target="api" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- 2. 准备对话上下文 -->
+        <mxCell id="m2" value="准备对话上下文&#xa;prepare_conversation_for_...&#xa;创建/获取Conversation&#xa;保存UserMessage" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1"><mxGeometry x="370" y="165" width="165" height="55" as="geometry"/></mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#d6b656;strokeWidth=1.3;" edge="1" source="m2" target="conv" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="m2b" value="持久化到MySQL" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1"><mxGeometry x="715" y="172" width="90" height="28" as="geometry"/></mxCell>
+        <mxCell id="e2b" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#9673a6;strokeWidth=1.3;" edge="1" source="m2" target="db" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- 3. 构建LLM消息列表(含System Prompt) -->
+        <mxCell id="m3" value="build_messages_for_llm()&#xa;[System: 金融分析师Prompt]&#xa;+ 历史消息(最近12轮)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1"><mxGeometry x="370" y="238" width="165" height="52" as="geometry"/></mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#d6b656;strokeWidth=1.3;" edge="1" source="m3" target="conv" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- 4. 创建流式占位Message + 返回SSE响应 -->
+        <mxCell id="m4" value="create_streaming_reply_...()&#xa;返回 Response(mimetype=&#xa;text/event-stream)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" vertex="1" parent="1"><mxGeometry x="195" y="305" width="170" height="45" as="geometry"/></mxCell>
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#82b366;strokeWidth=1.3;" edge="1" source="m4" target="api" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- 5. SSE: ping + 初始payload -->
+        <mxCell id="m5" value="SSE: ': ping\n'&#xa;data: {initial_payload}" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontStyle=3;" vertex="1" parent="1"><mxGeometry x="55" y="365" width="165" height="40" as="geometry"/></mxCell>
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#6c8ebf;strokeWidth=1.3;dashed=1;dashPattern=5 2;" edge="1" source="m5" target="u" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- 6. 流式调用 DeepSeek API (循环) -->
+        <mxCell id="m6" value="stream_chat_completion()&#xa;for chunk in llm.stream():&#xa;  yield data:{chunk}" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1"><mxGeometry x="545" y="365" width="165" height="58" as="geometry"/></mxCell>
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#d6b656;strokeWidth=1.3;" edge="1" source="m6" target="llm" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="m6b" value="DeepSeek API&#xa;(外部HTTP调用)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;dashed=1;dashPattern=6 4;" vertex="1" parent="1"><mxGeometry x="750" y="372" width="120" height="35" as="geometry"/></mxCell>
+
+        <!-- 7. SSE: 实时推送chunk -->
+        <mxCell id="m7" value="SSE: data:{chunk}&#xa;&#xa;每8chunk持久化一次" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontStyle=3;" vertex="1" parent="1"><mxGeometry x="55" y="435" width="165" height="40" as="geometry"/></mxCell>
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#6c8ebf;strokeWidth=1.3;dashed=1;dashPattern=5 2;" edge="1" source="m7" target="u" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="m7b" value="persist_stream_chunk()&#xa;(增量保存到DB)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1"><mxGeometry x="370" y="442" width="125" height="28" as="geometry"/></mxCell>
+
+        <!-- 8. finalize: 最终化完整回复 -->
+        <mxCell id="m8" value="finalize_assistant_...()&#xa;更新完整answer文本" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1"><mxGeometry x="370" y="492" width="165" height="38" as="geometry"/></mxCell>
+
+        <!-- 9. 记录聊天历史 -->
+        <mxCell id="m9" value="record_chat(question, answer)→&#xa;UserChatHistory表" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1"><mxGeometry x="715" y="495" width="145" height="35" as="geometry"/></mxCell>
+        
+        <!-- 10. SSE: done + 完整conversation对象 -->
+        <mxCell id="m10" value="SSE: data:{done:true,&#xa;conversation, message}&#xa;关闭连接" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="55" y="550" width="165" height="42" as="geometry"/></mxCell>
+        <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#82b366;strokeWidth=1.3;dashed=1;dashPattern=5 2;" edge="1" source="m10" target="u" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,51 @@
+<mxfile host="app.diagrams.net" modified="2026-04-26T09:10:00">
+  <diagram id="login-seq" name="用户登录时序图">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="700">
+      <root>
+        <mxCell id="0"/><mxCell id="1" parent="0"/>
+        <mxCell id="t1" value="用户登录时序图" style="text;html=1;fontSize=16;fontStyle=1;align=center;fillColor=#f5f5f5;strokeColor=#666666;rounded=1;" vertex="1" parent="1"><mxGeometry x="500" y="10" width="300" height="35" as="geometry"/></mxCell>
+
+        <!-- 参与者 -->
+        <mxCell id="a1" value="用户 (Browser)" style="shape=umlLifeline;participant=用户;participantSize=80;size=20;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="60" y="70" width="80" height="550" as="geometry"/></mxCell>
+        <mxCell id="a2" value="AuthRoutes&#xa;(控制器)" style="shape=umlLifeline;participant=AuthRoutes;participantSize=100;size=20;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="240" y="70" width="100" height="550" as="geometry"/></mxCell>
+        <mxCell id="a3" value="UserModel&#xa;(ORM)" style="shape=umlLifeline;participant=UserModel;participantSize=90;size=20;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="430" y="70" width="90" height="550" as="geometry"/></mxCell>
+        <mxCell id="a4" value="SystemLog" style="shape=umlLifeline;participant=日志服务;participantSize=90;size=20;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="610" y="70" width="90" height="550" as="geometry"/></mxCell>
+        <mxCell id="a5" value="Session/DB" style="shape=umlLifeline;participant=Session;participantSize=90;size=20;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="780" y="70" width="90" height="550" as="geometry"/></mxCell>
+
+        <!-- 1: 提交登录表单 -->
+        <mxCell id="m1" value="POST /auth/login&#xa;{account, password,&#xa; remember_me}" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1"><mxGeometry x="100" y="110" width="170" height="45" as="geometry"/></mxCell>
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.5;" edge="1" source="m1" target="a2" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- 2: 查询用户 -->
+        <mxCell id="m2" value="User.query.filter(&#xa;username/email==account)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1"><mxGeometry x="260" y="175" width="160" height="40" as="geometry"/></mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.5;" edge="1" source="m2" target="a3" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- 3: 验证密码 -->
+        <mxCell id="m3" value="user.check_password(&#xa;password): bool" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1"><mxGeometry x="445" y="235" width="150" height="40" as="geometry"/></mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.5;" edge="1" source="m3" target="a3" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- 4: 检查账号状态 -->
+        <mxCell id="m4" value="status == ACTIVE?&#xa;is_banned?" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;dashed=1;dashPattern=4 3;" vertex="1" parent="1"><mxGeometry x="265" y="290" width="130" height="35" as="geometry"/></mxCell>
+        
+        <!-- 5: 写入登录日志 -->
+        <mxCell id="m5" value="SystemLog.write(&#xa;'login_success', user)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1"><mxGeometry x="615" y="340" width="145" height="38" as="geometry"/></mxCell>
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#9673a6;strokeWidth=1.5;" edge="1" source="m5" target="a4" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- 6: 创建Session -->
+        <mxCell id="m6" value="session['user_id']=id&#xa;session.permanent=True" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1"><mxGeometry x="785" y="400" width="155" height="40" as="geometry"/></mxCell>
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#82b366;strokeWidth=1.5;" edge="1" source="m6" target="a5" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- 7: 更新最后登录时间 -->
+        <mxCell id="m7" value="user.last_login_at = now()&#xa;last_login_ip = ip" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1"><mxGeometry x="440" y="450" width="165" height="38" as="geometry"/></mxCell>
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#82b366;strokeWidth=1.5;" edge="1" source="m7" target="a3" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- 8: 返回302重定向 -->
+        <mxCell id="m8" value="302 Redirect → 首页&#xa;(flash: 登录成功)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1"><mxGeometry x="95" y="520" width="160" height="40" as="geometry"/></mxCell>
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#6c8ebf;strokeWidth=1.5;" edge="1" source="m8" target="a1" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- alt: 失败返回 -->
+        <mxCell id="alt1" value="失败: 200 + flash错误信息" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;dashed=1;dashPattern=4 3;" vertex="1" parent="1"><mxGeometry x="100" y="295" width="140" height="32" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

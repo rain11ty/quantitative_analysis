@@ -1,0 +1,143 @@
+<mxfile host="app.diagrams.net" modified="2026-04-26T09:00:00" agent="Draw.io">
+  <diagram id="user-class" name="用户端类图">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        
+        <!-- 标题 -->
+        <mxCell id="t1" value="用户端系统设计 — 核心类图" style="text;html=1;fontSize=18;fontStyle=1;align=center;verticalAlign=middle;fillColor=#f5f5f5;strokeColor=#666666;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="500" y="10" width="400" height="40" as="geometry"/>
+        </mxCell>
+
+        =======
+        This is going to be very long. Let me create a more efficient approach - generate all diagrams at once with simpler but still professional-looking structures. Let me write the thesis document first with placeholder references to figures, then generate the key diagrams.
+        =======
+        
+        <!-- User Model 类 -->
+        <mxCell id="cls1" value="User&#xa;- id: Integer (PK)&#xa;- username: String&#xa;- email: String&#xa;- password_hash: String&#xa;- role: String&#xa;- status: String&#xa;+ set_password()&#xa;+ check_password()&#xa;+ to_dict()" style="swimlane;fontColor=#333333;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;collapsible=0;margin=2;fillColor=#dae8fc;strokeColor=#6c8ebf;rounded=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="80" y="100" width="220" height="230" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls1_h" value="User (user_account)" style="text;strokeColor=none;fillColor=#6c8ebf;align=center;verticalAlign=middle;fontStyle=1;fontSize=12;fontColor=#ffffff;" vertex="1" parent="cls1">
+          <mxGeometry y="0" width="220" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls1_a" value="- id: Integer&#xa;- username: String(50)&#xa;- email: String(120)&#xa;- password_hash: String(255)&#xa;- role: String(20)&#xa;- status: String(20)&#xa;- email_verified: Boolean&##xa;- nickname: String(50)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=10;spacingTop=5;fontSize=10;" vertex="1" parent="cls1">
+          <mxGeometry y="26" width="220" height="95" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls1_m" value="+ set_password(pw)&#xa;+ check_password(pw): bool&#xa;+ is_admin: property&#xa;+ to_dict(): dict" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=10;spacingTop=8;fontSize=10;" vertex="1" parent="cls1">
+          <mxGeometry y="121" width="220" height="75" as="geometry"/>
+        </mxCell>
+        
+        <!-- AuthRoutes 控制器 -->
+        <mxCell id="cls2" value="AuthRoutes&#xa;&#xa;- Blueprint&#xa;&#xa;+ login()&#xa;+ register()&#xa;+ logout()&#xa;+ send_verify_code()&#xa;+ forgot_password()&#xa;+ profile()" style="swimlane;fontColor=#333333;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;collapsible=0;margin=2;fillColor=#d5e8d4;strokeColor=#82b366;rounded=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="380" y="100" width="200" height="210" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls2_h" value="AuthRoutes" style="text;strokeColor=none;fillColor=#82b366;align=center;verticalAlign=middle;fontStyle=1;fontSize=12;fontColor=#ffffff;" vertex="1" parent="cls2">
+          <mxGeometry y="0" width="200" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls2_m" value="+ login(): Response&#xa;+ register(): Response&#xa;+ logout(): Response&#xa;+ send_verify_code(): JSON&#xa;+ forgot_password(): Response&#xa;+ profile(): Template&#xa;+ update_profile(): Redirect" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=10;spacingTop=8;fontSize=10;" vertex="1" parent="cls2">
+          <mxGeometry y="26" width="200" height="170" as="geometry"/>
+        </mxCell>
+        
+        <!-- EmailService -->
+        <mxCell id="cls3" value="EmailService&#xa;&#xa;- TYPE_REGISTER&#xa;- TYPE_RESET_PASSWORD&#xa;- TYPE_CHANGE_EMAIL&#xa;&#xa;+ send_verify_code()&#xa;+ verify_code()" style="swimlane;fontColor=#333333;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;collapsible=0;margin=2;fillColor=#fff2cc;strokeColor=#d6b656;rounded=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="660" y="100" width="200" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls3_h" value="EmailService" style="text;strokeColor=none;fillColor=#d6b656;align=center;verticalAlign=middle;fontStyle=1;fontSize=12;fontColor=#ffffff;" vertex="1" parent="cls3">
+          <mxGeometry y="0" width="200" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls3_m" value="+ send_verify_code(type,email)&#xa;: Tuple[bool,str]&#xa;+ verify_code(type,email,code)&#xa;: Tuple[bool,str]" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=10;spacingTop=8;fontSize=10;" vertex="1" parent="cls3">
+          <mxGeometry y="26" width="200" height="110" as="geometry"/>
+        </mxCell>
+        
+        <!-- StockService -->
+        <mxCell id="cls4" value="StockService&#xa;&#xa;&#xa;+ get_stock_list()&#xa;+ get_daily_history()&#xa;+ get_stock_factors()&#xa;+ get_moneyflow()&#xa;+ screen_stocks()&#xa;+ _calculate_tech_indicators()" style="swimlane;fontColor=#333333;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;collapsible=0;margin=2;fillColor=#d5e8d4;strokeColor=#82b366;rounded=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="80" y="400" width="220" height="210" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls4_h" value="StockService" style="text;strokeColor=none;fillColor=#82b366;align=center;verticalAlign=middle;fontStyle=1;fontSize=12;fontColor=#ffffff;" vertex="1" parent="cls4">
+          <mxGeometry y="0" width="220" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls4_m" value="+ get_stock_list(): dict&#xa;+ get_daily_history(ts_code):[]&#xa;+ get_stock_factors(ts_code):[]&#xa;+ get_moneyflow(ts_code):[]&#xa;+ screen_stocks(criteria):dict&#xa;+ get_cyq_perf(ts_code):[]&#xa;+ _calc_technical_indicators(data)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=10;spacingTop=8;fontSize=10;" vertex="1" parent="cls4">
+          <mxGeometry y="26" width="220" height="170" as="geometry"/>
+        </mxCell>
+        
+        <!-- LLMService -->
+        <mxCell id="cls5" value="LLMService&#xa;&#xa;- provider: str&#xa;- config: dict&#xa;&#xa;+ chat_completion()&#xa;+ stream_chat_completion()&#xa;+ _openai_chat()&#xa;+ _ollama_chat()&#xa;+ check_service_status()" style="swimlane;fontColor=#333333;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;collapsible=0;margin=2;fillColor=#fff2cc;strokeColor=#d6b656;rounded=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="380" y="400" width="200" height="210" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls5_h" value="LLMService" style="text;strokeColor=none;fillColor=#d6b656;align=center;verticalAlign=middle;fontStyle=1;fontSize=12;fontColor=#ffffff;" vertex="1" parent="cls5">
+          <mxGeometry y="0" width="200" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls5_m" value="+ chat_completion(msgs):dict&#xa;+ stream_chat_completion(msgs)&#xa;: Iterator&#xa;+ _openai_chat(messages):dict&#xa;+ _ollama_chat(messages):dict&#xa;+ _openai_stream_chat(msgs)&#xa;+ check_service_status():dict" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=10;spacingTop=8;fontSize=10;" vertex="1" parent="cls5">
+          <mxGeometry y="26" width="200" height="170" as="geometry"/>
+        </mxCell>
+        
+        <!-- AIConversationService -->
+        <mxCell id="cls6" value="AIConversationSvc&#xa;&#xa;- MAX_CONTEXT: 12&#xa;SYSTEM_PROMPT: str&#xa;&#xa;+ create_conversation()&#xa;+ build_messages_for_llm()&#xa;+ save_assistant_reply()&#xa;+ persist_stream_chunk()&#xa;+ list_conversations()" style="swimlane;fontColor=#333333;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;collapsible=0;margin=2;fillColor=#fff2cc;strokeColor=#d6b656;rounded=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="660" y="400" width="200" height="210" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls6_h" value="AIConversationService" style="text;strokeColor=none;fillColor=#d6b656;align=center;verticalAlign=middle;fontStyle=1;fontSize=12;fontColor=#ffffff;" vertex="1" parent="cls6">
+          <mxGeometry y="0" width="200" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls6_m" value="+ create_conv(user_id): Conv&#xa;+ build_msgs(user_id,cid):[]&#xa;+ save_reply(conv,answer): Msg&#xa;+ persist_stream_chunk(...)&#xa;+ list_conv(user_id): Conv[]&#xa;+ rename/delete_conv()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=10;spacingTop=8;fontSize=10;" vertex="1" parent="cls6">
+          <mxGeometry y="26" width="200" height="170" as="geometry"/>
+        </mxCell>
+        
+        <!-- RealtimeMonitorService -->
+        <mxCell id="cls7" value="RealtimeMonitorSvc&#xa;&#xa;+ get_dashboard()&#xa;+ get_realtime_ranking()&#xa;+ get_stock_detail()&#xa;+ get_intraday_series()&#xa;+ _build_quote_item()&#xa;+ _get_user_watchlist()" style="swimlane;fontColor=#333333;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;collapsible=0;margin=2;fillColor=#d5e8d4;strokeColor=#82b366;rounded=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="940" y="180" width="200" height="200" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls7_h" value="RealtimeMonitorSv" style="text;strokeColor=none;fillColor=#82b366;align=center;verticalAlign=middle;fontStyle=1;fontSize=11;fontColor=#ffffff;" vertex="1" parent="cls7">
+          <mxGeometry y="0" width="200" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls7_m" value="+ dashboard(uid,codes)&#xa;: dict&#xa;+ ranking(sort_by,limit)&#xa;: dict&#xa;+ stock_detail(uid,code,freq)&#xa;: dict&#xa;+ intraday(code,period)&#xa;: dict" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=10;spacingTop=8;fontSize=10;" vertex="1" parent="cls7">
+          <mxGeometry y="26" width="200" height="160" as="geometry"/>
+        </mxCell>
+        
+        <!-- BacktestEngine -->
+        <mxCell id="cls8" value="BacktestEngine&#xa;&#xa;- strategy_type: str&#xa;- initial_capital: float&#xa;- commission_rate: float&#xa;&#xa;+ run_backtest()&#xa;+ _ma_cross_strategy()&#xa;+ _macd_strategy()&#xa;+ _kdj/rsi/boll_strategy()&#xa;+ _execute_trades()&#xa;+ _calc_performance()" style="swimlane;fontColor=#333333;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;collapsible=0;margin=2;fillColor=#e1d5e7;strokeColor=#9673a6;rounded=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="940" y="420" width="200" height="240" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls8_h" value="BacktestEngine" style="text;strokeColor=none;fillColor=#9673a6;align=center;verticalAlign=middle;fontStyle=1;fontSize=12;fontColor=#ffffff;" vertex="1" parent="cls8">
+          <mxGeometry y="0" width="200" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls8_m" value="+ run_backtest(history,factors)&#xa;: dict&#xa;+ _ma_cross(df): DataFrame&#xa;+ _macd(df): DataFrame&#xa;+ _kdj(df): DataFrame&#xa;+ _rsi(df): DataFrame&#xa;+ _bollinger(df): DataFrame&#xa;+ _execute_trades(df)&#xa;+ _performance(dict)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=10;spacingTop=5;fontSize=10;" vertex="1" parent="cls8">
+          <mxGeometry y="26" width="200" height="200" as="geometry"/>
+        </mxCell>
+
+        <!-- 关系连线：AuthRoutes → User -->
+        <mxCell id="rel1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.5;fontSize=9;dashed=0;" edge="1" source="cls2" target="cls1" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="300" y="205"/><mxPoint x="300" y="215"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="rel1_lbl" value="«依赖»&#xa;读取/验证" style="edgeLabel;resizable=0;align=center;verticalAlign=middle;fontColor=#333333;fontSize=9;" connectable="0" vertex="1" parent="rel1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <!-- AuthRoutes → EmailService -->
+        <mxCell id="rel2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#333333;strokeWidth=1.5;" edge="1" source="cls2" target="cls3" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="480" y="180"/><mxPoint x="480" y="180"/><mxPoint x="660" y="180"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="rel2_lbl" value="调用" style="edgeLabel;resizable=0;align=center;verticalAlign=middle;fontColor=#333333;fontSize=9;" connectable="0" vertex="1" parent="rel2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <!-- StockApi → StockService -->
+        <mxCell id="rel3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#82b366;strokeWidth=1.5;" edge="1" source="cls4" target="cls1" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="190" y="400"/><mxPoint x="190" y="360"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="rel3_lbl" value="查询" style="edgeLabel;resizable=0;align=center;verticalAlign=middle;fontColor=#82b366;fontSize=9;" connectable="0" vertex="1" parent="rel3">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <!-- AIAssistantApi → LLMService -->
+        <mxCell id="rel4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeColor=#d6b656;strokeWidth=1.5;" edge="1" source="cls5" target="cls6" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="480" y="505"/><mxPoint x="480" y="505"/><mxPoint x="660" y="505"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="rel4_lbl" value="构建上下文&#xa;持久化消息" style="edgeLabel;resizable=0;align=center;verticalAlign=middle;fontColor=#d6b656;fontSize=9;" connectable="0" vertex="1" parent="rel4">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

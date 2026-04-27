@@ -26,7 +26,7 @@ class RealtimeMonitorService:
     # 市场指数代码，在监控面板顶部展示（与 MarketOverviewService.INDEX_ITEMS 同步）
     MARKET_INDEX_CODES = ['000001.SH', '399001.SZ', '399006.SZ', '000016.SH', '000300.SH', '000905.SH', '000688.SH']
     MAX_CODES = 12
-    SUPPORTED_FREQS = {'daily'}
+    SUPPORTED_FREQS = {'daily', 'weekly', 'monthly'}
 
     # 缓存 TTL
     CACHE_TTL_QUOTES = 15   # 秒（监控页面缓存更短，保证实时性）
@@ -1167,7 +1167,9 @@ class RealtimeMonitorService:
         if not normalized_code:
             raise ValueError('Invalid ts_code')
 
-        normalized_freq = 'daily'
+        # 支持 daily/weekly/monthly 切换
+        _valid_freqs = {'daily', 'weekly', 'monthly'}
+        normalized_freq = freq if freq in _valid_freqs else 'daily'
 
         # 优先从已加载行情中查找，避免重复请求
         quote = None
