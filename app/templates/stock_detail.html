@@ -601,11 +601,45 @@ async function loadTechAnalysis() {
         _analysisFactorsData = factorsRes.code === 200 ? (factorsRes.data || []) : [];
         _analysisLoaded = true;
 
+        // 🔴#1 自动保存分析记录（静默，失败不阻塞渲染）
+        _autoSaveAnalysisRecord();
+
         renderTechAnalysis();
     } catch (error) {
         container.innerHTML = '<div class="text-center py-4 text-muted">技术分析数据加载失败</div>';
         console.error('加载技术分析失败:', error);
     }
+}
+
+/**
+ * 🔴#1 切换到技术分析Tab时自动保存一条分析记录
+ */
+async function _autoSaveAnalysisRecord() {
+    try {
+        const latest = (_analysisHistoryData && _analysisHistoryData[0]) || {};
+        const latestFactor = _findFactorByTradeDate(_analysisFactorsData, latest.trade_date);
+        const closePrice = Number(latest.close || 0);
+        const rsi6 = Number(latestFactor?.rsi_6 ?? 0);
+        const macdVal = Number(latestFactor?.macd ?? 0);
+
+        let trendText = '';
+        if (rsi6 >= 70) trendText = 'RSI偏热，注意追高风险';
+        else if (rsi6 <= 30) trendText = 'RSI超卖区域，关注企稳反弹';
+        else if (macdVal > 0) trendText = 'MACD零轴上方，趋势动能偏多';
+        else if (macdVal < 0) trendText = 'MACD零轴下方，短线有整理压力';
+        else trendText = '指标中性震荡，等待方向确认';
+
+        await fetch('/auth/profile/records/analysis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                module_name: '技术分析',
+                summary: `查看 ${stockInfo ? stockInfo.name : tsCode}(${tsCode}) 技术分析 | 收盘价: ${closePrice} | RSI(6): ${rsi6.toFixed(1)} | MACD: ${macdVal.toFixed(2)} | 结论: ${trendText}`,
+                ts_code: tsCode,
+                stock_name: stockInfo ? stockInfo.name : '',
+            }),
+        }).catch(() => {});
+    } catch (_) {}
 }
 
 function renderTechAnalysis() {

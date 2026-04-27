@@ -11,7 +11,7 @@ from .stock_income_statement import StockIncomeStatement
 from .stock_balance_sheet import StockBalanceSheet
 from .stock_minute_data import StockMinuteData
 from .user import User
-from .user_activity import UserWatchlist, UserAnalysisRecord, UserChatHistory
+from .user_activity import UserWatchlist, UserAnalysisRecord, UserChatHistory, UserBacktestResult
 from .ai_conversation import UserAiConversation, UserAiMessage
 from .system_log import SystemLog
 from .trading_signals import TradingSignals
@@ -37,6 +37,7 @@ __all__ = [
     'UserWatchlist',
     'UserAnalysisRecord',
     'UserChatHistory',
+    'UserBacktestResult',
     'UserAiConversation',
     'UserAiMessage',
     'SystemLog',

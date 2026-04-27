@@ -7,6 +7,233 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from app.utils.api_helpers import api_error_handler
+from app.extensions import db
+
+
+# ============================================================
+# 🔴#1 分析记录完整 CRUD (AnalysisRecord)
+# ============================================================
+
+STRATEGY_LABELS_BT = {
+    'ma_cross': '均线交叉策略',
+    'macd': 'MACD策略',
+    'kdj': 'KDJ策略',
+    'rsi': 'RSI策略',
+    'bollinger': '布林带策略',
+}
+
+
+@api_bp.route('/user/records/analysis', methods=['GET'])
+@api_error_handler(default_message='获取分析记录失败')
+def get_analysis_records():
+    """分页获取当前用户的分析记录列表"""
+    from flask import g
+    user_id = getattr(getattr(g, 'current_user', None), 'id', None)
+    if not user_id:
+        return jsonify({'code': 401, 'message': '请先登录', 'data': []}), 401
+
+    from app.models import UserAnalysisRecord
+    page = max(1, request.args.get('page', 1, type=int))
+    limit = min(50, max(1, request.args.get('limit', 20, type=int)))
+    keyword = (request.args.get('keyword') or '').strip()
+
+    query = UserAnalysisRecord.query.filter_by(user_id=user_id)
+    if keyword:
+        query = query.filter(
+            db.or_(
+                UserAnalysisRecord.summary.ilike(f'%{keyword}%'),
+                UserAnalysisRecord.stock_name.ilike(f'%{keyword}%'),
+                UserAnalysisRecord.ts_code.ilike(f'%{keyword}%'),
+            )
+        )
+
+    pagination = query.order_by(UserAnalysisRecord.created_at.desc()).paginate(
+        page=page, per_page=limit, error_out=False
+    )
+    return jsonify({
+        'code': 200,
+        'message': 'success',
+        'data': {
+            'records': [r.to_dict() for r in pagination.items],
+            'total': pagination.total,
+            'page': page,
+            'limit': limit,
+            'pages': pagination.pages,
+        }
+    })
+
+
+@api_bp.route('/user/records/analysis/<int:record_id>', methods=['PUT'])
+@api_error_handler(default_message='更新分析记录失败')
+def update_analysis_record(record_id):
+    """编辑分析记录摘要"""
+    from flask import g
+    user_id = getattr(getattr(g, 'current_user', None), 'id', None)
+    if not user_id:
+        return jsonify({'code': 401, 'message': '请先登录'}), 401
+
+    from app.models import UserAnalysisRecord
+    from app.extensions import db
+
+    record = UserAnalysisRecord.query.filter_by(id=record_id, user_id=user_id).first()
+    if not record:
+        return jsonify({'code': 404, 'message': '记录不存在'}), 404
+
+    data = request.get_json() or {}
+    summary = (data.get('summary') or '').strip()
+    if not summary:
+        return jsonify({'code': 400, 'message': '摘要不能为空'}), 400
+
+    record.summary = summary[:500]
+    db.session.commit()
+    logger.info(f'用户 {user_id} 更新分析记录 #{record_id}')
+    return jsonify({'code': 200, 'message': '已更新', 'data': record.to_dict()})
+
+
+@api_bp.route('/user/records/analysis/<int:record_id>', methods=['DELETE'])
+@api_error_handler(default_message='删除分析记录失败')
+def delete_analysis_record(record_id):
+    """删除分析记录"""
+    from flask import g
+    user_id = getattr(getattr(g, 'current_user', None), 'id', None)
+    if not user_id:
+        return jsonify({'code': 401, 'message': '请先登录'}), 401
+
+    from app.models import UserAnalysisRecord
+    from app.extensions import db
+
+    record = UserAnalysisRecord.query.filter_by(id=record_id, user_id=user_id).first()
+    if not record:
+        return jsonify({'code': 404, 'message': '记录不存在'}), 404
+
+    db.session.delete(record)
+    db.session.commit()
+    logger.info(f'用户 {user_id} 删除分析记录 #{record_id}')
+    return jsonify({'code': 200, 'message': '已删除', 'data': None})
+
+
+# ============================================================
+# 🔴#2 回测结果持久化 (UserBacktestResult)
+# ============================================================
+
+@api_bp.route('/user/backtests', methods=['GET'])
+@api_error_handler(default_message='获取回测历史失败')
+def get_backtest_history():
+    """获取用户的回测历史记录（分页）"""
+    from flask import g
+    user_id = getattr(getattr(g, 'current_user', None), 'id', None)
+    if not user_id:
+        return jsonify({'code': 401, 'message': '请先登录', 'data': {'records': [], 'total': 0}}), 401
+
+    from app.models import UserBacktestResult
+    page = max(1, request.args.get('page', 1, type=int))
+    limit = min(20, max(1, request.args.get('limit', 10, type=int)))
+
+    pagination = UserBacktestResult.query.filter_by(user_id=user_id).order_by(
+        UserBacktestResult.created_at.desc()
+    ).paginate(page=page, per_page=limit, error_out=False)
+
+    return jsonify({
+        'code': 200,
+        'message': 'success',
+        'data': {
+            'records': [r.to_dict() for r in pagination.items],
+            'total': pagination.total,
+            'page': page,
+            'pages': pagination.pages,
+        }
+    })
+
+
+@api_bp.route('/user/backtests/<int:result_id>', methods=['DELETE'])
+@api_error_handler(default_message='删除回测记录失败')
+def delete_backtest_result(result_id):
+    """删除回测历史记录"""
+    from flask import g
+    user_id = getattr(getattr(g, 'current_user', None), 'id', None)
+    if not user_id:
+        return jsonify({'code': 401, 'message': '请先登录'}), 401
+
+    from app.models import UserBacktestResult
+    from app.extensions import db
+
+    result = UserBacktestResult.query.filter_by(id=result_id, user_id=user_id).first()
+    if not result:
+        return jsonify({'code': 404, 'message': '回测记录不存在'}), 404
+
+    db.session.delete(result)
+    db.session.commit()
+    return jsonify({'code': 200, 'message': '已删除', 'data': None})
+
+
+def _save_backtest_result(user_id, config, result):
+    """回测完成后自动保存结果到数据库（供内部调用）"""
+    try:
+        from app.models import UserBacktestResult, StockBasic
+        stock = StockBasic.query.filter_by(ts_code=config['ts_code']).first()
+        perf = result.get('performance', {})
+
+        bt_result = UserBacktestResult(
+            user_id=user_id,
+            ts_code=config['ts_code'],
+            stock_name=stock.name if stock else '',
+            strategy_type=config['strategy_type'],
+            strategy_label=STRATEGY_LABELS_BT.get(config['strategy_type'], config['strategy_type']),
+            params=config.get('params', {}),
+            start_date=config['start_date'],
+            end_date=config['end_date'],
+            initial_capital=float(config.get('initial_capital', 100000)),
+            performance={k: float(v) if isinstance(v, (int, float, np.integer, np.floating)) else v
+                        for k, v in perf.items()},
+            trades=result.get('trades', []),
+        )
+        from app.extensions import db
+        db.session.add(bt_result)
+        db.session.commit()
+        logger.info(f'自动保存回测结果: user={user_id} stock={config["ts_code"]} strategy={config["strategy_type"]}')
+        return True
+    except Exception as e:
+        logger.warning(f'保存回测结果失败(非致命): {e}')
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        return False
+
+
+# ============================================================
+# 🟡1 自选股编辑 (PATCH /api/watchlist/<ts_code>)
+# ============================================================
+
+@api_bp.route('/watchlist/<path:ts_code>', methods=['PATCH'])
+@api_error_handler(default_message='编辑自选失败')
+def edit_watchlist(ts_code):
+    """编辑自选股备注和排序"""
+    from flask import g
+    user_id = getattr(getattr(g, 'current_user', None), 'id', None)
+    if not user_id:
+        return jsonify({'code': 401, 'message': '请先登录'}), 401
+
+    from app.models import UserWatchlist
+    from app.extensions import db
+
+    item = UserWatchlist.query.filter_by(user_id=user_id, ts_code=ts_code.upper()).first()
+    if not item:
+        return jsonify({'code': 404, 'message': '该股票不在自选中'}), 404
+
+    data = request.get_json() or {}
+    if 'note' in data:
+        item.note = str(data['note']).strip() or None
+    if 'sort_order' in data:
+        item.sort_order = int(data['sort_order'] or 0)
+
+    db.session.commit()
+    return jsonify({'code': 200, 'message': '已更新', 'data': item.to_dict()})
+
+
+# ============================================================
+# 原有功能：选股筛选
+# ============================================================
 
 
 @api_bp.route('/analysis/screen', methods=['POST'])
@@ -77,6 +304,12 @@ def backtest_strategy():
         # 执行回测
         backtest_engine = BacktestEngine(data)
         result = backtest_engine.run_backtest(history_data, factors_data)
+
+        # 🔴#2 自动保存回测结果到数据库（非阻塞，失败不影响返回）
+        from flask import g
+        _user_id = getattr(getattr(g, 'current_user', None), 'id', None)
+        if _user_id:
+            _save_backtest_result(_user_id, data, result)
 
         return jsonify({
             'code': 200,

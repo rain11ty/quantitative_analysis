@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 os.environ.setdefault('PYTHONUTF8', '1')
 os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
 
-load_dotenv(encoding='utf-8')
+load_dotenv(encoding='utf-8', override=True)
 
 
 class Config:

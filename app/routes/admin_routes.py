@@ -126,13 +126,19 @@ def dashboard():
 @admin_required
 def users():
     keyword = (request.args.get('keyword') or '').strip()
+    page = max(1, request.args.get('page', 1, type=int))
+    per_page = min(50, max(10, request.args.get('per_page', 20, type=int)))
     query = User.query
     if keyword:
         query = query.filter(or_(User.username.ilike(f'%{keyword}%'), User.email.ilike(f'%{keyword}%')))
 
-    users_data = query.order_by(User.created_at.desc()).all()
+    pagination = query.order_by(User.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
     available_statuses = [User.STATUS_ACTIVE, User.STATUS_DISABLED, User.STATUS_BANNED]
-    return render_template('admin/users.html', users=users_data, keyword=keyword, available_statuses=available_statuses)
+    return render_template('admin/users.html',
+                           users=pagination.items,
+                           keyword=keyword,
+                           available_statuses=available_statuses,
+                           pagination=pagination)
 
 
 @admin_routes.route('/users/<int:user_id>')

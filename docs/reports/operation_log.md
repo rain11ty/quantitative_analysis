@@ -1,145 +1,81 @@
 # 操作日志
 
-## 2025-01-27 Bug修复记录
+> 本文件记录项目的关键操作和维护历史
 
-### 🐛 formatNumber函数未定义问题修复
+## 2026-04-27 文档全面更新
 
-**问题发现时间**: 2025-01-27  
-**问题描述**: 
-1. 技术分析页面点击"分析"按钮时提示"formatNumber is not defined"错误
-2. 股票详情页面的所有tab功能（历史数据、技术因子、资金流向、筹码分布）都没有数据显示
+**操作内容**：对 `docs/` 目录下所有过时文档进行全面审查和更新
 
-**问题分析**:
-- 两个页面都使用了`formatNumber`和`formatPercent`函数进行数字格式化
-- 但这些函数只在`risk_management.html`中定义，其他页面没有定义
-- 导致JavaScript运行时错误，影响数据显示
+**更新的文件**：
+- ✅ `docs/guides/CURRENT_WORKSPACE_STRUCTURE.md` — 完全重写（反映 22 个模型/13 个服务/24 个模板/新模块）
+- ✅ `docs/guides/PROJECT_STRUCTURE.md` — 完全重写
+- ✅ `docs/analysis/DEVELOPMENT_SUMMARY.md` — 完全重写（旧版仅描述 7 张表早期版本）
+- ✅ `docs/README_balance_sheet.md` — 更新路径和说明
+- ✅ `docs/README_cash_flow.md` — 更新路径和说明
+- ✅ `docs/README_income_statement.md` — 更新路径和说明
 
-**修复方案**:
-1. 在`app/templates/analysis.html`中添加工具函数定义
-2. 在`app/templates/stock_detail.html`中添加工具函数定义
-3. 确保函数处理边界情况（null、undefined、NaN）
+**变更原因**：上述文档的内容严重滞后（仍描述项目早期版本），包含错误的路径引用（如 `/Users/henrylin/...`）、过时的功能清单（如"待扩展：K线图表集成""待扩展：策略回测功能"而这些功能早已实现）、缺失的新模块（新闻/AI/实时监控/Celery/Redis 缓存/邮件服务等均未提及）
 
-**修复内容**:
-```javascript
-// 工具函数
-function formatNumber(num, decimals = 2) {
-    if (num === null || num === undefined || isNaN(num)) return '--';
-    return Number(num).toLocaleString('zh-CN', {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals
-    });
-}
+---
 
-function formatPercent(num) {
-    if (num === null || num === undefined || isNaN(num)) return '--';
-    const sign = num >= 0 ? '+' : '';
-    return sign + Number(num).toFixed(2) + '%';
-}
-```
+## 2026-04-27 CRUD 完整性审计 & 修复
 
-**测试验证**:
-- ✅ Flask应用启动成功，无语法错误
-- ✅ 所有API端点正常返回数据：
-  - `/api/stocks/000001.SZ/history` - 历史数据
-  - `/api/stocks/000001.SZ/factors` - 技术因子
-  - `/api/stocks/000001.SZ/moneyflow` - 资金流向
-  - `/api/stocks/000001.SZ/cyq` - 筹码分布
+**操作内容**：完成全系统 12 大模块的逐源码级 CRUD 审计
 
-**影响范围**:
-- 技术分析页面的数据表格和指标显示
-- 股票详情页面的所有tab功能数据显示
+**产出文档**：`docs/SYSTEM_CRUD_AUDIT_REPORT.md`
 
-**修复状态**: ✅ 已完成
+**关键发现**：
+- 🔴 2 个必修复项：分析记录缺 R/U/D / 回测结果无法持久化
+- 🟡 5 个建议改进项：自选股缺编辑 / 选股条件不能存预设 / 新闻无缓存 / AI 双重写入 / 管理员列表无分页
+- ⚠️ 5 个 ORM 模型零引用：TradingSignals / PortfolioPositions / RiskAlerts / StockIncomeStatement / StockBalanceSheet
+- ⚠️ backtest_engine.py 空壳陷阱：实际实现在 analysis_api.py 内部类
 
-**后续优化建议**:
-1. 考虑将通用工具函数提取到公共JavaScript文件中
-2. 建立代码复用机制，避免重复定义
-3. 增加前端单元测试，及早发现此类问题
+**修复动作**：创建 `scripts/migrate_v20260427_crud_fix.py` 迁移脚本
 
-### 🐛 选股筛选页面formatNumber函数未定义问题修复
+---
 
-**问题发现时间**: 2025-01-27  
-**问题描述**: 选股筛选页面点击"开始筛选"按钮后提示"筛选失败，请检查网络连接"错误
+## 2026-04-27 数据库使用情况评估
 
-**问题分析**:
-- API端点`/api/analysis/screen`正常工作，能正确返回筛选结果
-- 前端JavaScript在`renderScreenResults`函数中使用了`formatNumber`函数进行数字格式化
-- 但`formatNumber`函数只在其他页面定义，选股筛选页面没有定义该函数
-- 导致JavaScript运行时错误，影响结果显示
+**操作内容**：全面分析 22 张 ORM 模型的实际使用情况
 
-**修复方案**:
-在`app/templates/screen.html`中添加工具函数定义
+**结论**：
+- 未使用的 5 张表不影响运行时性能（ORM 定义 ≠ 数据库操作）
+- 真正有开销的问题是 AI 对话双重写入（UserAiConversation + UserChatHistory 同时写）
+- 建议：答辩前统一聊天记录到新体系，死模型加注释标注"预留扩展"
 
-**修复内容**:
-```javascript
-// 工具函数
-function formatNumber(num, decimals = 2) {
-    if (num === null || num === undefined || isNaN(num)) return '--';
-    return Number(num).toLocaleString('zh-CN', {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals
-    });
-}
+---
 
-function formatPercent(num) {
-    if (num === null || num === undefined || isNaN(num)) return '--';
-    const sign = num >= 0 ? '+' : '';
-    return sign + Number(num).toFixed(2) + '%';
-}
-```
+## 2026-04-26 ~ 2026-04-27 新增模块记录
 
-**验证结果**:
-- ✅ API测试通过，筛选功能正常返回数据
-- ✅ 前端页面加载正常，JavaScript无语法错误  
-- ✅ 筛选结果表格能正确显示格式化数字
-- ✅ 支持中文本地化数字格式和边界情况处理
+近期新增的功能模块：
 
-**影响范围**: 选股筛选页面的结果表格数字显示
+1. **新闻资讯模块**：`news_api.py` + `news_service.py` + `news.html`（4 源聚合）
+2. **邮件服务**：`email_service.py`（Resend SMTP 验证码）
+3. **Celery 异步队列**：`celery_app.py` + `tasks.py`（预留配置）
+4. **Redis 双层缓存**：`cache_utils.py`（自动降级为内存字典）
+5. **新增 ORM 模型**：`stock_cyq_chips.py`（筹码分布明细）+ `stock_shock.py`（异动信息）
+6. **管理员健康检查页**：`admin/health_check.html`（四组件连通性检测）
+7. **每日自动更新**：`daily_auto_update.py`（增量同步调度）
+8. **数据健康巡检**：`data_health_check.py`
+9. **DB 索引优化**：`add_db_indexes.py`
+10. **V2 因子补算**：`backfill_factors_v2.py`（替代 V1 版）
 
-**状态**: ✅ 修复完成，功能正常
+---
 
-### 🐛 策略回测页面formatNumber函数未定义问题修复
+## 2025-01-27 前端 Bug 修复（历史记录）
 
-**问题发现时间**: 2025-01-27  
-**问题描述**: 策略回测页面点击"开始回测"按钮后提示"回测失败，错误信息: formatNumber is not defined"
+### formatNumber 函数未定义问题（跨页面批量修复）
 
-**问题分析**:
-- 策略回测页面`app/templates/backtest.html`在`renderBacktestResults`函数中使用了`formatNumber`和`formatPercent`函数
-- 这些函数用于格式化回测结果中的数字显示（如收益率、资金金额等）
-- 但该页面没有定义这些工具函数，导致JavaScript运行时错误
-- 影响回测结果的正常显示
+**问题**：多个页面使用了 `formatNumber` / `formatPercent` 函数但未定义，导致 JavaScript 运行时报错
 
-**修复方案**:
-在`app/templates/backtest.html`的JavaScript部分添加工具函数定义
+**影响的页面**：
+- ✅ `analysis.html` — 已修复
+- ✅ `stock_detail.html` — 已修复
+- ✅ `screen.html` — 已修复
+- ✅ `backtest.html` — 已修复
 
-**修复内容**:
-```javascript
-// 工具函数
-function formatNumber(num, decimals = 2) {
-    if (num === null || num === undefined || isNaN(num)) return '--';
-    return Number(num).toLocaleString('zh-CN', {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals
-    });
-}
+**修复方案**：在每个页面的 `<script>` 区域添加工具函数定义
 
-function formatPercent(num) {
-    if (num === null || num === undefined || isNaN(num)) return '--';
-    const sign = num >= 0 ? '+' : '';
-    return sign + Number(num).toFixed(2) + '%';
-}
-```
-
-**影响范围**: 
-- 策略回测结果的数字格式化显示
-- 收益指标、交易统计、风险指标等数据展示
-- 交易记录表格的数字格式化
-
-**修复状态**: ✅ 已完成
-
-**验证要点**:
-- 回测配置表单正常提交
-- 回测结果能正确显示格式化的数字
-- 支持中文本地化数字格式和边界情况处理
-
---- 
+**后续建议**（当时提出，部分已实施）：
+- 将通用工具函数提取到公共 JS 文件（`base.html` 已部分解决此问题）
+- 增加前端单元测试
