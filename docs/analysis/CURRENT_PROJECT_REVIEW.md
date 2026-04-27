@@ -1,36 +1,54 @@
 # Current Project Review
 
-## Main problems
+> Snapshot date: `2026-04-28`
 
-### 1. Documentation drift
+## Overall assessment
 
-旧 README 和安装文档长期描述已经删除的 `ml_factor` 页面、`app.py` 入口、`quick_start_fixed.py` 和不存在的示例脚本，容易让维护者误判项目状态。
+The current repository is a usable Flask-based A-share analysis system, not a half-finished prototype. The main user-facing path already covers market overview, stock lookup, stock detail analysis, screening, backtesting, realtime monitor, AI assistant, authentication, and an admin console.
 
-### 2. Root directory was overloaded
+Compared with the older `ml_factor` branch-style materials, the active system has clearly converged on a server-rendered Flask application with Jinja2 templates plus JSON APIs.
 
-仓库根目录之前混杂了：
+## What is in good shape
 
-- 手工排障脚本
-- 编码修复脚本
-- 编辑器恢复脚本
-- 旧版前端资源
-- 导出的文本产物
+- The runtime entry path is clear: `run.py` / `quick_start.py` / `run_system.py` all end at `app.create_app()`.
+- The application layering is readable: `main` for pages, `api` for JSON, `routes` for auth/admin, `services` for business logic, `models` for ORM.
+- User data features are more complete than older docs suggested:
+  - watchlist supports create/read/update/delete
+  - analysis records support create/read/update/delete
+  - backtest results are persisted for logged-in users
+  - admin user list already has pagination
+- Realtime and market overview modules include graceful degradation paths instead of hard-failing on one upstream source.
+- AI conversation storage has a structured table design and supports SSE streaming replies.
 
-这会让真正的主入口不够明显，也增加误执行风险。
+## Main risks that still matter
 
-### 3. Manual checks and docs were mixed with runtime code
+### 1. No real automated test suite
 
-数据库查看工具和联通性检查脚本本身有价值，但应该集中放到 `scripts/`，而不是和应用入口放在同一层。
+The repo still does not contain a project-owned `tests/` directory. Diagnostics scripts exist, but they are manual smoke checks rather than regression protection.
 
-### 4. Runtime edge cases still need attention
+### 2. Documentation had drifted away from the code
 
-- 错误页渲染依赖曾缺少 `render_template` 导入
-- 自动化测试仍然偏弱
-- 入口脚本和部署脚本之间曾存在端口与功能说明不一致
+Several documents were still describing:
+
+- `22` ORM models, while the current code exports `24`
+- an unfinished admin pagination state that has already been implemented
+- financial data sync flows that are not actually wired into `scripts/sync_tushare_data.py`
+
+This review is being kept intentionally short because the wider `docs/` set has now been realigned to the codebase.
+
+### 3. Legacy and active data paths coexist
+
+- AI messages are stored in the new conversation tables, but successful replies may still be mirrored into `user_chat_history`.
+- `app/services/backtest_engine.py` is an advanced reserved implementation, while the currently active backtest logic lives inside `app/api/analysis_api.py`.
+- Financial statement scripts under `app/utils/` are standalone legacy sync scripts, not part of the main web request path.
+
+### 4. Removed `ml_factor` materials no longer belong to the active product
+
+The empty archived markdown files under `docs/archive/ml_factor/` were not carrying useful information anymore and should not be treated as part of the current product documentation set.
 
 ## Recommended next steps
 
-1. 给 `app/services/` 的关键服务补一层 `pytest` 单元测试和 API 集成测试。
-2. 把数据库配置进一步拆成开发、测试、生产三套，降低本地 MySQL 耦合。
-3. 逐步清理 `docs/analysis/` 中剩余的历史分析文档，保留对当前系统仍然有效的部分。
-4. 给 `scripts/diagnostics/` 中真正稳定的检查逻辑补上统一入口，避免脚本继续分散增长。
+1. Add a small `pytest` suite for `stock_api`, `analysis_api`, and the auth/admin guards.
+2. Decide whether to keep `user_chat_history` as a compatibility table or retire it after profile/admin pages migrate.
+3. Move the active backtest implementation to one shared service to remove the split between `analysis_api.py` and `backtest_engine.py`.
+4. If financial statements will remain in scope, promote those standalone scripts into supported `scripts/` commands or service-layer jobs.
