@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from app.extensions import db
-from datetime import datetime
 
 class StockBusiness(db.Model):
     """股票业务大宽表模型"""

@@ -48,6 +48,7 @@ PUBLIC_ENDPOINTS = {
 
 PUBLIC_PATH_PREFIXES = (
     '/static/',
+    '/app/',
     '/auth/login',
     '/auth/register',
     '/auth/send-verify-code',
@@ -65,6 +66,9 @@ def _is_public_request():
         return True
 
     path = request.path or ''
+    if path == '/app':
+        return True
+
     return any(path.startswith(prefix) for prefix in PUBLIC_PATH_PREFIXES)
 
 

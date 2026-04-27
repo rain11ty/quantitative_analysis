@@ -1,58 +1,76 @@
 # -*- coding: utf-8 -*-
-from flask import render_template, request, redirect, url_for
+from flask import g, render_template, redirect, url_for
+
 from app.main import main_bp
-from app.services.stock_service import StockService
+from app.utils.vite import get_vite_asset_context
+
+
+def _build_vue_app_context(route_path=''):
+    user = getattr(g, 'current_user', None)
+    display_name = None
+    if user is not None:
+        display_name = getattr(user, 'username', None) or getattr(user, 'email', None)
+
+    return {
+        'auth': {
+            'isAuthenticated': user is not None,
+            'isAdmin': bool(user and getattr(user, 'is_admin', False)),
+            'displayName': display_name,
+        },
+        'initialPath': f'/{route_path}' if route_path else '/',
+    }
+
 
 @main_bp.route('/')
 def index():
-    """首页"""
     return render_template('index.html')
+
 
 @main_bp.route('/stocks')
 def stocks():
-    """股票列表页面"""
     return render_template('stocks.html')
+
 
 @main_bp.route('/stock/<ts_code>')
 def stock_detail(ts_code):
-    """股票详情页面"""
     return render_template('stock_detail.html', ts_code=ts_code)
+
 
 @main_bp.route('/analysis')
 def analysis():
-    """分析页面 — 已合并到 stock_detail，重定向到股票列表"""
     return redirect(url_for('main.stocks'))
+
 
 @main_bp.route('/screen')
 def screen():
-    """选股筛选页面"""
     return render_template('screen.html')
+
 
 @main_bp.route('/backtest')
 def backtest():
-    """策略回测页面"""
     return render_template('backtest.html')
+
 
 @main_bp.route('/ai-assistant')
 def ai_assistant():
-    """AI智能助手页面"""
     return render_template('ai_assistant.html')
 
 
 @main_bp.route('/news')
 def news():
-    """新闻资讯页面"""
     return render_template('news.html')
 
 
 @main_bp.route('/monitor')
 def monitor():
-    """实时监控页面"""
     return render_template('realtime_monitor.html')
 
 
-
-
-
-
- 
+@main_bp.route('/app')
+@main_bp.route('/app/<path:route_path>')
+def vue_app(route_path=''):
+    return render_template(
+        'vue_shell.html',
+        vite_assets=get_vite_asset_context('src/main.ts'),
+        app_context=_build_vue_app_context(route_path),
+    )

@@ -52,6 +52,7 @@ logs/
 # --- Node.js ---
 node_modules/
 npm-debug.log*
+frontend/.npm-cache/
 
 # --- 操作系统 ---
 .DS_Store
@@ -72,6 +73,7 @@ htmlcov/
 .tox/
 dist/
 build/
+app/static/vue/
 *.egg-info/
 
 # --- Jupyter Notebook ---

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1, viewport-fit=cover"
+    >
+    <title>Quantitative Analysis Vue App</title>
+    {% for css_url in vite_assets.css_urls %}
+    <link rel="stylesheet" href="{{ css_url }}">
+    {% endfor %}
+</head>
+<body>
+    <div id="app">
+        {% if not vite_assets.available %}
+        <main style="max-width: 720px; margin: 56px auto; padding: 24px; font-family: Segoe UI, Arial, sans-serif; color: #14202b;">
+            <div style="border: 1px solid rgba(20,32,43,0.12); border-radius: 18px; padding: 24px; background: #ffffff;">
+                <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #64748b;">
+                    Vue shell ready
+                </p>
+                <h1 style="margin: 0 0 12px;">Frontend assets are not built yet</h1>
+                <p style="margin: 0 0 16px; line-height: 1.6;">
+                    The Flask route is wired, but the Vue bundle has not been built or a Vite dev
+                    server is not configured yet. This keeps the legacy pages safe while the new
+                    frontend is prepared.
+                </p>
+                <pre style="margin: 0; white-space: pre-wrap; background: #0f172a; color: #e2e8f0; border-radius: 12px; padding: 16px;">{{ vite_assets.missing_reason }}</pre>
+            </div>
+        </main>
+        {% endif %}
+    </div>
+
+    <script>
+        window.__QUANT_APP_CONTEXT__ = {{ app_context | tojson }};
+    </script>
+
+    {% if vite_assets.mode == 'dev' and vite_assets.available %}
+    <script type="module" src="{{ vite_assets.dev_server_url }}/@vite/client"></script>
+    {% endif %}
+
+    {% if vite_assets.available %}
+    <script type="module" src="{{ vite_assets.entry_url }}"></script>
+    {% endif %}
+</body>
+</html>

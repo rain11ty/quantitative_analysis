@@ -5,7 +5,6 @@ from app.api import api_bp
 from app.services.news_service import NewsService
 from app.utils.api_helpers import api_error_handler
 import json
-import hashlib
 
 # 缓存配置：Redis TTL 5分钟，内存降级 TTL 3分钟
 _NEWS_CACHE_TTL = 300

@@ -25,7 +25,6 @@ def init_mail(app):
 
     try:
         # 使用内置 smtplib，无需安装任何第三方包
-        import smtplib
         DEFAULT_SENDER = app.config.get('MAIL_DEFAULT_SENDER', ('noreply@stock-analysis.local', 'StockAnalysis'))
         mail = True  # 标记为已配置
         sender_name = DEFAULT_SENDER[1] if isinstance(DEFAULT_SENDER, tuple) else 'Stock'

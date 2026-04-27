@@ -13,7 +13,8 @@ services:
       - "5001:5001"
     environment:
       # 容器间通信使用 Docker 服务名
-      - DB_HOST=mysql
+      - DB_HOST=${DOCKER_DB_HOST:-mysql}
+      - DB_PORT=${DOCKER_DB_PORT:-3306}
       - DB_USER=${DB_USER:-root}
       - DB_PASSWORD=${DB_PASSWORD:-123456}
       - DB_NAME=${DB_NAME:-stock_cursor}
