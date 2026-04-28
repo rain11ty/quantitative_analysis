@@ -66,7 +66,7 @@ def monitor():
     return render_template('realtime_monitor.html')
 
 
-@main_bp.route('/app')
+@main_bp.route('/app', strict_slashes=False)
 @main_bp.route('/app/<path:route_path>')
 def vue_app(route_path=''):
     return render_template(
