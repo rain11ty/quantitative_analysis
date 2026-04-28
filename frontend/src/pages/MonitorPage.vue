@@ -70,7 +70,7 @@ const indexOption = computed(() => {
     grid: { left: 60, right: 16, top: 16, bottom: 32 },
     xAxis: { type: 'category', data: series.map(s => s.label || '') },
     yAxis: [
-      { type: 'value', splitLine: { lineStyle: { color: 'rgba(0,0,0,0.04)' } } },
+      { type: 'value', splitLine: { lineStyle: { color: 'rgba(10,11,13,0.04)' } } },
       { type: 'value', splitLine: { show: false } },
     ],
     series: [
@@ -78,7 +78,7 @@ const indexOption = computed(() => {
         type: 'candlestick', data: series.map(s => [Number(s.open || 0), Number(s.close || 0), Number(s.low || 0), Number(s.high || 0)]),
         itemStyle: { color: '#ff3b30', color0: '#34c759', borderColor: '#ff3b30', borderColor0: '#34c759' },
       },
-      { type: 'bar', data: series.map(s => Number(s.volume || 0)), yAxisIndex: 1, itemStyle: { color: 'rgba(0,113,227,.18)' } },
+      { type: 'bar', data: series.map(s => Number(s.volume || 0)), yAxisIndex: 1, itemStyle: { color: 'rgba(0,82,255,.18)' } },
     ],
   } as EChartsOption;
 });
@@ -92,7 +92,7 @@ const indexOption = computed(() => {
           <input v-model="codes" class="form-input" placeholder="股票代码，逗号分隔" style="flex:1;" @keyup.enter="loadDashboard" />
           <div style="position:relative;">
             <input v-model="searchQuery" class="form-input" placeholder="搜索添加" style="width:160px;" @input="debouncedSearch" @focus="showSearch = searchResults.length > 0" />
-            <div v-if="showSearch" style="position:absolute;top:100%;left:0;right:0;z-index:10;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);max-height:180px;overflow-y:auto;box-shadow:var(--shadow-elevated);">
+            <div v-if="showSearch" style="position:absolute;top:100%;left:0;right:0;z-index:10;background:var(--cb-white);border:1px solid var(--cb-border);border-radius:var(--cb-radius-lg);max-height:180px;overflow-y:auto;box-shadow:var(--cb-shadow-sm);">
               <div v-for="r in searchResults" :key="r.ts_code as string" style="padding:8px 12px;cursor:pointer;font-size:13px;" @mousedown.prevent="addStock(r)">{{ r.symbol || r.ts_code }} - {{ r.name }}</div>
             </div>
           </div>

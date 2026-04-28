@@ -36,7 +36,7 @@ const equityOption = computed<EChartsOption>(() => {
     grid: { left: 60, right: 16, top: 12, bottom: 28 },
     xAxis: { type: 'category', data: (trades as Record<string, unknown>[]).map(t => t.trade_date || ''), axisLabel: { fontSize: 10, color: 'rgba(0,0,0,0.48)' } },
     yAxis: { type: 'value', splitLine: { lineStyle: { color: 'rgba(0,0,0,0.04)' } } },
-    series: [{ type: 'line', data: values, smooth: true, lineStyle: { color: '#0071e3', width: 1.5 }, symbol: 'none', areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(0,113,227,0.14)' }, { offset: 1, color: 'rgba(0,113,227,0)' }] } } }],
+    series: [{ type: 'line', data: values, smooth: true, lineStyle: { color: '#0052ff', width: 1.5 }, symbol: 'none', areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(0,82,255,0.14)' }, { offset: 1, color: 'rgba(0,82,255,0)' }] } } }],
   };
 });
 
@@ -71,11 +71,11 @@ onMounted(loadHistory);
   <div>
     <div class="card">
       <div class="card-header"><h3>回测配置</h3></div>
-      <div class="form-grid" style="margin-bottom:12px;">
+      <div class="form-grid mb-2">
         <div class="form-group" style="position:relative;">
           <label class="form-label">股票</label>
           <input v-model="stockQuery" class="form-input" placeholder="搜索代码/名称" @focus="showDropdown = stockResults.length > 0" @blur="hideDropdown()" />
-          <div v-if="showDropdown" style="position:absolute;top:100%;left:0;right:0;z-index:10;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);max-height:180px;overflow-y:auto;box-shadow:var(--shadow-elevated);">
+          <div v-if="showDropdown" style="position:absolute;top:100%;left:0;right:0;z-index:10;background:var(--cb-white);border:1px solid var(--cb-border);border-radius:var(--cb-radius-lg);max-height:180px;overflow-y:auto;box-shadow:var(--cb-shadow-sm);">
             <div v-for="s in stockResults" :key="s.ts_code" style="padding:8px 12px;cursor:pointer;font-size:13px;" @mousedown.prevent="selectStock(s)">{{ s.symbol || s.ts_code }} - {{ s.name }}</div>
           </div>
           <span v-if="selectedStock" class="text-xs text-down" style="margin-top:4px;">已选: {{ selectedStock.ts_code }} {{ selectedStock.name }}</span>
@@ -91,7 +91,7 @@ onMounted(loadHistory);
         <div class="form-group"><label class="form-label">佣金率 (%)</label><input v-model="commission" type="number" step="0.01" class="form-input" /></div>
       </div>
       <template v-if="strategy === 'ma_cross'">
-        <div class="form-grid" style="margin-bottom:12px;"><div class="form-group"><label class="form-label">短期均线</label><input v-model="maShort" type="number" class="form-input" /></div><div class="form-group"><label class="form-label">长期均线</label><input v-model="maLong" type="number" class="form-input" /></div></div>
+        <div class="form-grid mb-2"><div class="form-group"><label class="form-label">短期均线</label><input v-model="maShort" type="number" class="form-input" /></div><div class="form-group"><label class="form-label">长期均线</label><input v-model="maLong" type="number" class="form-input" /></div></div>
       </template>
       <div class="flex-between">
         <button class="btn btn-ghost btn-sm" @click="selectedStock = null; stockQuery = ''; result = null; error = ''">重置</button>
@@ -102,7 +102,7 @@ onMounted(loadHistory);
 
     <div v-if="result" class="card">
       <div class="card-header"><h3>回测结果</h3><span class="badge badge-info">{{ result.strategy_name }}</span></div>
-      <div class="stat-grid" style="margin-bottom:16px;">
+      <div class="stat-grid mb-3">
         <div class="stat-item"><div class="stat-label">总收益率</div><div class="stat-value" :class="(result.total_return ?? 0) >= 0 ? 'text-down' : 'text-up'">{{ formatPercent(result.total_return) }}</div></div>
         <div class="stat-item"><div class="stat-label">年化收益</div><div class="stat-value">{{ formatPercent(result.annual_return) }}</div></div>
         <div class="stat-item"><div class="stat-label">夏普比率</div><div class="stat-value font-mono">{{ formatNumber(result.sharpe_ratio) }}</div></div>

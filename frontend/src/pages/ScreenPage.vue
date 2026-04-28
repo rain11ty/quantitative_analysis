@@ -92,7 +92,7 @@ function openStock(code: string) { const url = '/app/stock/' + code; window.open
 
       <!-- Valuation range -->
       <div style="font-size:13px;font-weight:600;margin-bottom:8px;">估值范围</div>
-      <div class="form-grid" style="margin-bottom:12px;">
+      <div class="form-grid mb-2">
         <div class="form-group"><label class="form-label">PE 最小</label><input v-model="form.pe_min" type="number" step="0.1" class="form-input" /></div>
         <div class="form-group"><label class="form-label">PE 最大</label><input v-model="form.pe_max" type="number" step="0.1" class="form-input" /></div>
         <div class="form-group"><label class="form-label">PB 最小</label><input v-model="form.pb_min" type="number" step="0.1" class="form-input" /></div>
@@ -103,7 +103,7 @@ function openStock(code: string) { const url = '/app/stock/' + code; window.open
 
       <!-- Market value -->
       <div style="font-size:13px;font-weight:600;margin-bottom:8px;">市值与交易</div>
-      <div class="form-grid" style="margin-bottom:12px;">
+      <div class="form-grid mb-2">
         <div class="form-group"><label class="form-label">总市值最小</label><input v-model="form.mv_min" type="number" step="100" class="form-input" /></div>
         <div class="form-group"><label class="form-label">总市值最大</label><input v-model="form.mv_max" type="number" step="100" class="form-input" /></div>
         <div class="form-group"><label class="form-label">流通市值最小</label><input v-model="form.circ_mv_min" type="number" step="100" class="form-input" /></div>
@@ -114,7 +114,7 @@ function openStock(code: string) { const url = '/app/stock/' + code; window.open
 
       <!-- Technical indicators -->
       <div style="font-size:13px;font-weight:600;margin-bottom:8px;">技术指标</div>
-      <div class="form-grid" style="margin-bottom:12px;">
+      <div class="form-grid mb-2">
         <div class="form-group"><label class="form-label">RSI6 最小</label><input v-model="form.rsi6_min" type="number" step="0.1" class="form-input" /></div>
         <div class="form-group"><label class="form-label">RSI6 最大</label><input v-model="form.rsi6_max" type="number" step="0.1" class="form-input" /></div>
         <div class="form-group"><label class="form-label">KDJ-K 最小</label><input v-model="form.kdj_k_min" type="number" step="0.1" class="form-input" /></div>
@@ -126,7 +126,7 @@ function openStock(code: string) { const url = '/app/stock/' + code; window.open
       <!-- Dynamic conditions -->
       <div class="flex-between mb-2"><span style="font-size:13px;font-weight:600;">动态条件</span><button class="btn btn-ghost btn-sm" @click="addCondition">+ 添加</button></div>
       <div v-if="conditions.length" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
-        <div v-for="c in conditions" :key="c.id" class="form-grid" style="background:var(--surface-secondary);padding:8px 10px;border-radius:var(--radius-md);">
+        <div v-for="c in conditions" :key="c.id" class="form-grid" style="background:var(--cb-gray);padding:8px 10px;border-radius:var(--cb-radius-md);">
           <div class="form-group"><label class="form-label">字段A</label><select v-model="c.fieldA" class="form-select" style="font-size:12px;"><option value="">选择</option><option v-for="o in fieldOptions" :key="o.value" :value="o.value">{{ o.label }}</option></select></div>
           <div class="form-group"><label class="form-label">运算符</label><select v-model="c.operator" class="form-select" style="font-size:12px;"><option value="">选择</option><option v-for="op in ['>','>=','<','<=','=','!=']" :key="op" :value="op">{{ op }}</option></select></div>
           <div class="form-group"><label class="form-label">比较方式</label><select v-model="c.compareMode" class="form-select" style="font-size:12px;"><option value="field">字段B</option><option value="value">固定值</option></select></div>
@@ -145,7 +145,7 @@ function openStock(code: string) { const url = '/app/stock/' + code; window.open
     <!-- Results -->
     <div v-if="isSubmitting" class="card"><div class="skeleton" style="height:120px;" /></div>
     <div v-else-if="resultError" class="alert alert-error">{{ resultError }}</div>
-    <div v-else-if="hasResults" class="card" style="padding:0;overflow-x:auto;">
+    <div v-else-if="hasResults" class="card card-table">
       <div class="card-header" style="padding:16px;"><h3>筛选结果 ({{ resultTotal }})</h3></div>
       <table class="data-table w-full">
         <thead><tr><th>代码</th><th>名称</th><th>行业</th><th>收盘</th><th>PE</th><th>PB</th><th>换手率</th><th>涨跌幅</th><th>净流入</th><th>总市值</th></tr></thead>

@@ -42,16 +42,16 @@ const klineOption = computed<EChartsOption>(() => {
     grid: { left: 50, right: 16, top: 12, bottom: 28 },
     xAxis: {
       type: 'category', data: dates,
-      axisLabel: { fontSize: 10, color: 'rgba(0,0,0,0.48)', formatter: (v: string) => v.slice(5) },
-      axisLine: { lineStyle: { color: 'rgba(0,0,0,0.08)' } },
+      axisLabel: { fontSize: 10, color: 'rgba(10,11,13,0.48)', formatter: (v: string) => v.slice(5) },
+      axisLine: { lineStyle: { color: 'rgba(10,11,13,0.08)' } },
       axisTick: { show: false },
     },
     yAxis: {
-      type: 'value', splitLine: { lineStyle: { color: 'rgba(0,0,0,0.04)' } },
-      axisLabel: { fontSize: 10, color: 'rgba(0,0,0,0.48)' },
+      type: 'value', splitLine: { lineStyle: { color: 'rgba(10,11,13,0.04)' } },
+      axisLabel: { fontSize: 10, color: 'rgba(10,11,13,0.48)' },
     },
     series: [
-      { name: '收盘', type: 'line', data: closes, smooth: true, lineStyle: { width: 1.5, color: '#0071e3' }, symbol: 'none', areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(0,113,227,0.12)' }, { offset: 1, color: 'rgba(0,113,227,0)' }] } } },
+      { name: '收盘', type: 'line', data: closes, smooth: true, lineStyle: { width: 1.5, color: '#0052ff' }, symbol: 'none', areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(0,82,255,0.12)' }, { offset: 1, color: 'rgba(0,82,255,0)' }] } } },
       { name: 'MA5', type: 'line', data: ma5, smooth: true, lineStyle: { width: 1, color: '#ff9f0a' }, symbol: 'none' },
       { name: 'MA20', type: 'line', data: ma20, smooth: true, lineStyle: { width: 1, color: '#34c759' }, symbol: 'none' },
     ],
@@ -149,7 +149,7 @@ onBeforeUnmount(() => { if (refreshTimer) clearInterval(refreshTimer); });
 
       <!-- Chart -->
       <div class="card" style="padding:16px;">
-        <div class="card-header" style="margin-bottom:12px;">
+        <div class="card-header mb-2">
           <h3>{{ activeIndexName }}</h3>
           <div class="tab-bar">
             <button v-for="p in ['1M','3M','1Y','3Y']" :key="p"
@@ -166,18 +166,18 @@ onBeforeUnmount(() => { if (refreshTimer) clearInterval(refreshTimer); });
         <div v-if="overview?.summary" class="card">
           <div class="card-header"><h3>市场概况</h3></div>
           <div class="stat-grid">
-            <div class="stat-item"><div class="stat-label">成交额</div><div class="stat-value" style="font-size:20px;">{{ formatCompactNumber(overview.summary.total_turnover) }}</div></div>
-            <div class="stat-item"><div class="stat-label">成交量</div><div class="stat-value" style="font-size:20px;">{{ formatCompactNumber(overview.summary.total_volume) }}</div></div>
-            <div class="stat-item"><div class="stat-label">涨停</div><div class="stat-value text-down" style="font-size:20px;">{{ overview.summary.limit_up }}</div></div>
-            <div class="stat-item"><div class="stat-label">跌停</div><div class="stat-value text-up" style="font-size:20px;">{{ overview.summary.limit_down }}</div></div>
+            <div class="stat-item"><div class="stat-label">成交额</div><div class="stat-value stat-value-sm">{{ formatCompactNumber(overview.summary.total_turnover) }}</div></div>
+            <div class="stat-item"><div class="stat-label">成交量</div><div class="stat-value stat-value-sm">{{ formatCompactNumber(overview.summary.total_volume) }}</div></div>
+            <div class="stat-item"><div class="stat-label">涨停</div><div class="stat-value text-down stat-value-sm">{{ overview.summary.limit_up }}</div></div>
+            <div class="stat-item"><div class="stat-label">跌停</div><div class="stat-value text-up stat-value-sm">{{ overview.summary.limit_down }}</div></div>
           </div>
         </div>
 
         <div class="card">
           <div class="card-header"><h3>系统状态</h3></div>
-          <div class="stat-item" style="margin-bottom:12px;">
+          <div class="stat-item mb-2">
             <div class="stat-label">Tushare API</div>
-            <div class="stat-value" style="font-size:20px;" :class="health === '正常' ? 'text-down' : health ? 'text-up' : ''">
+            <div class="stat-value stat-value-sm" :class="health === '正常' ? 'text-down' : health ? 'text-up' : ''">
               {{ health || '未检查' }}
             </div>
           </div>
@@ -187,7 +187,7 @@ onBeforeUnmount(() => { if (refreshTimer) clearInterval(refreshTimer); });
 
       <!-- Ranking -->
       <div class="card" style="padding:16px;">
-        <div class="card-header" style="margin-bottom:12px;">
+        <div class="card-header mb-2">
           <h3>涨跌排行</h3>
           <select v-model="rankingSort" class="form-select" style="width:auto;font-size:12px;" @change="loadAll">
             <option value="pct_change">涨跌幅</option>
@@ -199,7 +199,7 @@ onBeforeUnmount(() => { if (refreshTimer) clearInterval(refreshTimer); });
           <thead><tr><th>#</th><th>代码</th><th>名称</th><th>最新价</th><th>涨跌幅</th></tr></thead>
           <tbody>
             <tr v-for="(r, i) in ranking" :key="i" class="clickable" @click="router.push('/stock/' + r.ts_code)">
-              <td style="color:var(--text-tertiary);font-size:11px;">{{ i + 1 }}</td>
+              <td style="color:var(--cb-text-tertiary);font-size:11px;">{{ i + 1 }}</td>
               <td class="font-mono">{{ r.ts_code }}</td>
               <td class="font-bold">{{ r.name }}</td>
               <td class="font-mono">{{ (r as any).price ?? (r as any).close }}</td>
