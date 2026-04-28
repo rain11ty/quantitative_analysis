@@ -92,7 +92,11 @@ function closeMobile() { mobileOpen.value = false; }
     <!-- Page Content -->
     <div class="page-wrap">
       <ErrorBoundary>
-        <RouterView />
+        <RouterView v-slot="{ Component }">
+          <Transition name="page" mode="out-in">
+            <component :is="Component" />
+          </Transition>
+        </RouterView>
       </ErrorBoundary>
     </div>
 
