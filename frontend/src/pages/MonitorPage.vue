@@ -137,7 +137,7 @@ const indexOption = computed(() => {
           <thead><tr><th>#</th><th>股票</th><th>价格</th><th>涨跌幅</th></tr></thead>
           <tbody>
             <tr v-for="(r, i) in ranking" :key="i" class="clickable" @click="router.push('/stock/' + r.ts_code)">
-              <td style="color:var(--text-tertiary);font-size:11px;">{{ i + 1 }}</td>
+              <td style="color:var(--cb-text-tertiary);font-size:11px;">{{ i + 1 }}</td>
               <td class="font-mono" style="font-size:12px;">{{ r.symbol || r.ts_code }} <span class="font-bold">{{ r.name }}</span></td>
               <td class="font-mono" style="font-size:13px;">{{ r.price || r.close }}</td>
               <td :class="(r.pct_chg as number ?? 0) >= 0 ? 'text-down' : 'text-up'">{{ formatPercent(r.pct_chg) }}</td>

@@ -5,137 +5,101 @@ import MigrationPage from '../pages/MigrationPage.vue';
 import NotFoundPage from '../pages/NotFoundPage.vue';
 import ScreenPage from '../pages/ScreenPage.vue';
 import StockDetailPage from '../pages/StockDetailPage.vue';
+import StocksPage from '../pages/StocksPage.vue';
+import NewsPage from '../pages/NewsPage.vue';
+import BacktestPage from '../pages/BacktestPage.vue';
+import MonitorPage from '../pages/MonitorPage.vue';
+import AIAssistantPage from '../pages/AIAssistantPage.vue';
 
 const routes = [
   {
     path: '/',
     name: 'overview',
     component: HomePage,
-    meta: {
-      title: 'Overview',
-    },
+    meta: { title: '市场概览', legacyPath: '/' },
   },
   {
     path: '/stocks',
     name: 'stocks',
-    component: MigrationPage,
-    meta: {
-      title: 'Stocks',
-      summary: 'List page scaffold for stock search, filters, and market snapshots.',
-      legacyTemplate: 'app/templates/stocks.html',
-      apiGroups: ['/api/stocks', '/api/industries', '/api/areas', '/api/market/overview'],
-      priority: 'Phase 2',
-    },
+    component: StocksPage,
+    meta: { title: '股票列表', legacyPath: '/stocks' },
   },
   {
     path: '/stock/:tsCode',
     name: 'stock-detail',
     component: StockDetailPage,
     meta: {
-      title: 'Stock Detail',
-      summary: 'Primary candidate for component extraction, chart lifecycle cleanup, and watchlist UX.',
+      title: '股票详情',
+      legacyPath: '/stock/:ts_code',
       legacyTemplate: 'app/templates/stock_detail.html',
-      apiGroups: [
-        '/api/stocks/:tsCode',
-        '/api/stocks/:tsCode/realtime',
-        '/api/stocks/:tsCode/history',
-        '/api/stocks/:tsCode/factors',
-        '/api/stocks/:tsCode/moneyflow',
-        '/api/stocks/:tsCode/cyq',
-        '/api/watchlist/:tsCode',
-      ],
+      requiresAuth: true,
       priority: 'Phase 1',
     },
   },
   {
     path: '/monitor',
     name: 'monitor',
-    component: MigrationPage,
-    meta: {
-      title: 'Realtime Monitor',
-      summary: 'Best place to standardize polling, auto-refresh cleanup, and dashboard widgets.',
-      legacyTemplate: 'app/templates/realtime_monitor.html',
-      apiGroups: [
-        '/api/monitor/dashboard',
-        '/api/monitor/ranking',
-        '/api/monitor/stocks/:tsCode',
-        '/api/monitor/intraday/:tsCode',
-        '/api/monitor/shock',
-      ],
-      priority: 'Phase 1',
-    },
+    component: MonitorPage,
+    meta: { title: '实时监控', legacyPath: '/monitor' },
   },
   {
     path: '/ai-assistant',
     name: 'ai-assistant',
-    component: MigrationPage,
-    meta: {
-      title: 'AI Assistant',
-      summary: 'Conversation state, streaming responses, and history management belong in dedicated Vue modules.',
-      legacyTemplate: 'app/templates/ai_assistant.html',
-      apiGroups: [
-        '/api/ai/conversations',
-        '/api/ai/conversations/:id/messages',
-        '/api/ai/chat',
-        '/api/ai/status',
-      ],
-      priority: 'Phase 1',
-    },
+    component: AIAssistantPage,
+    meta: { title: 'AI 助手', legacyPath: '/ai-assistant', requiresAuth: true },
   },
   {
     path: '/screen',
     name: 'screen',
     component: ScreenPage,
     meta: {
-      title: 'Screen',
-      summary: 'Multi-factor stock screening with dynamic field comparisons, login-aware guidance, and result tables.',
+      title: '条件选股',
+      legacyPath: '/screen',
       legacyTemplate: 'app/templates/screen.html',
-      apiGroups: [
-        '/api/industries',
-        '/api/areas',
-        '/api/market/health',
-        '/api/analysis/screen',
-      ],
       priority: 'Phase 2',
     },
   },
   {
     path: '/backtest',
     name: 'backtest',
-    component: MigrationPage,
-    meta: {
-      title: 'Backtest',
-      summary: 'Strategy forms, result tables, and chart panels should reuse the same Vue data patterns.',
-      legacyTemplate: 'app/templates/backtest.html',
-      apiGroups: ['/api/analysis/backtest', '/api/user/backtests'],
-      priority: 'Phase 2',
-    },
+    component: BacktestPage,
+    meta: { title: '策略回测', legacyPath: '/backtest', requiresAuth: true },
   },
   {
     path: '/news',
     name: 'news',
-    component: MigrationPage,
-    meta: {
-      title: 'News',
-      summary: 'Lower-risk route for finishing the migration after core trading workflows are stable.',
-      legacyTemplate: 'app/templates/news.html',
-      apiGroups: ['/api/news', '/api/news/cjzc', '/api/news/global'],
-      priority: 'Phase 3',
-    },
+    component: NewsPage,
+    meta: { title: '新闻资讯', legacyPath: '/news' },
   },
   {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: NotFoundPage,
-    meta: {
-      title: 'Not Found',
-    },
+    meta: { title: '页面未找到' },
   },
-] as const;
+];
 
 const router = createRouter({
   history: createWebHistory('/app'),
   routes,
+  scrollBehavior() {
+    return { top: 0 };
+  },
+});
+
+router.beforeEach((to, _from) => {
+  const ctx = window.__QUANT_APP_CONTEXT__;
+  const isAuth = ctx?.auth?.isAuthenticated ?? false;
+
+  if (to.meta.requiresAuth && !isAuth) {
+    const loginPath = '/auth/login';
+    const next = to.fullPath;
+    return { path: loginPath, query: { next } };
+  }
+
+  if (to.meta.title && typeof to.meta.title === 'string') {
+    document.title = `${to.meta.title} - 量化分析系统`;
+  }
 });
 
 export default router;

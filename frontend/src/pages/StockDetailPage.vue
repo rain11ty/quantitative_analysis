@@ -167,7 +167,7 @@ const moneyflowDates = computed(() => moneyflowData.value.map(i => i.trade_date 
           <div class="text-xs text-muted" style="margin-bottom:4px;">Stock Detail</div>
           <h3 style="font-size:20px;font-weight:600;letter-spacing:-0.022em;">
             {{ stockInfo?.name || quote?.name || tsCode }}
-            <span style="font-size:14px;color:var(--text-tertiary);font-weight:400;">{{ stockInfo?.symbol || tsCode }}</span>
+            <span style="font-size:14px;color:var(--cb-text-tertiary);font-weight:400;">{{ stockInfo?.symbol || tsCode }}</span>
           </h3>
           <div v-if="stockInfo" class="text-xs text-muted mt-1">
             {{ stockInfo.industry || '--' }} · {{ stockInfo.area || '--' }} · 上市 {{ stockInfo.list_date || '--' }}

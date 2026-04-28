@@ -34,8 +34,8 @@ const equityOption = computed<EChartsOption>(() => {
   return {
     tooltip: { trigger: 'axis' },
     grid: { left: 60, right: 16, top: 12, bottom: 28 },
-    xAxis: { type: 'category', data: (trades as Record<string, unknown>[]).map(t => t.trade_date || ''), axisLabel: { fontSize: 10, color: 'rgba(0,0,0,0.48)' } },
-    yAxis: { type: 'value', splitLine: { lineStyle: { color: 'rgba(0,0,0,0.04)' } } },
+    xAxis: { type: 'category', data: (trades as Record<string, unknown>[]).map(t => t.trade_date || ''), axisLabel: { fontSize: 10, color: 'rgba(10,11,13,0.48)' } },
+    yAxis: { type: 'value', splitLine: { lineStyle: { color: 'rgba(10,11,13,0.04)' } } },
     series: [{ type: 'line', data: values, smooth: true, lineStyle: { color: '#0052ff', width: 1.5 }, symbol: 'none', areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(0,82,255,0.14)' }, { offset: 1, color: 'rgba(0,82,255,0)' }] } } }],
   };
 });
