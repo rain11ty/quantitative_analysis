@@ -129,6 +129,7 @@ class DailyAutoUpdater:
             inserted += len(batch)
         return inserted
 
+    @staticmethod
     def clean_nan(df):
         return df.replace({np.nan: None}).where(pd.notnull(df), None)
 

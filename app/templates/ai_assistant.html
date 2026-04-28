@@ -499,6 +499,58 @@ overscroll-behavior: contain;
 
 }
 
+.status-badge.is-loading {
+
+  background: #eff6ff;
+
+  color: #1d4ed8;
+
+}
+
+.status-badge.is-online {
+
+  background: #ecfdf5;
+
+  color: #047857;
+
+}
+
+.status-badge.is-configured {
+
+  background: #fffbeb;
+
+  color: #b45309;
+
+}
+
+.status-badge.is-error {
+
+  background: #fef2f2;
+
+  color: #b91c1c;
+
+}
+
+.model-badge {
+
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 0.45rem;
+
+  padding: 0.36rem 0.8rem;
+
+  border-radius: 999px;
+
+  background: #eff6ff;
+
+  color: #1d4ed8;
+
+  font-weight: 600;
+
+}
+
 .status-dot {
 
   width: 8px;
@@ -508,6 +560,94 @@ overscroll-behavior: contain;
   border-radius: 50%;
 
   background: currentColor;
+
+}
+
+.chat-header-actions {
+
+  display: flex;
+
+  align-items: flex-end;
+
+  justify-content: flex-end;
+
+  gap: 0.8rem;
+
+  flex-wrap: wrap;
+
+}
+
+.llm-selector-group {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 0.65rem;
+
+  flex-wrap: wrap;
+
+}
+
+.llm-select-wrap {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 0.3rem;
+
+  min-width: 148px;
+
+}
+
+.llm-select-label {
+
+  font-size: 0.72rem;
+
+  font-weight: 700;
+
+  color: #64748b;
+
+}
+
+.llm-select {
+
+  min-height: 38px;
+
+  border: 1px solid rgba(203, 213, 225, 0.95);
+
+  border-radius: 12px;
+
+  background: #ffffff;
+
+  color: #0f172a;
+
+  padding: 0.55rem 0.8rem;
+
+  font-size: 0.88rem;
+
+  outline: none;
+
+  transition: var(--transition-smooth);
+
+}
+
+.llm-select:focus {
+
+  border-color: rgba(59, 130, 246, 0.45);
+
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+
+}
+
+.llm-select:disabled {
+
+  background: #f8fafc;
+
+  color: #94a3b8;
+
+  cursor: not-allowed;
 
 }
 
@@ -1061,6 +1201,36 @@ overscroll-behavior: contain;
 
   }
 
+  .chat-header {
+
+    flex-direction: column;
+
+    align-items: flex-start;
+
+  }
+
+  .chat-header-actions {
+
+    width: 100%;
+
+    justify-content: space-between;
+
+    align-items: stretch;
+
+  }
+
+  .llm-selector-group {
+
+    width: 100%;
+
+  }
+
+  .llm-select-wrap {
+
+    flex: 1 1 160px;
+
+  }
+
   .toolbar-badges,
 
   .suggestion-list {
@@ -1196,7 +1366,9 @@ overscroll-behavior: contain;
 
         <div class="chat-meta">
 
-          <span class="status-badge"><span class="status-dot"></span>实时流式回复已启用</span>
+          <span class="model-badge" id="selected-llm-summary">Loading model...</span>
+
+          <span class="status-badge is-loading" id="llm-service-status"><span class="status-dot"></span>正在检测模型状态...</span>
 
           <span id="current-conversation-meta">选择历史对话或开始新的提问</span>
 
@@ -1204,11 +1376,35 @@ overscroll-behavior: contain;
 
       </div>
 
-      <div class="d-flex gap-2 flex-wrap">
+      <div class="chat-header-actions">
+
+        <div class="llm-selector-group">
+
+          <label class="llm-select-wrap" for="provider-select">
+
+            <span class="llm-select-label">Provider</span>
+
+            <select id="provider-select" class="llm-select"></select>
+
+          </label>
+
+          <label class="llm-select-wrap" for="model-select">
+
+            <span class="llm-select-label">Model</span>
+
+            <select id="model-select" class="llm-select"></select>
+
+          </label>
+
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
 
         <button id="rename-conversation-btn" type="button" class="btn btn-light">重命名</button>
 
         <button id="delete-conversation-btn" type="button" class="btn btn-outline-danger">删除对话</button>
+
+        </div>
 
       </div>
 
@@ -1262,6 +1458,10 @@ overscroll-behavior: contain;
 
 <script>
 
+const llmOptions = {{ (llm_options or {}) | tojson }};
+
+const LLM_SELECTION_STORAGE_KEY = 'ai-assistant-llm-selection-v1';
+
 const state = {
 
   conversations: [],
@@ -1273,6 +1473,13 @@ const state = {
   isSending: false,
 
   searchKeyword: '',
+
+  llm: {
+    provider: llmOptions.default_provider || '',
+    model: llmOptions.default_model || '',
+  },
+
+  llmStatusRequestId: 0,
 
 };
 
@@ -1296,6 +1503,10 @@ const currentConversationTitleEl = document.getElementById('current-conversation
 
 const currentConversationMetaEl = document.getElementById('current-conversation-meta');
 
+const selectedLlmSummaryEl = document.getElementById('selected-llm-summary');
+
+const llmServiceStatusEl = document.getElementById('llm-service-status');
+
 const renameConversationBtn = document.getElementById('rename-conversation-btn');
 
 const deleteConversationBtn = document.getElementById('delete-conversation-btn');
@@ -1304,9 +1515,325 @@ const resetDraftBtn = document.getElementById('reset-draft-btn');
 
 const conversationSearchInput = document.getElementById('conversation-search');
 
+const providerSelect = document.getElementById('provider-select');
+
+const modelSelect = document.getElementById('model-select');
+
 
 
 marked.setOptions({ breaks: true, gfm: true });
+
+
+
+function getProviderOptions() {
+
+  return Array.isArray(llmOptions.providers) ? llmOptions.providers : [];
+
+}
+
+
+
+function getProviderOption(provider) {
+
+  return getProviderOptions().find(item => item.value === provider) || null;
+
+}
+
+
+
+function getModelOptions(provider) {
+
+  return getProviderOption(provider)?.models || [];
+
+}
+
+
+
+function normalizeLlmSelection(selection = {}) {
+
+  const providers = getProviderOptions();
+
+  if (!providers.length) {
+
+    return { provider: '', model: '' };
+
+  }
+
+
+
+  const fallbackProvider = providers.find(item => item.value === llmOptions.default_provider)?.value || providers[0].value;
+
+  const requestedProvider = selection.provider || fallbackProvider;
+
+  const provider = getProviderOption(requestedProvider)?.value || fallbackProvider;
+
+  const modelOptions = getModelOptions(provider);
+
+  const fallbackModel = getProviderOption(provider)?.default_model || modelOptions[0]?.value || '';
+
+  const requestedModel = selection.model || fallbackModel;
+
+  const model = modelOptions.find(item => item.value === requestedModel)?.value || fallbackModel;
+
+  return { provider, model };
+
+}
+
+
+
+function persistLlmSelection() {
+
+  try {
+
+    localStorage.setItem(LLM_SELECTION_STORAGE_KEY, JSON.stringify(state.llm));
+
+  } catch (error) {
+
+    console.warn('Failed to persist llm selection:', error);
+
+  }
+
+}
+
+
+
+function renderLlmSummary() {
+
+  if (!selectedLlmSummaryEl) return;
+
+  const providerOption = getProviderOption(state.llm.provider);
+
+  if (!providerOption || !state.llm.model) {
+
+    selectedLlmSummaryEl.textContent = 'Model unavailable';
+
+    return;
+
+  }
+
+
+
+  selectedLlmSummaryEl.textContent = `${providerOption.label} / ${state.llm.model}`;
+
+}
+
+
+
+function getLlmStatusBadgeClass(status) {
+
+  if (status === 'online') return 'is-online';
+
+  if (status === 'configured') return 'is-configured';
+
+  if (status === 'offline' || status === 'error' || status === 'model_not_found') return 'is-error';
+
+  return 'is-loading';
+
+}
+
+
+
+function renderLlmStatus(statusInfo = {}) {
+
+  if (!llmServiceStatusEl) return;
+
+  const providerLabel = statusInfo.llm?.provider_label
+    || statusInfo.provider_label
+    || getProviderOption(statusInfo.provider || state.llm.provider)?.label
+    || '模型服务';
+
+  const status = statusInfo.status || 'loading';
+  let text = statusInfo.message || `正在检测 ${providerLabel}...`;
+
+  if (status === 'online') {
+
+    text = `${providerLabel} 已连接`;
+
+  } else if (status === 'configured') {
+
+    text = `${providerLabel} 已配置`;
+
+  } else if (status === 'model_not_found') {
+
+    text = `${providerLabel} 未找到模型`;
+
+  } else if (status === 'offline') {
+
+    text = `${providerLabel} 无法连接`;
+
+  } else if (status === 'error') {
+
+    text = `${providerLabel} 状态异常`;
+
+  }
+
+
+
+  llmServiceStatusEl.className = `status-badge ${getLlmStatusBadgeClass(status)}`;
+  llmServiceStatusEl.innerHTML = `<span class="status-dot"></span>${escapeHtml(text)}`;
+  llmServiceStatusEl.title = statusInfo.message || text;
+
+}
+
+
+
+async function refreshLlmStatus() {
+
+  if (!state.llm.provider || !state.llm.model) {
+
+    renderLlmStatus({
+      status: 'error',
+      message: '当前没有可用模型，请先检查 AI 提供方配置。',
+    });
+
+    return;
+
+  }
+
+
+
+  const requestId = ++state.llmStatusRequestId;
+  const providerLabel = getProviderOption(state.llm.provider)?.label || '模型服务';
+
+  renderLlmStatus({
+    status: 'loading',
+    message: `正在检测 ${providerLabel} / ${state.llm.model}...`,
+  });
+
+  try {
+
+    const params = new URLSearchParams({
+      provider: state.llm.provider,
+      model: state.llm.model,
+    });
+
+    const response = await fetch(`/api/ai/status?${params.toString()}`, {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    });
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (requestId !== state.llmStatusRequestId) {
+
+      return;
+
+    }
+
+
+
+    if (!response.ok || payload.code !== 200) {
+
+      throw new Error(payload.message || '模型状态检测失败');
+
+    }
+
+
+
+    renderLlmStatus(payload.data || {});
+
+  } catch (error) {
+
+    if (requestId !== state.llmStatusRequestId) {
+
+      return;
+
+    }
+
+
+
+    renderLlmStatus({
+      status: 'error',
+      message: error?.message || `检测 ${providerLabel} 状态失败`,
+    });
+
+  }
+
+}
+
+
+
+function renderProviderOptions() {
+
+  if (!providerSelect) return;
+
+  providerSelect.innerHTML = getProviderOptions().map(item => `
+
+    <option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>
+
+  `).join('');
+
+  providerSelect.value = state.llm.provider;
+
+}
+
+
+
+function renderModelOptions() {
+
+  if (!modelSelect) return;
+
+  const models = getModelOptions(state.llm.provider);
+
+  modelSelect.innerHTML = models.map(item => `
+
+    <option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>
+
+  `).join('');
+
+  modelSelect.value = state.llm.model;
+
+}
+
+
+
+function syncLlmSelection(selection = {}, { persist = true } = {}) {
+
+  state.llm = normalizeLlmSelection({
+    provider: selection.provider ?? state.llm.provider,
+    model: selection.model ?? state.llm.model,
+  });
+
+  renderProviderOptions();
+
+  renderModelOptions();
+
+  renderLlmSummary();
+
+  if (persist) {
+
+    persistLlmSelection();
+
+  }
+
+}
+
+
+
+function restoreLlmSelection() {
+
+  try {
+
+    const rawValue = localStorage.getItem(LLM_SELECTION_STORAGE_KEY);
+
+    if (rawValue) {
+
+      syncLlmSelection(JSON.parse(rawValue), { persist: false });
+
+      return;
+
+    }
+
+  } catch (error) {
+
+    console.warn('Failed to restore llm selection:', error);
+
+  }
+
+
+
+  syncLlmSelection(state.llm, { persist: false });
+
+}
 
 
 
@@ -1415,6 +1942,10 @@ function setComposerDisabled(disabled) {
   sendBtn.disabled = disabled;
 
   newConversationBtn.disabled = disabled;
+
+  providerSelect.disabled = disabled || getProviderOptions().length <= 1;
+
+  modelSelect.disabled = disabled || getModelOptions(state.llm.provider).length <= 1;
 
 }
 
@@ -1806,6 +2337,32 @@ function updateAssistantDraft(conversationId, messageId, content, status = 'stre
 
 
 
+function buildChatRequestPayload(question, conversationId, stream) {
+
+  const payload = {
+    question,
+    conversation_id: conversationId,
+    stream,
+  };
+
+  if (state.llm.provider) {
+
+    payload.provider = state.llm.provider;
+
+  }
+
+  if (state.llm.model) {
+
+    payload.model = state.llm.model;
+
+  }
+
+  return payload;
+
+}
+
+
+
 async function loadConversations(preferredConversationId = null) {
 
   conversationListEl.innerHTML = '<div class="loading-inline">正在加载对话列表...</div>';
@@ -2016,7 +2573,7 @@ async function requestNormalAnswer(question, conversationId) {
 
     headers: { 'Content-Type': 'application/json' },
 
-    body: JSON.stringify({ question, conversation_id: conversationId, stream: false })
+    body: JSON.stringify(buildChatRequestPayload(question, conversationId, false))
 
   });
 
@@ -2096,7 +2653,7 @@ async function sendMessage(event) {
 
       headers: { 'Content-Type': 'application/json' },
 
-      body: JSON.stringify({ question, conversation_id: conversationId, stream: true })
+      body: JSON.stringify(buildChatRequestPayload(question, conversationId, true))
 
     });
 
@@ -2157,6 +2714,12 @@ async function sendMessage(event) {
         if (payload.error) {
 
           throw new Error(payload.error);
+
+        }
+
+        if (payload.llm) {
+
+          syncLlmSelection(payload.llm);
 
         }
 
@@ -2223,6 +2786,12 @@ async function sendMessage(event) {
     if (!fullContent.trim() && !streamInitialized) {
 
       const fallback = await requestNormalAnswer(question, conversationId);
+
+      if (fallback.llm) {
+
+        syncLlmSelection(fallback.llm);
+
+      }
 
       if (fallback.conversation) {
 
@@ -2390,6 +2959,33 @@ resetDraftBtn.addEventListener('click', () => {
 
 
 
+providerSelect.addEventListener('change', event => {
+
+  syncLlmSelection({
+    provider: event.target.value,
+    model: getProviderOption(event.target.value)?.default_model || '',
+  });
+
+  setComposerDisabled(state.isSending);
+
+  refreshLlmStatus();
+
+});
+
+
+
+modelSelect.addEventListener('change', event => {
+
+  syncLlmSelection({ model: event.target.value });
+
+  setComposerDisabled(state.isSending);
+
+  refreshLlmStatus();
+
+});
+
+
+
 conversationSearchInput.addEventListener('input', event => {
 
   state.searchKeyword = (event.target.value || '').trim();
@@ -2422,9 +3018,15 @@ chatForm.addEventListener('submit', sendMessage);
 
 document.addEventListener('DOMContentLoaded', async () => {
 
+  restoreLlmSelection();
+
   autosizeTextarea();
 
   renderConversationHeader();
+
+  setComposerDisabled(false);
+
+  refreshLlmStatus();
 
   await loadConversations();
 

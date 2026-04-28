@@ -160,7 +160,7 @@ Flask 应用
 
 ### 5.3 AI 与邮件
 
-- LLM：`deepseek`、`openai`、`ollama` 三类兼容配置
+- LLM：`deepseek`、`qwen`、`openai`、`ollama` 四类兼容配置
 - 邮件：Resend SMTP 风格配置，由 `email_service.py` 负责验证码流程
 
 ## 6. 当前文档应该怎样理解

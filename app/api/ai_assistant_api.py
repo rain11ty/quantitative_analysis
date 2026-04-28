@@ -175,6 +175,8 @@ def ai_chat():
         question = (data.get('question') or '').strip()
         conversation_id = data.get('conversation_id')
         stream = bool(data.get('stream', False))
+        provider = (data.get('provider') or '').strip().lower() or None
+        model = (data.get('model') or '').strip() or None
 
         if not question:
             return jsonify({'code': 400, 'message': '\u8bf7\u6c42\u53c2\u6570\u9519\u8bef\uff0cquestion \u4e0d\u80fd\u4e3a\u7a7a', 'data': None}), 400
@@ -186,6 +188,12 @@ def ai_chat():
         elif not isinstance(conversation_id, int):
             return jsonify({'code': 400, 'message': 'conversation_id \u53c2\u6570\u65e0\u6548', 'data': None}), 400
 
+        try:
+            llm = LLMService(provider=provider, model=model)
+            llm_runtime = llm.get_runtime_config()
+        except ValueError as exc:
+            return jsonify({'code': 400, 'message': str(exc), 'data': None}), 400
+
         conversation, user_message = AIConversationService.prepare_conversation_for_question(
             current_user_id,
             question,
@@ -194,7 +202,6 @@ def ai_chat():
         conversation_id = conversation.id
         user_message_id = user_message.id
         llm_messages = AIConversationService.build_messages_for_llm_by_id(current_user_id, conversation_id)
-        llm = LLMService()
 
         if stream:
             assistant_message = AIConversationService.create_streaming_reply_placeholder(conversation_id)
@@ -203,6 +210,7 @@ def ai_chat():
                 'conversation': AIConversationService.require_conversation(current_user_id, conversation_id).to_dict(),
                 'user_message': AIConversationService.require_message(user_message_id, conversation_id=conversation_id).to_dict(),
                 'assistant_message': AIConversationService.require_message(assistant_message_id, conversation_id=conversation_id).to_dict(),
+                'llm': llm_runtime,
             }
 
             def generate():
@@ -219,7 +227,7 @@ def ai_chat():
                         full_answer += chunk
                         chunk_index += 1
                         AIConversationService.persist_stream_chunk(conversation_id, assistant_message_id, full_answer, chunk_index)
-                        yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
+                        yield f"data: {json.dumps({'content': chunk, 'llm': llm_runtime}, ensure_ascii=False)}\n\n"
 
                     AIConversationService.finalize_assistant_reply(conversation_id, assistant_message_id, full_answer)
                     try:
@@ -234,7 +242,7 @@ def ai_chat():
                         assistant_message_id,
                         conversation_id=conversation_id,
                     )
-                    yield f"data: {json.dumps({'done': True, 'conversation': latest_conversation.to_dict(), 'assistant_message': latest_assistant_message.to_dict()}, ensure_ascii=False)}\n\n"
+                    yield f"data: {json.dumps({'done': True, 'conversation': latest_conversation.to_dict(), 'assistant_message': latest_assistant_message.to_dict(), 'llm': llm_runtime}, ensure_ascii=False)}\n\n"
                 except Exception as exc:
                     try:
                         AIConversationService.mark_stream_failed(conversation_id, assistant_message_id, full_answer)
@@ -278,6 +286,7 @@ def ai_chat():
                 'conversation': latest_conversation.to_dict(),
                 'user_message': latest_user_message.to_dict(),
                 'assistant_message': latest_assistant_message.to_dict(),
+                'llm': llm_runtime,
             }
         })
     except ValueError as exc:
@@ -292,8 +301,20 @@ def ai_chat():
 @api_bp.route('/ai/status', methods=['GET'])
 @api_error_handler(default_message='检测AI服务状态失败')
 def ai_status():
-    llm = LLMService()
+    provider = (request.args.get('provider') or '').strip().lower() or None
+    model = (request.args.get('model') or '').strip() or None
+
+    try:
+        llm = LLMService(provider=provider, model=model)
+        llm_runtime = llm.get_runtime_config()
+    except ValueError as exc:
+        return jsonify({'code': 400, 'message': str(exc), 'data': None}), 400
+
     status = llm.check_service_status()
+    status.setdefault('provider', llm_runtime['provider'])
+    status.setdefault('provider_label', llm_runtime['provider_label'])
+    status.setdefault('target_model', llm_runtime['model'])
+    status['llm'] = llm_runtime
     return jsonify({
         'code': 200,
         'message': '\u6210\u529f',

@@ -12,19 +12,122 @@ from flask import current_app
 
 logger = logging.getLogger(__name__)
 
+OPENAI_COMPATIBLE_PROVIDERS = {
+    'openai': 'OpenAI',
+    'deepseek': 'DeepSeek',
+    'qwen': 'Qwen',
+}
+
+OLLAMA_PROVIDER = 'ollama'
+SUPPORTED_PROVIDERS = (OLLAMA_PROVIDER, *OPENAI_COMPATIBLE_PROVIDERS.keys())
+PROVIDER_LABELS = {
+    OLLAMA_PROVIDER: 'Ollama',
+    **OPENAI_COMPATIBLE_PROVIDERS,
+}
+
 
 class LLMService:
     """大模型服务"""
     
-    def __init__(self):
+    def __init__(self, provider: str | None = None, model: str | None = None):
         self.config = current_app.config.get('LLM_CONFIG', {})
-        self.provider = self.config.get('provider', 'ollama')
+        self.default_provider = self._normalize_provider(self.config.get('provider')) or OLLAMA_PROVIDER
+        self.provider = self._normalize_provider(provider) or self.default_provider
+        self.model_override = (model or '').strip() or None
+
+    @staticmethod
+    def _normalize_provider(provider: str | None) -> str | None:
+        if provider is None:
+            return None
+        normalized = str(provider).strip().lower()
+        return normalized or None
+
+    def _resolve_provider(self) -> str:
+        provider = self.provider or self.default_provider
+        if provider not in SUPPORTED_PROVIDERS:
+            raise ValueError(f'Unsupported LLM provider: {provider}')
+        return provider
+
+    def _get_provider_config(self, provider: str | None = None) -> Dict[str, Any]:
+        provider_key = provider or self._resolve_provider()
+        return self.config.get(provider_key, {})
+
+    def _get_provider_label(self, provider: str | None = None) -> str:
+        provider_key = provider or self._resolve_provider()
+        return PROVIDER_LABELS.get(provider_key, provider_key.title())
 
     def _get_compatible_provider(self):
-        provider = self.provider if self.provider in ('openai', 'deepseek') else 'openai'
-        provider_config = self.config.get(provider, {})
-        provider_label = 'DeepSeek' if provider == 'deepseek' else 'OpenAI'
+        provider = self._resolve_provider()
+        if provider not in OPENAI_COMPATIBLE_PROVIDERS:
+            raise ValueError(f'Provider {provider} is not OpenAI compatible')
+        provider_config = self._get_provider_config(provider)
+        provider_label = self._get_provider_label(provider)
         return provider, provider_label, provider_config
+
+    def get_effective_model(self, provider: str | None = None) -> str:
+        provider_key = provider or self._resolve_provider()
+        provider_config = self._get_provider_config(provider_key)
+        model = self.model_override or provider_config.get('model')
+        if not model:
+            raise ValueError(f'No model configured for provider: {provider_key}')
+        return model
+
+    def get_runtime_config(self) -> Dict[str, str]:
+        provider = self._resolve_provider()
+        return {
+            'provider': provider,
+            'provider_label': self._get_provider_label(provider),
+            'model': self.get_effective_model(provider),
+        }
+
+    def _provider_is_selectable(self, provider: str) -> bool:
+        if provider == OLLAMA_PROVIDER:
+            return True
+        provider_config = self._get_provider_config(provider)
+        return bool(provider_config.get('api_key'))
+
+    def get_frontend_options(self) -> Dict[str, Any]:
+        providers = []
+
+        for provider in SUPPORTED_PROVIDERS:
+            provider_config = self._get_provider_config(provider)
+            if not self._provider_is_selectable(provider) and provider != self.default_provider:
+                continue
+
+            configured_model = provider_config.get('model')
+            available_models = list(provider_config.get('available_models') or [])
+            if configured_model and configured_model not in available_models:
+                available_models.insert(0, configured_model)
+
+            available_models = [model for model in available_models if model]
+            if not available_models:
+                continue
+
+            providers.append({
+                'value': provider,
+                'label': self._get_provider_label(provider),
+                'default_model': configured_model or available_models[0],
+                'models': [
+                    {'value': model, 'label': model}
+                    for model in available_models
+                ],
+            })
+
+        default_provider = self.default_provider
+        if providers and default_provider not in {item['value'] for item in providers}:
+            default_provider = providers[0]['value']
+
+        default_model = ''
+        for provider in providers:
+            if provider['value'] == default_provider:
+                default_model = provider['default_model']
+                break
+
+        return {
+            'default_provider': default_provider,
+            'default_model': default_model,
+            'providers': providers,
+        }
 
     def chat_completion(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
         """聊天完成接口"""
@@ -32,12 +135,13 @@ class LLMService:
             request_kwargs = dict(kwargs)
             request_kwargs.pop('stream', None)
 
-            if self.provider == 'ollama':
+            provider = self._resolve_provider()
+            if provider == OLLAMA_PROVIDER:
                 return self._ollama_chat(messages, **request_kwargs)
-            if self.provider in ('openai', 'deepseek'):
+            if provider in OPENAI_COMPATIBLE_PROVIDERS:
                 return self._openai_chat(messages, **request_kwargs)
 
-            raise ValueError(f"不支持的大模型提供商: {self.provider}")
+            raise ValueError(f"不支持的大模型提供商: {provider}")
         except Exception as e:
             logger.error(f"大模型调用失败: {e}")
             return {
@@ -52,14 +156,15 @@ class LLMService:
         request_kwargs.pop('stream', None)
 
         try:
-            if self.provider == 'ollama':
+            provider = self._resolve_provider()
+            if provider == OLLAMA_PROVIDER:
                 yield from self._ollama_stream_chat(messages, **request_kwargs)
                 return
-            if self.provider in ('openai', 'deepseek'):
+            if provider in OPENAI_COMPATIBLE_PROVIDERS:
                 yield from self._openai_stream_chat(messages, **request_kwargs)
                 return
 
-            raise ValueError(f"不支持的大模型提供商: {self.provider}")
+            raise ValueError(f"不支持的大模型提供商: {provider}")
         except Exception as e:
             logger.error(f"大模型流式调用失败: {e}")
             raise
@@ -68,7 +173,7 @@ class LLMService:
         """Ollama聊天接口"""
         ollama_config = self.config.get('ollama', {})
         base_url = ollama_config.get('base_url', 'http://localhost:11434')
-        model = ollama_config.get('model', 'qwen2.5-coder:latest')
+        model = self.get_effective_model(OLLAMA_PROVIDER)
         
         # 构建请求数据
         data = {
@@ -126,7 +231,7 @@ class LLMService:
         """Ollama 流式聊天接口"""
         ollama_config = self.config.get('ollama', {})
         base_url = ollama_config.get('base_url', 'http://localhost:11434')
-        model = ollama_config.get('model', 'qwen2.5-coder:latest')
+        model = self.get_effective_model(OLLAMA_PROVIDER)
 
         data = {
             'model': model,
@@ -167,8 +272,8 @@ class LLMService:
             raise RuntimeError(f"Ollama调用异常: {str(exc)}") from exc
     
     def _openai_chat(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
-        """OpenAI兼容聊天接口（支持 DeepSeek）"""
-        _, provider_label, provider_config = self._get_compatible_provider()
+        """OpenAI兼容聊天接口（支持 DeepSeek / Qwen）"""
+        provider, provider_label, provider_config = self._get_compatible_provider()
         api_key = provider_config.get('api_key')
 
         if not api_key:
@@ -179,7 +284,7 @@ class LLMService:
             }
 
         base_url = (provider_config.get('base_url') or 'https://api.openai.com/v1').rstrip('/')
-        model = provider_config.get('model', 'gpt-3.5-turbo')
+        model = self.get_effective_model(provider)
 
         headers = {
             'Authorization': f'Bearer {api_key}',
@@ -208,7 +313,7 @@ class LLMService:
                     'content': result['choices'][0]['message']['content'],
                     'model': model,
                     'usage': result.get('usage', {}),
-                    'provider': provider_label.lower()
+                    'provider': provider
                 }
             else:
                 return {
@@ -225,15 +330,15 @@ class LLMService:
             }
 
     def _openai_stream_chat(self, messages: List[Dict[str, str]], **kwargs) -> Iterator[str]:
-        """OpenAI 兼容流式聊天接口（支持 DeepSeek）"""
-        _, provider_label, provider_config = self._get_compatible_provider()
+        """OpenAI 兼容流式聊天接口（支持 DeepSeek / Qwen）"""
+        provider, provider_label, provider_config = self._get_compatible_provider()
         api_key = provider_config.get('api_key')
 
         if not api_key:
             raise RuntimeError(f"{provider_label} API密钥未配置")
 
         base_url = (provider_config.get('base_url') or 'https://api.openai.com/v1').rstrip('/')
-        model = provider_config.get('model', 'gpt-3.5-turbo')
+        model = self.get_effective_model(provider)
         headers = {
             'Authorization': f'Bearer {api_key}',
             'Content-Type': 'application/json'
@@ -407,14 +512,15 @@ stock_moneyflow表 (资金流向):
     
     def check_service_status(self) -> Dict[str, Any]:
         """检查大模型服务状态"""
-        if self.provider == 'ollama':
+        provider = self._resolve_provider()
+        if provider == OLLAMA_PROVIDER:
             return self._check_ollama_status()
-        elif self.provider in ('openai', 'deepseek'):
+        elif provider in OPENAI_COMPATIBLE_PROVIDERS:
             return self._check_openai_status()
         else:
             return {
                 'status': 'error',
-                'message': f'不支持的提供商: {self.provider}'
+                'message': f'不支持的提供商: {provider}'
             }
 
     
@@ -428,7 +534,7 @@ stock_moneyflow表 (资金流向):
             
             if response.status_code == 200:
                 models = response.json().get('models', [])
-                target_model = ollama_config.get('model', 'qwen2.5-coder:latest')
+                target_model = self.get_effective_model(OLLAMA_PROVIDER)
                 
                 model_available = any(model.get('name') == target_model for model in models)
                 
@@ -456,8 +562,8 @@ stock_moneyflow表 (资金流向):
             }
     
     def _check_openai_status(self) -> Dict[str, Any]:
-        """检查 OpenAI 兼容服务状态（支持 DeepSeek）"""
-        _, provider_label, provider_config = self._get_compatible_provider()
+        """检查 OpenAI 兼容服务状态（支持 DeepSeek / Qwen）"""
+        provider, provider_label, provider_config = self._get_compatible_provider()
         api_key = provider_config.get('api_key')
 
         if not api_key:
@@ -467,7 +573,7 @@ stock_moneyflow表 (资金流向):
             }
 
         base_url = (provider_config.get('base_url') or 'https://api.openai.com/v1').rstrip('/')
-        target_model = provider_config.get('model', 'gpt-3.5-turbo')
+        target_model = self.get_effective_model(provider)
         headers = {
             'Authorization': f'Bearer {api_key}',
             'Content-Type': 'application/json'
@@ -489,28 +595,36 @@ stock_moneyflow表 (资金流向):
                     'message': f'{provider_label}服务正常，模型{"可用" if model_available else "不可用"}',
                     'models': models,
                     'target_model': target_model,
-                    'provider': provider_label.lower()
+                    'provider': provider
+                }
+
+            if provider == 'qwen' and response.status_code in (404, 405):
+                return {
+                    'status': 'configured',
+                    'message': 'Qwen 已完成配置，兼容模式未开放模型列表接口；将在首次对话时验证聊天接口。',
+                    'target_model': target_model,
+                    'provider': provider
                 }
 
             return {
                 'status': 'error',
                 'message': f'{provider_label}服务响应异常: {response.status_code}',
                 'target_model': target_model,
-                'provider': provider_label.lower()
+                'provider': provider
             }
         except requests.exceptions.ConnectionError:
             return {
                 'status': 'offline',
                 'message': f'{provider_label}服务无法连接',
                 'target_model': target_model,
-                'provider': provider_label.lower()
+                'provider': provider
             }
         except Exception as e:
             return {
                 'status': 'error',
                 'message': f'检查{provider_label}状态失败: {str(e)}',
                 'target_model': target_model,
-                'provider': provider_label.lower()
+                'provider': provider
             }
 
 

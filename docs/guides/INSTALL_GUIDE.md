@@ -8,7 +8,7 @@
 - MySQL `8.x`
 - Redis `可选`
 - Tushare Token `推荐准备`
-- DeepSeek / OpenAI / Ollama `至少一种 AI 提供方，若要使用 AI 助手`
+- DeepSeek / Qwen / OpenAI / Ollama `至少一种 AI 提供方，若要使用 AI 助手`
 
 ## 2. 安装依赖
 
@@ -39,7 +39,7 @@ copy .env.example .env
 如果要启用行情与 AI：
 
 - `TUSHARE_TOKEN`
-- `DEEPSEEK_API_KEY` 或 `OPENAI_API_KEY`
+- `DEEPSEEK_API_KEY` 或 `DASHSCOPE_API_KEY` 或 `OPENAI_API_KEY`
 
 如果要启用 Redis 缓存：
 
@@ -98,7 +98,7 @@ Redis 不是强制依赖。
 
 ### AI 服务
 
-默认推荐 `DeepSeek`。如果未配置 API key，可以改用 `Ollama` 本地模型，但 AI 助手页面必须有可用提供方才具备完整能力。
+默认推荐 `DeepSeek`。如果你准备接入通义千问，请设置 `LLM_PROVIDER=qwen` 并配置 `DASHSCOPE_API_KEY`；如果未配置云端 API key，也可以改用 `Ollama` 本地模型，但 AI 助手页面必须有可用提供方才具备完整能力。
 
 ## 7. 首次启动后的建议检查
 

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from flask import render_template, request, redirect, url_for
 from app.main import main_bp
+from app.services.llm_service import LLMService
 from app.services.stock_service import StockService
 
 @main_bp.route('/')
@@ -36,7 +37,10 @@ def backtest():
 @main_bp.route('/ai-assistant')
 def ai_assistant():
     """AI智能助手页面"""
-    return render_template('ai_assistant.html')
+    return render_template(
+        'ai_assistant.html',
+        llm_options=LLMService().get_frontend_options(),
+    )
 
 
 @main_bp.route('/news')
