@@ -9,7 +9,7 @@ onErrorCaptured((err: Error) => { hasError.value = true; errorMessage.value = er
   <div v-if="hasError" style="text-align:center;padding:64px 24px;">
     <div style="font-size:48px;margin-bottom:12px;opacity:.3;">!</div>
     <h4 style="margin-bottom:8px;">渲染异常</h4>
-    <p style="color:var(--text-tertiary);font-size:13px;margin-bottom:16px;">{{ errorMessage }}</p>
+    <p style="color:var(--cb-text-tertiary);font-size:13px;margin-bottom:16px;">{{ errorMessage }}</p>
     <button class="btn btn-primary" @click="hasError = false">重试</button>
   </div>
   <slot v-else />
