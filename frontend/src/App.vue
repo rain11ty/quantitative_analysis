@@ -43,7 +43,7 @@ function closeMobile() { mobileOpen.value = false; }
     <nav class="nav-bar">
       <div class="nav-inner">
         <RouterLink to="/" class="nav-brand" @click="closeMobile">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--cb-blue);color:#fff;font-size:14px;font-weight:700;font-family:var(--cb-font-sans);">Q</span>
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:14px;font-weight:700;font-family:var(--font-sans);">Q</span>
           Quant
         </RouterLink>
 

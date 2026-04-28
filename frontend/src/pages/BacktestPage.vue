@@ -75,7 +75,7 @@ onMounted(loadHistory);
         <div class="form-group" style="position:relative;">
           <label class="form-label">股票</label>
           <input v-model="stockQuery" class="form-input" placeholder="搜索代码/名称" @focus="showDropdown = stockResults.length > 0" @blur="hideDropdown()" />
-          <div v-if="showDropdown" style="position:absolute;top:100%;left:0;right:0;z-index:10;background:var(--cb-white);border:1px solid var(--cb-border);border-radius:var(--cb-radius-lg);max-height:180px;overflow-y:auto;box-shadow:var(--cb-shadow-sm);">
+          <div v-if="showDropdown" style="position:absolute;top:100%;left:0;right:0;z-index:10;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);max-height:180px;overflow-y:auto;box-shadow:var(--shadow-sm);">
             <div v-for="s in stockResults" :key="s.ts_code" style="padding:8px 12px;cursor:pointer;font-size:13px;" @mousedown.prevent="selectStock(s)">{{ s.symbol || s.ts_code }} - {{ s.name }}</div>
           </div>
           <span v-if="selectedStock" class="text-xs text-down" style="margin-top:4px;">已选: {{ selectedStock.ts_code }} {{ selectedStock.name }}</span>

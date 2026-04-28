@@ -76,35 +76,35 @@ function useSuggestion(s: string) { inputText.value = s; sendMessage(); }
 </script>
 
 <template>
-  <div style="display:flex;gap:0;height:calc(100vh - 160px);border-radius:var(--cb-radius-xl);overflow:hidden;border:1px solid var(--cb-border);background:var(--cb-white);">
-    <div style="width:240px;min-width:240px;border-right:1px solid var(--cb-border);display:flex;flex-direction:column;background:var(--cb-gray);">
+  <div style="display:flex;gap:0;height:calc(100vh - 160px);border-radius:var(--radius-xl);overflow:hidden;border:1px solid var(--border);background:var(--bg-card);">
+    <div style="width:240px;min-width:240px;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg-stat);">
       <div style="padding:12px;"><button class="btn btn-primary w-full btn-sm" @click="newConv">+ 新对话</button></div>
       <div style="padding:0 12px 8px;"><input v-model="convSearch" class="form-input" placeholder="搜索..." style="font-size:12px;" /></div>
       <div style="flex:1;overflow-y:auto;padding:0 8px;">
-        <div v-for="conv in filteredConversations" :key="conv.id" style="padding:8px 10px;border-radius:var(--cb-radius-md);cursor:pointer;margin-bottom:2px;transition:background var(--cb-transition-fast);display:flex;align-items:center;justify-content:space-between;" :style="{ background: activeConvId === conv.id ? 'rgba(0,82,255,.08)' : 'transparent' }" @click="selectConv(conv)">
-          <div style="overflow:hidden;flex:1;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ conv.title }}</div><div style="font-size:10px;color:var(--cb-text-tertiary);">{{ conv.created_at?.slice(0,16) }}</div></div>
+        <div v-for="conv in filteredConversations" :key="conv.id" style="padding:8px 10px;border-radius:var(--radius-md);cursor:pointer;margin-bottom:2px;transition:background var(--transition);display:flex;align-items:center;justify-content:space-between;" :style="{ background: activeConvId === conv.id ? 'rgba(0,82,255,.08)' : 'transparent' }" @click="selectConv(conv)">
+          <div style="overflow:hidden;flex:1;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ conv.title }}</div><div style="font-size:10px;color:var(--text-muted);">{{ conv.created_at?.slice(0,16) }}</div></div>
           <div style="display:flex;gap:2px;flex-shrink:0;"><button style="width:22px;height:22px;font-size:10px;border-radius:50%;display:flex;align-items:center;justify-content:center;" @click.stop="renameConv(conv)">✏</button><button style="width:22px;height:22px;font-size:10px;border-radius:50%;display:flex;align-items:center;justify-content:center;" @click.stop="removeConv(conv)">✕</button></div>
         </div>
       </div>
     </div>
     <div style="flex:1;display:flex;flex-direction:column;">
-      <div v-if="activeConvId" style="padding:12px 16px;border-bottom:1px solid var(--cb-border);font-weight:600;font-size:14px;">{{ conversations.find(c => c.id === activeConvId)?.title || '' }}</div>
+      <div v-if="activeConvId" style="padding:12px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:14px;">{{ conversations.find(c => c.id === activeConvId)?.title || '' }}</div>
       <div id="chat-msgs" style="flex:1;overflow-y:auto;padding:16px;">
-        <div v-if="!activeConvId" class="empty-state" style="margin-top:48px;"><div class="empty-icon" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:var(--cb-blue);color:#fff;font-size:20px;font-weight:700;">Q</div><h4>AI 金融助手</h4><p class="text-sm text-muted mb-2">开始对话，获取金融分析</p><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;"><button v-for="s in suggestions" :key="s" class="btn btn-ghost btn-sm" @click="useSuggestion(s)">{{ s }}</button></div></div>
+        <div v-if="!activeConvId" class="empty-state" style="margin-top:48px;"><div class="empty-icon" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:var(--accent);color:#fff;font-size:20px;font-weight:700;">Q</div><h4>AI 金融助手</h4><p class="text-sm text-muted mb-2">开始对话，获取金融分析</p><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;"><button v-for="s in suggestions" :key="s" class="btn btn-ghost btn-sm" @click="useSuggestion(s)">{{ s }}</button></div></div>
         <div v-for="msg in messages" :key="msg.id" :style="{ display:'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', marginBottom: '12px' }">
-          <div :style="{ maxWidth:'75%', padding:'10px 14px', borderRadius: 'var(--cb-radius-lg)', background: msg.role === 'user' ? 'var(--cb-blue)' : 'var(--cb-gray)', color: msg.role === 'user' ? '#fff' : 'var(--cb-text-primary)', fontSize:'14px', lineHeight:'1.5' }">
+          <div :style="{ maxWidth:'75%', padding:'10px 14px', borderRadius: 'var(--radius-lg)', background: msg.role === 'user' ? 'var(--accent)' : 'var(--bg-stat)', color: msg.role === 'user' ? '#fff' : 'var(--text-primary)', fontSize:'14px', lineHeight:'1.5' }">
             <div v-if="msg.role === 'assistant'" v-html="renderMarkdown(msg.content)"></div>
             <div v-else>{{ msg.content }}</div>
             <div style="font-size:10px;margin-top:4px;opacity:.5;">{{ msg.created_at?.slice(11,16) }}</div>
           </div>
         </div>
         <div v-if="sending" style="display:flex;gap:4px;padding:8px;">
-          <span style="width:6px;height:6px;border-radius:50%;background:var(--cb-text-tertiary);animation: typing 1.4s ease-in-out infinite;" />
-          <span style="width:6px;height:6px;border-radius:50%;background:var(--cb-text-tertiary);animation: typing 1.4s ease-in-out .2s infinite;" />
-          <span style="width:6px;height:6px;border-radius:50%;background:var(--cb-text-tertiary);animation: typing 1.4s ease-in-out .4s infinite;" />
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--text-muted);animation: typing 1.4s ease-in-out infinite;" />
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--text-muted);animation: typing 1.4s ease-in-out .2s infinite;" />
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--text-muted);animation: typing 1.4s ease-in-out .4s infinite;" />
         </div>
       </div>
-      <div style="padding:12px 16px;border-top:1px solid var(--cb-border);">
+      <div style="padding:12px 16px;border-top:1px solid var(--border);">
         <div style="display:flex;gap:8px;"><textarea v-model="inputText" :disabled="sending" class="form-input" placeholder="输入问题..." rows="1" style="flex:1;resize:none;min-height:38px;max-height:100px;" @keydown="handleKeydown"></textarea><button class="btn btn-primary" :disabled="!inputText.trim() || sending" @click="sendMessage">发送</button></div>
         <div class="text-xs text-muted mt-1">Enter 发送</div>
       </div>

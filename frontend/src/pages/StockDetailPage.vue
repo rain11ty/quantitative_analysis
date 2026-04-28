@@ -167,7 +167,7 @@ const moneyflowDates = computed(() => moneyflowData.value.map(i => i.trade_date 
           <div class="text-xs text-muted" style="margin-bottom:4px;">Stock Detail</div>
           <h3 style="font-size:20px;font-weight:600;letter-spacing:-0.022em;">
             {{ stockInfo?.name || quote?.name || tsCode }}
-            <span style="font-size:14px;color:var(--cb-text-tertiary);font-weight:400;">{{ stockInfo?.symbol || tsCode }}</span>
+            <span style="font-size:14px;color:var(--text-muted);font-weight:400;">{{ stockInfo?.symbol || tsCode }}</span>
           </h3>
           <div v-if="stockInfo" class="text-xs text-muted mt-1">
             {{ stockInfo.industry || '--' }} · {{ stockInfo.area || '--' }} · 上市 {{ stockInfo.list_date || '--' }}
@@ -319,7 +319,7 @@ const moneyflowDates = computed(() => moneyflowData.value.map(i => i.trade_date 
 </template>
 
 <style scoped>
-.pill-group { display: flex; gap: 2px; padding: 2px; background: var(--cb-gray); border-radius: var(--cb-radius-full); }
-.pill-group .tab-btn { padding: 5px 14px; border-radius: var(--cb-radius-full); font-family: var(--cb-font-sans); font-size: 14px; font-weight: 600; color: var(--cb-text-secondary); border: none; background: transparent; cursor: pointer; transition: all var(--cb-transition-fast); }
-.pill-group .tab-btn.active { background: var(--cb-white); color: var(--cb-text-primary); }
+.pill-group { display: flex; gap: 2px; padding: 2px; background: var(--bg-stat); border-radius: var(--radius-full); }
+.pill-group .tab-btn { padding: 5px 14px; border-radius: var(--radius-full); font-family: var(--font-sans); font-size: 14px; font-weight: 600; color: var(--text-secondary); border: none; background: transparent; cursor: pointer; transition: all var(--transition); }
+.pill-group .tab-btn.active { background: var(--bg-card); color: var(--text-primary); }
 </style>

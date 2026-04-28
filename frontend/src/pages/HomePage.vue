@@ -199,7 +199,7 @@ onBeforeUnmount(() => { if (refreshTimer) clearInterval(refreshTimer); });
           <thead><tr><th>#</th><th>代码</th><th>名称</th><th>最新价</th><th>涨跌幅</th></tr></thead>
           <tbody>
             <tr v-for="(r, i) in ranking" :key="i" class="clickable" @click="router.push('/stock/' + r.ts_code)">
-              <td style="color:var(--cb-text-tertiary);font-size:11px;">{{ i + 1 }}</td>
+              <td style="color:var(--text-muted);font-size:11px;">{{ i + 1 }}</td>
               <td class="font-mono">{{ r.ts_code }}</td>
               <td class="font-bold">{{ r.name }}</td>
               <td class="font-mono">{{ (r as any).price ?? (r as any).close }}</td>

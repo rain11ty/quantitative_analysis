@@ -92,7 +92,7 @@ const indexOption = computed(() => {
           <input v-model="codes" class="form-input" placeholder="股票代码，逗号分隔" style="flex:1;" @keyup.enter="loadDashboard" />
           <div style="position:relative;">
             <input v-model="searchQuery" class="form-input" placeholder="搜索添加" style="width:160px;" @input="debouncedSearch" @focus="showSearch = searchResults.length > 0" />
-            <div v-if="showSearch" style="position:absolute;top:100%;left:0;right:0;z-index:10;background:var(--cb-white);border:1px solid var(--cb-border);border-radius:var(--cb-radius-lg);max-height:180px;overflow-y:auto;box-shadow:var(--cb-shadow-sm);">
+            <div v-if="showSearch" style="position:absolute;top:100%;left:0;right:0;z-index:10;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);max-height:180px;overflow-y:auto;box-shadow:var(--shadow-sm);">
               <div v-for="r in searchResults" :key="r.ts_code as string" style="padding:8px 12px;cursor:pointer;font-size:13px;" @mousedown.prevent="addStock(r)">{{ r.symbol || r.ts_code }} - {{ r.name }}</div>
             </div>
           </div>
@@ -137,7 +137,7 @@ const indexOption = computed(() => {
           <thead><tr><th>#</th><th>股票</th><th>价格</th><th>涨跌幅</th></tr></thead>
           <tbody>
             <tr v-for="(r, i) in ranking" :key="i" class="clickable" @click="router.push('/stock/' + r.ts_code)">
-              <td style="color:var(--cb-text-tertiary);font-size:11px;">{{ i + 1 }}</td>
+              <td style="color:var(--text-muted);font-size:11px;">{{ i + 1 }}</td>
               <td class="font-mono" style="font-size:12px;">{{ r.symbol || r.ts_code }} <span class="font-bold">{{ r.name }}</span></td>
               <td class="font-mono" style="font-size:13px;">{{ r.price || r.close }}</td>
               <td :class="(r.pct_chg as number ?? 0) >= 0 ? 'text-down' : 'text-up'">{{ formatPercent(r.pct_chg) }}</td>

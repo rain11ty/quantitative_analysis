@@ -126,7 +126,7 @@ watch(searchKeyword, debounce(() => applyFilters(), 300));
             <td>{{ s.list_date }}</td>
             <td><button class="btn btn-primary btn-sm" @click="router.push('/stock/' + s.ts_code)">详情</button></td>
           </tr>
-          <tr v-if="!sortedStocks.length"><td colspan="6" style="text-align:center;padding:32px;color:var(--cb-text-tertiary);">没有匹配的股票</td></tr>
+          <tr v-if="!sortedStocks.length"><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted);">没有匹配的股票</td></tr>
         </tbody>
       </table>
     </div>

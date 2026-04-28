@@ -126,7 +126,7 @@ function openStock(code: string) { const url = '/app/stock/' + code; window.open
       <!-- Dynamic conditions -->
       <div class="flex-between mb-2"><span style="font-size:13px;font-weight:600;">动态条件</span><button class="btn btn-ghost btn-sm" @click="addCondition">+ 添加</button></div>
       <div v-if="conditions.length" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
-        <div v-for="c in conditions" :key="c.id" class="form-grid" style="background:var(--cb-gray);padding:8px 10px;border-radius:var(--cb-radius-md);">
+        <div v-for="c in conditions" :key="c.id" class="form-grid" style="background:var(--bg-stat);padding:8px 10px;border-radius:var(--radius-md);">
           <div class="form-group"><label class="form-label">字段A</label><select v-model="c.fieldA" class="form-select" style="font-size:12px;"><option value="">选择</option><option v-for="o in fieldOptions" :key="o.value" :value="o.value">{{ o.label }}</option></select></div>
           <div class="form-group"><label class="form-label">运算符</label><select v-model="c.operator" class="form-select" style="font-size:12px;"><option value="">选择</option><option v-for="op in ['>','>=','<','<=','=','!=']" :key="op" :value="op">{{ op }}</option></select></div>
           <div class="form-group"><label class="form-label">比较方式</label><select v-model="c.compareMode" class="form-select" style="font-size:12px;"><option value="field">字段B</option><option value="value">固定值</option></select></div>
