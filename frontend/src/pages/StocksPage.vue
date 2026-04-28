@@ -73,7 +73,7 @@ watch(searchKeyword, debounce(() => applyFilters(), 300));
 <template>
   <div>
     <div class="card">
-      <div class="form-grid" style="margin-bottom:12px;">
+      <div class="form-grid mb-2">
         <div class="form-group">
           <label class="form-label">行业</label>
           <select v-model="filterIndustry" class="form-select" @change="applyFilters">
@@ -102,10 +102,10 @@ watch(searchKeyword, debounce(() => applyFilters(), 300));
       </div>
     </div>
 
-    <div v-if="loading" class="card"><div v-for="i in 4" :key="i" class="skeleton" style="height:36px;margin-bottom:8px;" /></div>
+    <div v-if="loading" class="card"><div v-for="i in 4" :key="i" class="skeleton mb-1" style="height:36px;" /></div>
     <div v-else-if="error" class="alert alert-error">{{ error }} <button class="btn btn-ghost btn-sm" @click="loadStocks">重试</button></div>
 
-    <div v-else class="card" style="padding:0;overflow-x:auto;">
+    <div v-else class="card card-table">
       <table class="data-table w-full">
         <thead>
           <tr>
@@ -126,7 +126,7 @@ watch(searchKeyword, debounce(() => applyFilters(), 300));
             <td>{{ s.list_date }}</td>
             <td><button class="btn btn-primary btn-sm" @click="router.push('/stock/' + s.ts_code)">详情</button></td>
           </tr>
-          <tr v-if="!sortedStocks.length"><td colspan="6" style="text-align:center;padding:32px;color:var(--text-tertiary);">没有匹配的股票</td></tr>
+          <tr v-if="!sortedStocks.length"><td colspan="6" style="text-align:center;padding:32px;color:var(--cb-text-tertiary);">没有匹配的股票</td></tr>
         </tbody>
       </table>
     </div>

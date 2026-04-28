@@ -16,7 +16,7 @@ const apiGroups = computed(() => { const v = route.meta.apiGroups; return Array.
     </div>
     <div class="grid-2">
       <div class="card"><div class="card-header"><h3>Legacy 模板</h3></div><p class="font-mono text-sm" style="word-break:break-all;">{{ legacyTemplate }}</p></div>
-      <div class="card"><div class="card-header"><h3>路由参数</h3></div><pre class="font-mono text-xs" style="background:var(--surface-secondary);padding:12px;border-radius:var(--radius-sm);overflow-x:auto;">{{ JSON.stringify(route.params, null, 2) }}</pre></div>
+      <div class="card"><div class="card-header"><h3>路由参数</h3></div><pre class="font-mono text-xs" style="background:var(--cb-gray);padding:12px;border-radius:var(--cb-radius-sm);overflow-x:auto;">{{ JSON.stringify(route.params, null, 2) }}</pre></div>
     </div>
     <div v-if="apiGroups.length" class="card">
       <div class="card-header"><h3>API 接口组</h3></div>

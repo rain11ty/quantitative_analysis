@@ -41,7 +41,7 @@ const filteredNews = computed(() => {
   return news.value.filter(n => n.title?.toLowerCase().includes(q) || n.summary?.toLowerCase().includes(q));
 });
 
-const sourceColor = (s: string) => ({ eastmoney: '#ff3b30', cls: '#0071e3', ths: '#ff9f0a', cjzc: '#34c759', global: '#af52de' }[s] || '#86868b');
+const sourceColor = (s: string) => ({ eastmoney: '#ff3b30', cls: '#0052ff', ths: '#ff9f0a', cjzc: '#34c759', global: '#af52de' }[s] || '#86868b');
 </script>
 
 <template>
@@ -52,14 +52,14 @@ const sourceColor = (s: string) => ({ eastmoney: '#ff3b30', cls: '#0071e3', ths:
           <button v-for="s in sources" :key="s.key" class="tab-btn" :class="{ active: activeSource === s.key }" @click="switchSource(s.key)">{{ s.label }}</button>
         </div>
         <div class="flex-between gap-2">
-          <input v-model="searchQuery" class="form-input" placeholder="搜索..." style="width:160px;font-size:12px;" />
+          <input v-model="searchQuery" class="form-input text-xs" placeholder="搜索..." style="width:160px;" />
           <button class="btn btn-ghost btn-sm" @click="loadNews()">刷新</button>
         </div>
       </div>
     </div>
 
     <div v-if="loading && !news.length">
-      <div v-for="i in 4" :key="i" class="skeleton" style="height:72px;margin-bottom:12px;border-radius:var(--radius-lg);" />
+      <div v-for="i in 4" :key="i" class="skeleton" style="height:72px;margin-bottom:12px;border-radius:var(--cb-radius-lg);" />
     </div>
     <div v-else-if="error" class="alert alert-error">{{ error }} <button class="btn btn-ghost btn-sm" @click="loadNews()">重试</button></div>
 
@@ -69,7 +69,7 @@ const sourceColor = (s: string) => ({ eastmoney: '#ff3b30', cls: '#0071e3', ths:
           <span class="badge" :style="{ background: sourceColor(n.source) + '14', color: sourceColor(n.source) }">{{ n.source || '资讯' }}</span>
           <span class="text-xs text-muted">{{ n.time?.includes('T') ? n.time.replace('T',' ').slice(0,16) : n.time }}</span>
         </div>
-        <a :href="n.url" target="_blank" style="font-size:15px;font-weight:600;color:var(--text-primary);line-height:1.4;">{{ n.title }}</a>
+        <a :href="n.url" target="_blank" style="font-size:15px;font-weight:600;color:var(--cb-text-primary);line-height:1.4;">{{ n.title }}</a>
         <p v-if="n.summary" class="text-sm text-muted mt-1">{{ n.summary }}</p>
       </div>
       <div v-if="!filteredNews.length && !loading" class="empty-state"><h4>{{ searchQuery ? '未找到' : '暂无新闻' }}</h4></div>
