@@ -189,7 +189,7 @@ const moneyflowDates = computed(() => moneyflowData.value.map(i => i.trade_date 
     </div>
 
     <!-- HISTORY TAB -->
-    <div v-if="activeTab === 'history'" class="card" style="padding:0;overflow-x:auto;">
+    <div v-if="activeTab === 'history'" class="card card-table">
       <div class="card-header" style="padding:16px 16px 12px;">
         <h3>{{ historyLabel }}</h3>
         <div class="tab-bar">
@@ -245,7 +245,7 @@ const moneyflowDates = computed(() => moneyflowData.value.map(i => i.trade_date 
         <div class="card">
           <div class="card-header">
             <h3>技术指标</h3>
-            <div class="pill-group"><button v-for="ind in indicators" :key="ind.id" class="tab-btn" :class="{ active: indicator === ind.id }" @click="indicator = ind.id">{{ ind.label }}</button></div>
+            <div class="tab-bar"><button v-for="ind in indicators" :key="ind.id" class="tab-btn" :class="{ active: indicator === ind.id }" @click="indicator = ind.id">{{ ind.label }}</button></div>
           </div>
           <BaseEChart v-if="indicatorChartOption" :option="indicatorChartOption" height="340px" />
           <div v-else class="empty-state" style="padding:32px;"><h4>指标数据不可用</h4></div>
@@ -254,12 +254,12 @@ const moneyflowDates = computed(() => moneyflowData.value.map(i => i.trade_date 
         <div class="card">
           <div class="card-header">
             <h3>实时行情</h3>
-            <div class="pill-group"><button v-for="f in [{id:'daily',l:'日K'},{id:'weekly',l:'周K'},{id:'monthly',l:'月K'}]" :key="f.id" class="tab-btn" :class="{ active: freq === f.id }" @click="freq = f.id as any; fetchRealtime()">{{ f.l }}</button></div>
+            <div class="tab-bar"><button v-for="f in [{id:'daily',l:'日K'},{id:'weekly',l:'周K'},{id:'monthly',l:'月K'}]" :key="f.id" class="tab-btn" :class="{ active: freq === f.id }" @click="freq = f.id as any; fetchRealtime()">{{ f.l }}</button></div>
           </div>
           <BaseEChart v-if="realtimeChartOption" :option="realtimeChartOption" height="400px" />
         </div>
         <!-- Analysis table -->
-        <div class="card" style="padding:0;overflow-x:auto;">
+        <div class="card card-table">
           <div class="card-header" style="padding:16px;"><h3>分析明细</h3></div>
           <table class="data-table w-full">
             <thead><tr><th>日期</th><th>开盘</th><th>收盘</th><th>涨跌幅</th><th>RSI6</th><th>MACD</th><th>KDJ-K</th></tr></thead>
@@ -281,7 +281,7 @@ const moneyflowDates = computed(() => moneyflowData.value.map(i => i.trade_date 
             <BaseEChart v-if="netflowChartOption" :option="netflowChartOption" height="340px" />
           </div>
         </div>
-        <div class="card" style="padding:0;overflow-x:auto;">
+        <div class="card card-table">
           <div class="card-header" style="padding:16px;"><h3>资金流向明细</h3></div>
           <table class="data-table w-full"><thead><tr><th>日期</th><th>净流入</th><th>特大买</th><th>特大卖</th><th>大单买</th><th>大单卖</th></tr></thead>
             <tbody><tr v-for="item in moneyflowData.slice(0,30)" :key="item.trade_date ?? ''"><td>{{ item.trade_date }}</td><td :class="toNumber(item.net_mf_amount) >= 0 ? 'text-up' : 'text-down'">{{ formatNumber(item.net_mf_amount, 0) }}</td><td class="text-up">{{ formatNumber(item.buy_elg_amount, 0) }}</td><td class="text-down">{{ formatNumber(item.sell_elg_amount, 0) }}</td><td class="text-up">{{ formatNumber(item.buy_lg_amount, 0) }}</td><td class="text-down">{{ formatNumber(item.sell_lg_amount, 0) }}</td></tr></tbody>
@@ -306,7 +306,7 @@ const moneyflowDates = computed(() => moneyflowData.value.map(i => i.trade_date 
           </div>
         </div>
         <div v-if="cyqCostChartOption" class="card"><BaseEChart :option="cyqCostChartOption" height="320px" /></div>
-        <div v-if="cyqPerf.length" class="card" style="padding:0;overflow-x:auto;">
+        <div v-if="cyqPerf.length" class="card card-table">
           <div class="card-header" style="padding:16px;"><h3>筹码胜率明细</h3></div>
           <table class="data-table w-full"><thead><tr><th>日期</th><th>历史低</th><th>5%</th><th>50%</th><th>95%</th><th>历史高</th><th>加权</th><th>胜率</th></tr></thead>
             <tbody><tr v-for="item in cyqPerf.slice(0,30)" :key="item.trade_date ?? ''"><td>{{ item.trade_date }}</td><td class="text-down">{{ formatNumber(item.his_low, 2) }}</td><td>{{ formatNumber(item.cost_5pct, 2) }}</td><td class="font-bold">{{ formatNumber(item.cost_50pct, 2) }}</td><td>{{ formatNumber(item.cost_95pct, 2) }}</td><td class="text-up">{{ formatNumber(item.his_high, 2) }}</td><td class="font-bold">{{ formatNumber(item.weight_avg, 2) }}</td><td :class="toNumber(item.winner_rate) >= 50 ? 'text-up' : 'text-down'">{{ formatPercent(item.winner_rate, 2, false) }}</td></tr></tbody>
@@ -318,8 +318,3 @@ const moneyflowDates = computed(() => moneyflowData.value.map(i => i.trade_date 
   </div>
 </template>
 
-<style scoped>
-.pill-group { display: flex; gap: 2px; padding: 2px; background: var(--bg-stat); border-radius: var(--radius-full); }
-.pill-group .tab-btn { padding: 5px 14px; border-radius: var(--radius-full); font-family: var(--font-sans); font-size: 14px; font-weight: 600; color: var(--text-secondary); border: none; background: transparent; cursor: pointer; transition: all var(--transition); }
-.pill-group .tab-btn.active { background: var(--bg-card); color: var(--text-primary); }
-</style>
