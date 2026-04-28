@@ -442,6 +442,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .gap-3 { gap: 16px; }
 .gap-4 { gap: 24px; }
 .mt-1 { margin-top: 8px; }
+.mb-1 { margin-bottom: 8px; }
 .mt-2 { margin-top: 12px; }
 .mt-3 { margin-top: 16px; }
 .mt-4 { margin-top: 24px; }
