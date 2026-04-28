@@ -49,13 +49,15 @@ def get_vite_asset_context(entry_name='src/main.ts'):
 
     entry = manifest.get(entry_name)
     if not entry:
+        entry = manifest.get('index.html')
+    if not entry:
         return {
             'available': False,
             'mode': 'build',
             'dev_server_url': '',
             'entry_url': '',
             'css_urls': [],
-            'missing_reason': f'Vite manifest is missing entry "{entry_name}"',
+            'missing_reason': f'Vite manifest is missing entry "{entry_name}" (and fallback "index.html")',
         }
 
     css_urls = [

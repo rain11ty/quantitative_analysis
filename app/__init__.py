@@ -2,7 +2,7 @@
 import os
 from datetime import timedelta
 
-from flask import Flask, flash, g, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import Flask, flash, g, jsonify, redirect, render_template, request, session, url_for
 from flask_cors import CORS
 try:
     from flask_limiter import Limiter
@@ -323,12 +323,6 @@ def create_app(config_name='default'):
     # 记录启动时间
     import time as _time
     app._start_time = _time.time()
-
-    # --- Vue SPA 入口（服务 /app/* 路由） ---
-    @app.route('/app', defaults={'path': ''})
-    @app.route('/app/<path:path>')
-    def serve_vue_spa(path):
-        return send_from_directory(os.path.join(app.static_folder, 'vue'), 'index.html')
 
     # --- 全局异常处理器（S5：防止内部信息泄露） ---
     @app.errorhandler(404)
