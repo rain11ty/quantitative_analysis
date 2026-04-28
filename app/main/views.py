@@ -23,7 +23,7 @@ def _build_vue_app_context(route_path=''):
 
 @main_bp.route('/')
 def index():
-    return redirect('/app')
+    return render_template('index.html')
 
 
 @main_bp.route('/stocks')
