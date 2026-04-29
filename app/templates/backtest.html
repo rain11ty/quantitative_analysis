@@ -7,14 +7,18 @@
 .backtest-hero {
     margin-bottom: 1.5rem;
 }
+.backtest-hero-panel {
+    padding: 1.7rem 1.9rem;
+}
 .backtest-hero p {
-    color: var(--text-muted);
+    color: rgba(255, 255, 255, 0.74);
     margin-bottom: 0;
 }
 .metric-card {
     border: 1px solid var(--card-border);
-    border-radius: 16px;
+    border-radius: 20px;
     height: 100%;
+    box-shadow: var(--shadow-soft);
 }
 .metric-card .card-body {
     padding: 1.1rem 1.25rem;
@@ -38,8 +42,11 @@
 <div class="container">
     <div class="backtest-hero row mb-4">
         <div class="col-12">
-            <h1 class="h2 mb-2">策略回测</h1>
-            <p>基于历史日线和技术指标数据，对经典量化策略进行模拟交易验证。</p>
+            <div class="page-hero backtest-hero-panel">
+                <span class="hero-eyebrow">strategy lab</span>
+                <h1 class="hero-title">策略回测</h1>
+                <p class="hero-text">基于历史日线和技术指标数据，对经典量化策略进行模拟交易验证，帮助你评估收益、回撤与风险暴露。</p>
+            </div>
         </div>
     </div>
 

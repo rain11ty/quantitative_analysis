@@ -19,6 +19,9 @@ from app.utils.logger import setup_logger
 
 
 PUBLIC_ENDPOINTS = {
+    'main.index',
+    'main.news',
+    'main.ai_assistant',
     'auth.login',
     'auth.register',
     'auth.send_verify_code',
@@ -44,6 +47,9 @@ PUBLIC_ENDPOINTS = {
     'api.get_realtime_ranking',
     'api.get_industries',
     'api.get_areas',
+    'api.get_news',
+    'api.get_news_cjzc',
+    'api.get_news_global',
 }
 
 PUBLIC_PATH_PREFIXES = (

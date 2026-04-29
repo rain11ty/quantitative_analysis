@@ -22,15 +22,17 @@
 
   margin-bottom: 1.1rem;
 
-  border-radius: 22px;
+  border-radius: 32px;
 
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border: 1px solid rgba(76, 130, 214, 0.16);
 
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(37, 99, 235, 0.92));
+  background:
+    radial-gradient(circle at top right, rgba(29, 103, 242, 0.18), transparent 36%),
+    linear-gradient(135deg, rgba(236, 244, 255, 0.98) 0%, rgba(248, 251, 255, 0.98) 52%, rgba(221, 235, 255, 0.94) 100%);
 
-  color: #ffffff;
+  color: var(--text-main);
 
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
+  box-shadow: var(--shadow-soft);
 
 }
 
@@ -50,13 +52,15 @@
 
   border-radius: 999px;
 
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(29, 103, 242, 0.08);
 
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(29, 103, 242, 0.14);
 
   font-size: 0.78rem;
 
   font-weight: 600;
+
+  color: var(--brand-link);
 
   margin-bottom: 0.65rem;
 
@@ -72,13 +76,15 @@
 
   letter-spacing: -0.02em;
 
+  color: #0c2f6d;
+
 }
 
 .toolbar-subtitle {
 
   margin: 0.35rem 0 0;
 
-  color: rgba(255, 255, 255, 0.8);
+  color: #506887;
 
   font-size: 0.92rem;
 
@@ -100,15 +106,139 @@
 
   padding: 0.55rem 0.85rem;
 
-  border-radius: 14px;
+  border-radius: 999px;
 
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.9);
 
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(76, 130, 214, 0.18);
 
   font-size: 0.84rem;
 
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--text-main);
+
+}
+
+.assistant-preview-grid {
+
+  display: grid;
+
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+
+  gap: 0.9rem;
+
+}
+
+.assistant-preview-card {
+
+  border: 1px solid var(--card-border);
+
+  border-radius: 20px;
+
+  background: rgba(255, 255, 255, 0.98);
+
+  padding: 1rem 1.05rem;
+
+  box-shadow: var(--shadow-soft);
+
+}
+
+.assistant-preview-head {
+
+  display: flex;
+
+  align-items: flex-start;
+
+  justify-content: space-between;
+
+  gap: 0.75rem;
+
+  margin-bottom: 0.75rem;
+
+}
+
+.assistant-preview-name {
+
+  font-size: 1rem;
+
+  font-weight: 700;
+
+  color: var(--text-main);
+
+}
+
+.assistant-preview-model {
+
+  color: var(--text-muted);
+
+  font-size: 0.84rem;
+
+  line-height: 1.6;
+
+}
+
+.assistant-preview-status {
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  padding: 0.32rem 0.7rem;
+
+  border-radius: 999px;
+
+  font-size: 0.76rem;
+
+  font-weight: 700;
+
+  white-space: nowrap;
+
+}
+
+.assistant-preview-status.is-ready {
+
+  background: rgba(22, 163, 74, 0.12);
+
+  color: var(--success-color);
+
+}
+
+.assistant-preview-status.is-pending {
+
+  background: rgba(245, 158, 11, 0.14);
+
+  color: var(--warning-color);
+
+}
+
+.assistant-preview-note {
+
+  color: var(--text-muted);
+
+  font-size: 0.88rem;
+
+  line-height: 1.7;
+
+}
+
+.assistant-preview-actions {
+
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 0.75rem;
+
+}
+
+.assistant-preview-sidecard {
+
+  display: flex;
+
+  flex-direction: column;
+
+  justify-content: space-between;
 
 }
 
@@ -132,11 +262,11 @@
 
   border-radius: 24px;
 
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border: 1px solid var(--card-border);
 
-  background: rgba(255,255,255,0.96);
+  background: rgba(255,255,255,0.97);
 
-  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--shadow-soft);
 
 }
 
@@ -204,9 +334,9 @@
 
   border-radius: 999px;
 
-  background: #eff6ff;
+  background: rgba(0, 82, 255, 0.08);
 
-  color: #1d4ed8;
+  color: var(--brand-blue);
 
   font-size: 0.78rem;
 
@@ -226,13 +356,13 @@
 
   width: 100%;
 
-  border-radius: 14px;
+  border-radius: 18px;
 
-  border: 1px solid #dbe3ef;
+  border: 1px solid rgba(91, 97, 110, 0.18);
 
   padding: 0.78rem 0.95rem;
 
-  background: #f8fafc;
+  background: rgba(238, 240, 243, 0.5);
 
   transition: var(--transition-smooth);
 
@@ -242,9 +372,9 @@
 
   outline: none;
 
-  border-color: #93c5fd;
+  border-color: rgba(0, 82, 255, 0.35);
 
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.98);
 
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
 
@@ -279,7 +409,7 @@ overscroll-behavior: contain;
 
   border-radius: 18px;
 
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.98);
 
   cursor: pointer;
 
@@ -377,7 +507,7 @@ overscroll-behavior: contain;
 
   border-radius: 10px;
 
-  background: #f8fafc;
+  background: rgba(238, 240, 243, 0.5);
 
   color: #475569;
 
@@ -491,9 +621,9 @@ overscroll-behavior: contain;
 
   border-radius: 999px;
 
-  background: #ecfeff;
+  background: rgba(0, 82, 255, 0.08);
 
-  color: #0f766e;
+  color: var(--brand-blue);
 
   font-weight: 600;
 
@@ -501,9 +631,9 @@ overscroll-behavior: contain;
 
 .status-badge.is-loading {
 
-  background: #eff6ff;
+  background: rgba(0, 82, 255, 0.08);
 
-  color: #1d4ed8;
+  color: var(--brand-blue);
 
 }
 
@@ -543,9 +673,9 @@ overscroll-behavior: contain;
 
   border-radius: 999px;
 
-  background: #eff6ff;
+  background: rgba(0, 82, 255, 0.08);
 
-  color: #1d4ed8;
+  color: var(--brand-blue);
 
   font-weight: 600;
 
@@ -617,9 +747,9 @@ overscroll-behavior: contain;
 
   border: 1px solid rgba(203, 213, 225, 0.95);
 
-  border-radius: 12px;
+  border-radius: 999px;
 
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.98);
 
   color: #0f172a;
 
@@ -643,7 +773,7 @@ overscroll-behavior: contain;
 
 .llm-select:disabled {
 
-  background: #f8fafc;
+  background: rgba(238, 240, 243, 0.5);
 
   color: #94a3b8;
 
@@ -793,7 +923,7 @@ overscroll-behavior: contain;
 
   border: 1px solid rgba(226,232,240,0.92);
 
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.98);
 
   cursor: pointer;
 
@@ -867,7 +997,7 @@ overscroll-behavior: contain;
 
 .message.user .message-card {
 
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background: linear-gradient(135deg, var(--brand-blue), var(--brand-blue-hover));
 
   color: #ffffff;
 
@@ -877,7 +1007,7 @@ overscroll-behavior: contain;
 
 .message.assistant .message-card {
 
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.98);
 
   color: #0f172a;
 
@@ -1045,7 +1175,7 @@ overscroll-behavior: contain;
 
   border-radius: 22px;
 
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.98);
 
   padding: 0.9rem;
 
@@ -1121,11 +1251,11 @@ overscroll-behavior: contain;
 
   border: none;
 
-  border-radius: 12px;
+  border-radius: 999px;
 
-  background: #eef2ff;
+  background: var(--surface-muted);
 
-  color: #3730a3;
+  color: var(--text-main);
 
   padding: 0.62rem 0.95rem;
 
@@ -1135,7 +1265,7 @@ overscroll-behavior: contain;
 
 .btn-soft:hover {
 
-  background: #e0e7ff;
+  background: #dfe4eb;
 
 }
 
@@ -1282,6 +1412,8 @@ overscroll-behavior: contain;
 
 {% block content %}
 
+{% if current_user %}
+
 <div class="assistant-toolbar">
 
   <div class="toolbar-main">
@@ -1366,7 +1498,7 @@ overscroll-behavior: contain;
 
         <div class="chat-meta">
 
-          <span class="model-badge" id="selected-llm-summary">Loading model...</span>
+          <span class="model-badge" id="selected-llm-summary">模型加载中...</span>
 
           <span class="status-badge is-loading" id="llm-service-status"><span class="status-dot"></span>正在检测模型状态...</span>
 
@@ -1382,7 +1514,7 @@ overscroll-behavior: contain;
 
           <label class="llm-select-wrap" for="provider-select">
 
-            <span class="llm-select-label">Provider</span>
+            <span class="llm-select-label">模型服务</span>
 
             <select id="provider-select" class="llm-select"></select>
 
@@ -1390,7 +1522,7 @@ overscroll-behavior: contain;
 
           <label class="llm-select-wrap" for="model-select">
 
-            <span class="llm-select-label">Model</span>
+            <span class="llm-select-label">模型版本</span>
 
             <select id="model-select" class="llm-select"></select>
 
@@ -1448,12 +1580,101 @@ overscroll-behavior: contain;
 
 </div>
 
+{% else %}
+<div class="assistant-toolbar">
+
+  <div class="toolbar-main">
+
+    <div class="toolbar-chip">AI 金融助手</div>
+
+    <h1 class="toolbar-title">登录后即可开始多轮投研问答</h1>
+
+    <p class="toolbar-subtitle">先看看助手界面与当前可用模型，登录后就能保存会话、连续追问，并在已接入模型之间切换。</p>
+
+  </div>
+
+  <div class="toolbar-badges">
+
+    <span class="toolbar-badge">界面预览</span>
+
+    <span class="toolbar-badge">登录后问答</span>
+
+    <span class="toolbar-badge">会话留存</span>
+
+  </div>
+
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <section class="page-card p-4 p-lg-5 h-100">
+      <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">
+        <div>
+          <h2 class="h4 mb-2">当前可用模型</h2>
+          <p class="text-muted mb-0">登录后可以在聊天页直接切换这里列出的模型，并保留完整的对话上下文。</p>
+        </div>
+        <span class="badge bg-primary">{{ (llm_options.get('providers') or []) | length }} 个可用</span>
+      </div>
+
+      {% if llm_options.get('providers') %}
+      <div class="assistant-preview-grid">
+        {% for provider in llm_options.get('providers', []) %}
+        <article class="assistant-preview-card">
+          <div class="assistant-preview-head">
+            <div>
+              <div class="assistant-preview-name">{{ provider.label }}</div>
+              <div class="assistant-preview-model">默认模型：{{ provider.default_model }}</div>
+            </div>
+            <span class="assistant-preview-status {{ 'is-ready' if provider.configured else 'is-pending' }}">
+              {{ '已配置' if provider.configured else '待配置' }}
+            </span>
+          </div>
+          <div class="assistant-preview-note">
+            {% if provider.configured %}
+            登录后可在聊天页直接切换该模型，并把历史问答保存在当前会话中。
+            {% else %}
+            当前环境暂未开放该模型，开放后会自动出现在可切换列表中。
+            {% endif %}
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="assistant-preview-note">
+        当前环境还没有接入可用模型，登录后仍可先查看界面；待模型接入完成后，即可在这里直接开始问答。
+      </div>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="col-lg-5">
+    <section class="page-card assistant-preview-sidecard p-4 p-lg-5 h-100">
+      <div>
+        <h2 class="h4 mb-3">开始使用</h2>
+        <div class="assistant-preview-note mb-4">
+          登录后即可创建专属会话，连续追问个股、指标、策略和风险问题，并自动保留历史记录。
+        </div>
+        <div class="assistant-preview-note mb-4">
+          如果当前没有可用模型，页面会在接入完成后自动更新，无需重新学习新的使用方式。
+        </div>
+      </div>
+
+      <div class="assistant-preview-actions">
+        <a href="{{ url_for('auth.login', next=url_for('main.ai_assistant')) }}" class="btn btn-modern btn-modern-primary">登录后使用助手</a>
+        <a href="{{ url_for('main.index') }}" class="btn btn-modern btn-modern-outline">返回首页</a>
+      </div>
+    </section>
+  </div>
+</div>
+
+{% endif %}
 {% endblock %}
 
 
 
 {% block extra_js %}
 
+{% if current_user %}
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
 <script>
@@ -1605,7 +1826,7 @@ function renderLlmSummary() {
 
   if (!providerOption || !state.llm.model) {
 
-    selectedLlmSummaryEl.textContent = 'Model unavailable';
+    selectedLlmSummaryEl.textContent = '当前暂无可用模型';
 
     return;
 
@@ -3035,6 +3256,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 </script>
+{% endif %}
 
 {% endblock %}
-

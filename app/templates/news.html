@@ -11,11 +11,26 @@
  margin-bottom: 1.5rem;
  flex-wrap: wrap;
  gap: 1rem;
+ padding: 1.65rem 1.85rem;
+ border-radius: var(--radius-xl);
+ background:
+  radial-gradient(circle at top right, rgba(29, 103, 242, 0.18), transparent 36%),
+  linear-gradient(135deg, rgba(236, 244, 255, 0.98) 0%, rgba(248, 251, 255, 0.98) 52%, rgba(221, 235, 255, 0.94) 100%);
+ color: var(--text-main);
+ border: 1px solid rgba(76, 130, 214, 0.16);
+ box-shadow: var(--shadow-soft);
  }
  .news-page-title {
- font-size: 1.5rem;
- font-weight: 700;
- color: var(--text-main);
+ font-size: clamp(1.8rem, 3vw, 2.7rem);
+ font-weight: 500;
+ color: #0c2f6d;
+ margin: 0;
+ }
+ .news-page-subtitle {
+ color: #506887;
+ font-size: 0.95rem;
+ margin: 0.65rem 0 0;
+ max-width: 620px;
  }
  .news-source-tabs {
  display: flex;
@@ -24,9 +39,9 @@
  }
  .news-tab {
  padding: 0.45rem 1rem;
- border-radius: 10px;
+ border-radius: 999px;
  border: 1px solid var(--card-border);
- background: transparent;
+ background: var(--surface-muted);
  color: var(--text-muted);
  font-size: 0.85rem;
  font-weight: 600;
@@ -35,13 +50,13 @@
  white-space: nowrap;
  }
  .news-tab:hover {
- border-color: #94a3b8;
- color: var(--text-main);
+ border-color: rgba(0, 82, 255, 0.24);
+ color: var(--brand-blue);
  }
  .news-tab.active {
- background: linear-gradient(135deg, #2563eb, #1d4ed8);
+ background: var(--brand-blue);
  color: #fff;
- border-color: transparent;
+ border-color: var(--brand-blue);
  }
  .news-list {
  display: flex;
@@ -49,16 +64,17 @@
  gap: 0.75rem;
  }
  .news-card {
- background: var(--primary-bg);
+ background: rgba(255, 255, 255, 0.96);
  border: 1px solid var(--card-border);
- border-radius: 16px;
+ border-radius: 20px;
  padding: 1.15rem 1.35rem;
  transition: var(--transition-smooth);
+ box-shadow: var(--shadow-soft);
  }
  .news-card:hover {
- box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+ box-shadow: var(--shadow-hover);
  transform: translateY(-1px);
- border-color: rgba(59, 130, 246, 0.25);
+ border-color: rgba(0, 82, 255, 0.22);
  }
  .news-card-header {
  display: flex;
@@ -97,7 +113,7 @@
  flex: 1;
  }
  .news-title:hover {
- color: #2563eb;
+ color: var(--brand-blue);
  }
  .news-summary {
  font-size: 0.88rem;
@@ -140,16 +156,17 @@
  align-items: center;
  padding: 0.3rem 0.75rem;
  border-radius: 999px;
- background: rgba(59, 130, 246, 0.1);
- color: #2563eb;
+ background: rgba(29, 103, 242, 0.08);
+ color: var(--brand-blue);
+ border: 1px solid rgba(29, 103, 242, 0.14);
  font-size: 0.8rem;
  font-weight: 600;
  }
  /* Skeleton for news */
  .skeleton-news-card {
- background: var(--primary-bg);
+ background: rgba(255, 255, 255, 0.96);
  border: 1px solid var(--card-border);
- border-radius: 16px;
+ border-radius: 20px;
  padding: 1.15rem 1.35rem;
  margin-bottom: 0.75rem;
  }
@@ -181,7 +198,11 @@
 
 {% block content %}
 <div class="news-page-header">
- <h1 class="news-page-title">新闻资讯</h1>
+ <div>
+  <span class="hero-eyebrow">market signals</span>
+  <h1 class="news-page-title">新闻资讯</h1>
+  <p class="news-page-subtitle">聚合市场快讯与重点财经资讯，帮助你在盘前、盘中和盘后快速把握市场脉络。</p>
+ </div>
  <div class="d-flex align-items-center gap-3">
   <span class="news-count-badge" id="newsCount">加载中...</span>
   <button class="btn-modern btn-modern-outline" id="refreshBtn" onclick="loadNews()">

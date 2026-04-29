@@ -4,11 +4,12 @@
 
 {% block extra_css %}
 <style>
- .filter-board {
- background: var(--primary-bg);
+.filter-board {
+ background: rgba(255, 255, 255, 0.96);
  border: 1px solid var(--card-border);
- border-radius: 20px;
- }
+ border-radius: 24px;
+ box-shadow: var(--shadow-soft);
+}
  .filter-board-header {
  display: flex;
  justify-content: space-between;
@@ -22,10 +23,10 @@
  gap: 1rem;
  align-items: start;
  }
- .filter-group {
- background: var(--primary-bg);
+.filter-group {
+ background: rgba(255, 255, 255, 0.98);
  border: 1px solid var(--card-border);
- border-radius: 16px;
+ border-radius: 18px;
  padding: 1.1rem;
  margin-bottom: 0;
  height: 100%;
@@ -72,13 +73,13 @@
  grid-column: 1 / -1;
  margin-bottom: 0;
  }
- .dynamic-condition-row {
+.dynamic-condition-row {
  border: 1px dashed var(--card-border);
- border-radius: 14px;
+ border-radius: 18px;
  padding: 1rem;
- background: #fafcff;
+ background: rgba(0, 82, 255, 0.025);
  margin-bottom: 0.875rem;
- }
+}
  .dynamic-condition-grid {
  display: grid;
  grid-template-columns: 1.4fr 0.8fr 1fr 1.4fr auto;
@@ -90,13 +91,13 @@
  font-size: 0.85rem;
  color: #64748b;
  }
- .dynamic-empty {
+.dynamic-empty {
  border: 1px dashed var(--card-border);
- border-radius: 14px;
+ border-radius: 18px;
  padding: 1rem;
  color: #64748b;
- background: #fcfdff;
- }
+ background: rgba(238, 240, 243, 0.35);
+}
  .screen-summary {
  font-size: 0.92rem;
  color: #64748b;
@@ -142,9 +143,12 @@
 <div class="container py-4">
 <div class="row mb-4">
 <div class="col-12">
-<h1 class="h2">条件选股</h1>
-<p class="text-muted mb-2">通过多维度财务、行情、技术指标筛选符合策略的股票组合。</p>
-<p class="screen-summary mb-0">当前支持基础条件、估值指标、市值与交易、技术指标、资金流向，以及多条动态字段比较条件。</p>
+<div class="page-hero p-4 p-lg-5">
+<span class="hero-eyebrow">screening engine</span>
+<h1 class="hero-title">条件选股</h1>
+<p class="hero-text mb-2">通过多维度财务、行情、技术指标筛选符合策略的股票组合。</p>
+<p class="screen-summary mb-0 text-white-50">当前支持基础条件、估值指标、市值与交易、技术指标、资金流向，以及多条动态字段比较条件。</p>
+</div>
 </div>
 </div>
 <div class="row g-4">

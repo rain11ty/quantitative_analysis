@@ -9,31 +9,42 @@
 /* 页面整体更紧凑 */
 .page-shell { padding-top: 84px !important; padding-bottom: 20px !important; }
 
-/* ===== 1. 极简顶栏标题区（替代原Hero横幅） ===== */
+/* ===== 1. 顶部 Hero ===== */
 .page-header-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.6rem 0;
-  margin-bottom: 0.75rem;
-  border-bottom: 1px solid var(--card-border);
+  padding: 1.5rem 1.7rem;
+  margin-bottom: 0.95rem;
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(circle at top right, rgba(29, 103, 242, 0.18), transparent 36%),
+    linear-gradient(135deg, rgba(236, 244, 255, 0.98) 0%, rgba(248, 251, 255, 0.98) 52%, rgba(221, 235, 255, 0.94) 100%);
+  color: var(--text-main);
+  border: 1px solid rgba(76, 130, 214, 0.16);
+  box-shadow: var(--shadow-soft);
 }
 .page-header-bar .ph-title {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--text-main);
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 2.6rem);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.06em;
+  color: #0c2f6d;
   margin: 0;
 }
 .page-header-bar .ph-sub {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  margin-left: 0.75rem;
+  display: inline-block;
+  margin-top: 0.6rem;
+  font-size: 0.9rem;
+  color: #506887;
+  margin-left: 0;
 }
 .ph-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
 .ph-actions .btn-modern {
-  padding: 0.35rem 0.8rem;
-  font-size: 0.78rem;
-  border-radius: 8px;
+  min-height: 46px;
+  padding: 0.72rem 1.15rem;
+  font-size: 0.85rem;
 }
 
 /* ===== 2. 行情快照条（合并原情绪+大盘） ===== */
@@ -41,12 +52,12 @@
   display: flex;
   align-items: stretch;
   gap: 0;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.96);
   border: 1px solid var(--card-border);
-  border-radius: 12px;
+  border-radius: 18px;
   overflow: hidden;
   margin-bottom: 0.75rem;
-  box-shadow: 0 2px 8px rgba(15,23,42,0.03);
+  box-shadow: var(--shadow-soft);
 }
 .ticker-item {
   flex: 1;
@@ -59,14 +70,14 @@
   position: relative;
 }
 .ticker-item:last-child { border-right: none; }
-.ticker-item:hover { background: rgba(59,130,246,0.04); }
-.ticker-item.active { background: rgba(59,130,246,0.06); }
+.ticker-item:hover { background: rgba(0, 82, 255, 0.045); }
+.ticker-item.active { background: rgba(0, 82, 255, 0.07); }
 .ticker-item.active::before {
   content: '';
   position: absolute;
   left: 0; top: 6px; bottom: 6px;
   width: 3px;
-  background: linear-gradient(180deg, #2563eb, #60a5fa);
+  background: linear-gradient(180deg, var(--brand-blue), var(--brand-blue-hover));
   border-radius: 2px;
 }
 .ti-name {
@@ -101,8 +112,8 @@
   align-items: center;
   gap: 0.6rem;
   padding: 0.4rem 0.85rem;
-  background: rgba(248,250,252,0.7);
-  border-radius: 10px;
+  background: var(--surface-muted);
+  border-radius: 100000px;
   font-size: 0.75rem;
   white-space: nowrap;
 }
@@ -116,7 +127,7 @@
   white-space: nowrap;
   padding: 0.25rem 0.6rem;
   border-radius: 99px;
-  background: rgba(148,163,184,0.1);
+  background: var(--surface-muted);
 }
 
 /* ===== 3. 三栏主内容区 ===== */
@@ -129,11 +140,11 @@
 
 /* 图表卡片 */
 .chart-card {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.96);
   border: 1px solid var(--card-border);
-  border-radius: 14px;
+  border-radius: 20px;
   padding: 0.75rem 1rem;
-  box-shadow: 0 2px 8px rgba(15,23,42,0.03);
+  box-shadow: var(--shadow-soft);
 }
 .chart-card-header {
   display: flex;
@@ -179,21 +190,21 @@
   cursor: pointer;
   transition: all 0.2s;
 }
-.period-btn:hover { border-color: #94a3b8; color: var(--text-main); }
+.period-btn:hover { border-color: rgba(0, 82, 255, 0.28); color: var(--brand-blue); }
 .period-btn.active {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background: var(--brand-blue);
   color: #fff;
-  border-color: transparent;
+  border-color: var(--brand-blue);
 }
 .chart-box { height: 240px; width: 100%; }
 
 /* 市场概览中间卡 */
 .summary-card {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.96);
   border: 1px solid var(--card-border);
-  border-radius: 14px;
+  border-radius: 20px;
   padding: 0.75rem 1rem;
-  box-shadow: 0 2px 8px rgba(15,23,42,0.03);
+  box-shadow: var(--shadow-soft);
   display: flex;
   flex-direction: column;
 }
@@ -244,10 +255,10 @@
 
 /* 快讯右侧面板 */
 .news-card {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.96);
   border: 1px solid var(--card-border);
-  border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(15,23,42,0.03);
+  border-radius: 20px;
+  box-shadow: var(--shadow-soft);
   display: flex;
   flex-direction: column;
   max-height: 340px;
@@ -297,7 +308,7 @@
   transition: background 0.15s;
   border-left: 3px solid transparent;
 }
-.news-item:hover { background: rgba(59,130,246,0.04); border-left-color: #2563eb; }
+.news-item:hover { background: rgba(0, 82, 255, 0.045); border-left-color: var(--brand-blue); }
 .ni-time {
   font-size: 0.68rem;
   color: #94a3b8;
@@ -351,22 +362,22 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0.45rem 0.85rem;
-  border-radius: 10px;
+  border-radius: 100000px;
   border: 1px solid var(--card-border);
-  background: #fff;
+  background: rgba(255, 255, 255, 0.96);
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--text-main);
   cursor: pointer;
   text-decoration: none;
   transition: all 0.2s;
-  box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+  box-shadow: var(--shadow-soft);
 }
 .qa-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(15,23,42,0.08);
-  border-color: #94a3b8;
-  color: #2563eb;
+  box-shadow: var(--shadow-hover);
+  border-color: rgba(0, 82, 255, 0.24);
+  color: var(--brand-blue);
 }
 .qa-icon {
   width: 22px; height: 22px;
@@ -379,12 +390,12 @@
   color: #fff;
   flex-shrink: 0;
 }
-.qa-icon.blue { background: linear-gradient(135deg, #3b82f6, #2563eb); }
-.qa-icon.green { background: linear-gradient(135deg, #22c55e, #16a34a); }
-.qa-icon.orange { background: linear-gradient(135deg, #f97316, #ea580c); }
-.qa-icon.purple { background: linear-gradient(135deg, #a855f7, #7c3aed); }
-.qa-icon.red { background: linear-gradient(135deg, #ef4444, #dc2626); }
-.qa-icon.teal { background: linear-gradient(135deg, #14b8a6, #0d9488); }
+.qa-icon.blue { background: linear-gradient(135deg, var(--brand-blue), var(--brand-blue-hover)); }
+.qa-icon.green { background: linear-gradient(135deg, var(--surface-dark-soft), var(--surface-dark)); }
+.qa-icon.orange { background: linear-gradient(135deg, var(--brand-blue-hover), var(--brand-blue)); }
+.qa-icon.purple { background: linear-gradient(135deg, #4c5566, #282b31); }
+.qa-icon.red { background: linear-gradient(135deg, var(--surface-dark), #1d2026); }
+.qa-icon.teal { background: linear-gradient(135deg, var(--brand-blue), #003ec4); }
 
 /* ===== 5. 排名+状态底栏 ===== */
 .bottom-section {
@@ -424,11 +435,11 @@
   gap: 0.6rem;
 }
 .ranking-panel {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.96);
   border: 1px solid var(--card-border);
-  border-radius: 12px;
+  border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 2px 6px rgba(15,23,42,0.03);
+  box-shadow: var(--shadow-soft);
 }
 .rp-title {
   font-size: 0.78rem;
@@ -464,7 +475,7 @@
 .ranking-table td:first-child { color: var(--text-muted); width: 24px; text-align: center; }
 .ranking-table td:nth-child(2) { text-align: left; font-weight: 600; }
 .ranking-table tbody tr { cursor: pointer; transition: background 0.12s; }
-.ranking-table tbody tr:hover { background: rgba(59,130,246,0.04); }
+.ranking-table tbody tr:hover { background: rgba(0, 82, 255, 0.04); }
 .pct-up { color: #b91c1c; font-weight: 700; }
 .pct-down { color: #166534; font-weight: 700; }
 .pct-flat { color: var(--text-muted); }
@@ -472,11 +483,11 @@
 
 /* 系统状态侧边 */
 .status-sidebar {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.96);
   border: 1px solid var(--card-border);
-  border-radius: 12px;
+  border-radius: 18px;
   padding: 0.7rem 0.85rem;
-  box-shadow: 0 2px 6px rgba(15,23,42,0.03);
+  box-shadow: var(--shadow-soft);
 }
 .status-sidebar h5 {
   font-size: 0.85rem;
@@ -521,7 +532,7 @@
 @media (max-width: 767px) {
   .ticker-bar { overflow-x: auto; flex-wrap: nowrap; }
   .ticker-item { min-width: 90px; }
-  .page-header-bar { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
+  .page-header-bar { flex-direction: column; align-items: flex-start; gap: 0.75rem; padding: 1.15rem; }
   .quick-actions-bar { overflow-x: auto; flex-wrap: nowrap; }
   .qa-btn { flex-shrink: 0; }
 }

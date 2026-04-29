@@ -2,33 +2,38 @@
 """
 Celery 异步任务配置
 ===================
-将 CPU 密集型或耗时数据同步任务从 Flask 主进程拆分到 Celery Worker。
-
-使用方式：
-  # 启动 Celery Worker
-  celery -A app.celery_app worker --loglevel=info --concurrency=2
-
-  # 启动 Celery Beat（定时调度，可选）
-  celery -A app.celery_app beat --loglevel=info
-
-  # 启动 Flower 监控（可选）
-  celery -A app.celery_app flower
-
-在代码中调用：
-  from app.tasks import sync_daily_data
-  result = sync_daily_data.delay()           # 异步执行
-  result = sync_daily_data.apply_async(countdown=60)  # 60秒后执行
+将耗时数据同步任务从 Flask 主进程拆分到 Celery Worker。
 """
 
 import os
+
 from celery import Celery
+from celery.schedules import crontab
 from dotenv import load_dotenv
 
 load_dotenv(override=True, encoding='utf-8')
 
 
+def _daily_incremental_update_schedule() -> dict:
+    enabled = os.getenv('DAILY_INCREMENTAL_UPDATE_ENABLED', 'true').lower() == 'true'
+    if not enabled:
+        return {}
+
+    hour = int(os.getenv('DAILY_INCREMENTAL_UPDATE_HOUR', '18'))
+    minute = int(os.getenv('DAILY_INCREMENTAL_UPDATE_MINUTE', '5'))
+    quick = os.getenv('DAILY_INCREMENTAL_UPDATE_QUICK', 'false').lower() == 'true'
+
+    return {
+        'daily-incremental-update-after-close': {
+            'task': 'app.tasks.run_daily_incremental_update',
+            'schedule': crontab(hour=hour, minute=minute),
+            'kwargs': {'quick': quick},
+        },
+    }
+
+
 def make_celery(app=None):
-    """创建 Celery 实例，可选与 Flask app 绑定"""
+    """创建 Celery 实例，可选与 Flask app 绑定。"""
     broker_url = os.getenv('CELERY_BROKER_URL', os.getenv('REDIS_URL', 'redis://localhost:6379/1'))
     result_backend = os.getenv('CELERY_RESULT_BACKEND', os.getenv('REDIS_URL', 'redis://localhost:6379/2'))
 
@@ -43,20 +48,13 @@ def make_celery(app=None):
         accept_content=['json'],
         result_serializer='json',
         timezone='Asia/Shanghai',
-        enable_utc=True,
+        enable_utc=False,
         task_track_started=True,
-        task_time_limit=3600,         # 单任务最长1小时
-        task_soft_time_limit=3000,    # 软限制50分钟
+        task_time_limit=int(os.getenv('CELERY_TASK_TIME_LIMIT', '14400')),
+        task_soft_time_limit=int(os.getenv('CELERY_TASK_SOFT_TIME_LIMIT', '12600')),
         worker_max_tasks_per_child=100,
         worker_prefetch_multiplier=1,
-        # 定时任务（Celery Beat）
-        beat_schedule={
-            'sync-daily-data': {
-                'task': 'app.tasks.sync_daily_data',
-                'schedule': 3600 * 18,   # 每18小时检查一次（收盘后执行）
-                'args': (),
-            },
-        },
+        beat_schedule=_daily_incremental_update_schedule(),
     )
 
     if app:
@@ -70,5 +68,4 @@ def make_celery(app=None):
     return celery
 
 
-# 默认 Celery 实例（不绑定 Flask，任务函数内部自行创建 app context）
 celery_app = make_celery()

@@ -8,9 +8,13 @@ os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
 load_dotenv(encoding='utf-8', override=True)
 
 
-def _parse_model_list(raw_value, fallback_model):
+def _parse_model_list(raw_value, fallback_model, default_models=None):
     values = []
-    for item in (raw_value or '').split(','):
+    source = raw_value
+    if not source and default_models:
+        source = ','.join(default_models)
+
+    for item in (source or '').split(','):
         model_name = item.strip()
         if model_name and model_name not in values:
             values.append(model_name)
@@ -20,6 +24,22 @@ def _parse_model_list(raw_value, fallback_model):
         values.insert(0, fallback_model)
 
     return values
+
+
+DEFAULT_DEEPSEEK_MODELS = (
+    'deepseek-v4-flash',
+    'deepseek-v4-pro',
+)
+
+DEFAULT_QWEN_MODELS = (
+    'qwen3.6-plus',
+    'qwen-plus',
+)
+
+DEFAULT_OPENAI_MODELS = (
+    'gpt-4o-mini',
+    'gpt-4.1-mini',
+)
 
 
 class Config:
@@ -68,7 +88,7 @@ class Config:
     REDIS_ENABLED = os.getenv('REDIS_ENABLED', 'true').lower() == 'true'
 
     # --- 静态文件版本号（每次更新代码后修改此值，强制浏览器刷新缓存）---
-    STATIC_VERSION = '20260427_1'
+    STATIC_VERSION = '20260429_1'
 
     DEFAULT_PAGE_SIZE = 20
     MAX_PAGE_SIZE = 100
@@ -87,32 +107,24 @@ class Config:
         MAIL_DEFAULT_SENDER = ('noreply@stock-analysis.local', 'StockAnalysis')
     MAIL_VERIFY_CODE_EXPIRE = int(os.getenv('MAIL_VERIFY_CODE_EXPIRE', '300'))   # 验证码有效期(秒)，默认5分钟
 
-    _DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY') or os.getenv('OPENAI_API_KEY')
+    _DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
     _QWEN_API_KEY = os.getenv('QWEN_API_KEY') or os.getenv('DASHSCOPE_API_KEY')
+    _QWEN_APP_ID = os.getenv('QWEN_APP_ID') or os.getenv('DASHSCOPE_APP_ID')
+    _OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
     LLM_PROVIDER = os.getenv(
         'LLM_PROVIDER',
-        'deepseek' if _DEEPSEEK_API_KEY else ('qwen' if _QWEN_API_KEY else 'ollama')
+        'deepseek' if _DEEPSEEK_API_KEY else ('qwen' if _QWEN_API_KEY else 'openai')
     )
 
     LLM_CONFIG = {
         'provider': LLM_PROVIDER,
-        'ollama': {
-            'base_url': os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434'),
-            'model': os.getenv('OLLAMA_MODEL', 'qwen2.5-coder:latest'),
-            'available_models': _parse_model_list(
-                os.getenv('OLLAMA_AVAILABLE_MODELS'),
-                os.getenv('OLLAMA_MODEL', 'qwen2.5-coder:latest'),
-            ),
-            'timeout': int(os.getenv('OLLAMA_TIMEOUT', '60')),
-            'temperature': float(os.getenv('OLLAMA_TEMPERATURE', '0.1')),
-            'max_tokens': int(os.getenv('OLLAMA_MAX_TOKENS', '2048'))
-        },
         'deepseek': {
             'api_key': _DEEPSEEK_API_KEY,
             'model': os.getenv('DEEPSEEK_MODEL', 'deepseek-v4-flash'),
             'available_models': _parse_model_list(
                 os.getenv('DEEPSEEK_AVAILABLE_MODELS'),
                 os.getenv('DEEPSEEK_MODEL', 'deepseek-v4-flash'),
+                DEFAULT_DEEPSEEK_MODELS,
             ),
             'base_url': os.getenv('DEEPSEEK_BASE_URL', 'https://api.deepseek.com/v1'),
             'timeout': int(os.getenv('DEEPSEEK_TIMEOUT', '60')),
@@ -121,10 +133,12 @@ class Config:
         },
         'qwen': {
             'api_key': _QWEN_API_KEY,
-            'model': os.getenv('QWEN_MODEL') or os.getenv('DASHSCOPE_MODEL', 'qwen-plus'),
+            'app_id': _QWEN_APP_ID,
+            'model': os.getenv('QWEN_MODEL') or os.getenv('DASHSCOPE_MODEL', 'qwen3.6-plus'),
             'available_models': _parse_model_list(
                 os.getenv('QWEN_AVAILABLE_MODELS') or os.getenv('DASHSCOPE_AVAILABLE_MODELS'),
-                os.getenv('QWEN_MODEL') or os.getenv('DASHSCOPE_MODEL', 'qwen-plus'),
+                os.getenv('QWEN_MODEL') or os.getenv('DASHSCOPE_MODEL', 'qwen3.6-plus'),
+                DEFAULT_QWEN_MODELS,
             ),
             'base_url': (
                 os.getenv('QWEN_BASE_URL')
@@ -136,11 +150,12 @@ class Config:
             'max_tokens': int(os.getenv('QWEN_MAX_TOKENS') or os.getenv('DASHSCOPE_MAX_TOKENS') or '2048')
         },
         'openai': {
-            'api_key': os.getenv('OPENAI_API_KEY'),
-            'model': os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo'),
+            'api_key': _OPENAI_API_KEY,
+            'model': os.getenv('OPENAI_MODEL', 'gpt-4o-mini'),
             'available_models': _parse_model_list(
                 os.getenv('OPENAI_AVAILABLE_MODELS'),
-                os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo'),
+                os.getenv('OPENAI_MODEL', 'gpt-4o-mini'),
+                DEFAULT_OPENAI_MODELS,
             ),
             'base_url': os.getenv('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
             'timeout': int(os.getenv('OPENAI_TIMEOUT', '60')),
