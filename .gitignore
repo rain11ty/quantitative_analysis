@@ -107,6 +107,14 @@ $RECYCLE.BIN/
 _verify_improvements.py
 _check_encoding.py
 
+# 论文/文档目录
+论文/
+基于历史日线
+
+# 工具生成目录
+.codebuddy/
+.matplotlib/
+
 # gunicorn pid 文件
 tool_calls.txt
 screen_dump.txt
