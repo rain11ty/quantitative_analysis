@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-大模型服务
-支持 DeepSeek、Qwen（阿里百炼）和 OpenAI 等 API 提供商。
+LLM service wrapper.
+
+Supports DeepSeek, Qwen (DashScope compatible mode), and OpenAI style chat
+completion APIs through one shared interface for the Flask app.
 """
 
 import json
@@ -289,104 +291,6 @@ class LLMService:
         except Exception as exc:
             raise RuntimeError(f'{provider_label} 调用异常: {exc}') from exc
 
-    def enhance_sql_generation(self, user_query: str, context: Dict[str, Any]) -> str | None:
-        """使用大模型增强 SQL 生成。"""
-        try:
-            prompt = self._build_sql_prompt(user_query, context)
-            messages = [
-                {
-                    'role': 'system',
-                    'content': '你是一个专业的 SQL 生成助手，专门为股票分析系统生成准确的 SQL 查询语句。',
-                },
-                {
-                    'role': 'user',
-                    'content': prompt,
-                },
-            ]
-
-            result = self.chat_completion(messages, temperature=0.1)
-            if result['success']:
-                return self._extract_sql_from_response(result['content'])
-
-            logger.error(f"大模型 SQL 生成失败: {result['error']}")
-            return None
-        except Exception as exc:
-            logger.error(f'大模型 SQL 增强失败: {exc}')
-            return None
-
-    def _build_sql_prompt(self, user_query: str, context: Dict[str, Any]) -> str:
-        tables_info = context.get('tables_info', {})
-        intent = context.get('intent', {})
-        entities = context.get('entities', {})
-
-        return f"""
-请根据用户的自然语言查询生成对应的 SQL 语句。
-
-用户查询: {user_query}
-
-识别的意图: {intent.get('name', 'unknown')}
-提取的实体: {json.dumps(entities, ensure_ascii=False)}
-
-可用的数据表结构:
-{self._format_tables_info(tables_info)}
-
-要求:
-1. 生成标准的 MySQL SQL 语句。
-2. 只返回 SQL 语句，不要附加解释。
-3. 确保语法正确。
-4. 使用适当的 WHERE、ORDER BY 和 LIMIT。
-
-请生成 SQL:
-"""
-
-    def _format_tables_info(self, tables_info: Dict[str, Any]) -> str:
-        if not tables_info:
-            return """
-stock_business表（股票基础数据）:
-- ts_code: 股票代码
-- stock_name: 股票名称
-- daily_close: 收盘价
-- factor_pct_change: 涨跌幅
-- vol: 成交量
-- amount: 成交额
-- pe_ttm: 市盈率
-- pb: 市净率
-
-stock_factor表（技术指标）:
-- ts_code: 股票代码
-- macd: MACD指标
-- macd_dif: MACD DIF线
-- macd_dea: MACD DEA线
-- rsi_6: RSI指标
-
-stock_moneyflow表（资金流向）:
-- ts_code: 股票代码
-- net_mf_amount: 净流入金额
-- net_mf_vol: 净流入量
-"""
-
-        formatted = ''
-        for table_name, table_info in tables_info.items():
-            formatted += f'\n{table_name}表:\n'
-            for field_name, field_info in table_info.items():
-                formatted += f"- {field_name}: {field_info.get('description', '')}\n"
-        return formatted
-
-    def _extract_sql_from_response(self, response: str) -> str:
-        response = response.strip()
-        if response.startswith('```sql'):
-            response = response[6:]
-        elif response.startswith('```'):
-            response = response[3:]
-
-        if response.endswith('```'):
-            response = response[:-3]
-
-        sql = response.strip()
-        if not sql.endswith(';'):
-            sql += ';'
-        return sql
-
     def check_service_status(self) -> Dict[str, Any]:
         provider = self._resolve_provider()
         if provider in OPENAI_COMPATIBLE_PROVIDERS:
@@ -427,7 +331,11 @@ stock_moneyflow表（资金流向）:
                 model_available = target_model in models if models else True
                 return {
                     'status': 'online' if model_available else 'model_not_found',
-                    'message': f'{provider_label} 已连接' if model_available else f'{provider_label} 未找到目标模型',
+                    'message': (
+                        f'{provider_label} 已连接'
+                        if model_available
+                        else f'{provider_label} 未找到目标模型'
+                    ),
                     'models': models,
                     'target_model': target_model,
                     'provider': provider,

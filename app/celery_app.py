@@ -14,22 +14,42 @@ from dotenv import load_dotenv
 load_dotenv(override=True, encoding='utf-8')
 
 
-def _daily_incremental_update_schedule() -> dict:
-    enabled = os.getenv('DAILY_INCREMENTAL_UPDATE_ENABLED', 'true').lower() == 'true'
-    if not enabled:
-        return {}
+def _build_beat_schedule() -> dict:
+    schedule = {}
 
-    hour = int(os.getenv('DAILY_INCREMENTAL_UPDATE_HOUR', '18'))
-    minute = int(os.getenv('DAILY_INCREMENTAL_UPDATE_MINUTE', '5'))
-    quick = os.getenv('DAILY_INCREMENTAL_UPDATE_QUICK', 'false').lower() == 'true'
-
-    return {
-        'daily-incremental-update-after-close': {
+    # 1. 每日收盘后增量更新
+    if os.getenv('DAILY_INCREMENTAL_UPDATE_ENABLED', 'true').lower() == 'true':
+        hour = int(os.getenv('DAILY_INCREMENTAL_UPDATE_HOUR', '18'))
+        minute = int(os.getenv('DAILY_INCREMENTAL_UPDATE_MINUTE', '5'))
+        quick = os.getenv('DAILY_INCREMENTAL_UPDATE_QUICK', 'false').lower() == 'true'
+        schedule['daily-incremental-update-after-close'] = {
             'task': 'app.tasks.run_daily_incremental_update',
             'schedule': crontab(hour=hour, minute=minute),
             'kwargs': {'quick': quick},
-        },
-    }
+        }
+
+    # 2. 每周六刷新股票基础信息（新股/改名/退市）
+    if os.getenv('STOCK_BASIC_REFRESH_ENABLED', 'true').lower() == 'true':
+        schedule['refresh-stock-basic-weekly'] = {
+            'task': 'app.tasks.refresh_stock_basic_weekly',
+            'schedule': crontab(hour=8, minute=23, day_of_week=6),
+        }
+
+    # 3. 每日盘前数据健康检查
+    if os.getenv('DATA_HEALTH_CHECK_ENABLED', 'true').lower() == 'true':
+        schedule['daily-data-health-check'] = {
+            'task': 'app.tasks.run_data_health_check',
+            'schedule': crontab(hour=9, minute=7),
+        }
+
+    # 4. 交易日收盘后分钟数据归档
+    if os.getenv('MINUTE_DATA_SYNC_ENABLED', 'false').lower() == 'true':
+        schedule['daily-minute-data-sync'] = {
+            'task': 'app.tasks.sync_minute_data_daily',
+            'schedule': crontab(hour=15, minute=47),
+        }
+
+    return schedule
 
 
 def make_celery(app=None):
@@ -54,7 +74,7 @@ def make_celery(app=None):
         task_soft_time_limit=int(os.getenv('CELERY_TASK_SOFT_TIME_LIMIT', '12600')),
         worker_max_tasks_per_child=100,
         worker_prefetch_multiplier=1,
-        beat_schedule=_daily_incremental_update_schedule(),
+        beat_schedule=_build_beat_schedule(),
     )
 
     if app:

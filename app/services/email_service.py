@@ -243,6 +243,68 @@ class EmailService:
             return False, f'邮件发送失败: {str(exc)}'
 
     @classmethod
+    def send_alert(cls, to, subject, body):
+        """
+        发送系统告警邮件（非验证码，纯通知）。
+
+        Args:
+            to: 目标邮箱地址
+            subject: 邮件主题
+            body: 邮件正文（纯文本）
+
+        Returns:
+            (success: bool, message: str)
+        """
+        to = to.lower().strip()
+
+        if not cls._is_configured():
+            current_app.logger.warning(f'[EmailService] 邮件未配置，跳过告警: {subject}')
+            return False, '邮件未配置'
+
+        try:
+            mail = cls._get_mail()
+            if not mail:
+                return False, '邮件服务未初始化'
+
+            app_obj = current_app._get_current_object()
+            smtp_server = app_obj.config.get('MAIL_SERVER', 'smtp.qq.com')
+            smtp_port = int(app_obj.config.get('MAIL_PORT', 465))
+            mail_use_ssl = app_obj.config.get('MAIL_USE_SSL', True)
+            mail_use_tls = app_obj.config.get('MAIL_USE_TLS', False)
+            username = app_obj.config.get('MAIL_USERNAME', '')
+            password = app_obj.config.get('MAIL_PASSWORD', '')
+
+            DEFAULT_SENDER = app_obj.config.get('MAIL_DEFAULT_SENDER', ('noreply@stock-analysis.local', 'StockAnalysis'))
+            sender_addr = DEFAULT_SENDER[0] if isinstance(DEFAULT_SENDER, tuple) else DEFAULT_SENDER
+
+            import smtplib
+            from email.mime.text import MIMEText
+            from email.utils import formatdate
+
+            msg = MIMEText(body, 'plain', 'utf-8')
+            msg['From'] = sender_addr
+            msg['To'] = to
+            msg['Subject'] = subject
+            msg['Date'] = formatdate(localtime=True)
+
+            if mail_use_ssl:
+                server = smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=15)
+            else:
+                server = smtplib.SMTP(smtp_server, smtp_port, timeout=15)
+                if mail_use_tls:
+                    server.starttls()
+
+            server.login(username, password)
+            server.sendmail(sender_addr, [to], msg.as_string())
+            server.quit()
+
+            current_app.logger.info(f'[EmailService] 告警邮件已发送至 {to}: {subject}')
+            return True, f'告警邮件已发送至 {to}'
+        except Exception as exc:
+            current_app.logger.error(f'[EmailService] 发送告警邮件失败: {exc}')
+            return False, f'邮件发送失败: {str(exc)}'
+
+    @classmethod
     def verify_code(cls, code_type, email, input_code):
         """
         校验验证码（一次性使用，校验成功后自动删除）

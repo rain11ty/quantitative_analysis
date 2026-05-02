@@ -82,15 +82,8 @@ class TushareDataSync:
 
     def _init_db(self):
         """初始化 MySQL 连接"""
-        import pymysql
-        conn = pymysql.connect(
-            host=os.getenv('DB_HOST', 'localhost'),
-            user=os.getenv('DB_USER', 'root'),
-            password=os.getenv('DB_PASSWORD', 'root'),
-            database=os.getenv('DB_NAME', 'stock_cursor'),
-            charset=os.getenv('DB_CHARSET', 'utf8mb4'),
-        )
-        cursor = conn.cursor()
+        from app.utils.db_utils import get_db_connection
+        return get_db_connection()
         return conn, cursor
 
     def _rate_limit(self):

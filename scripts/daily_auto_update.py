@@ -63,14 +63,8 @@ class DailyAutoUpdater:
         return pro
 
     def _init_db(self):
-        conn = pymysql.connect(
-            host=os.getenv('DB_HOST', 'mysql'),
-            user=os.getenv('DB_USER', 'root'),
-            password=os.getenv('DB_PASSWORD', 'Qs2026Stock123'),
-            database=os.getenv('DB_NAME', 'stock_cursor'),
-            charset='utf8mb4',
-        )
-        return conn, conn.cursor()
+        from app.utils.db_utils import get_db_connection
+        return get_db_connection()
 
     def _rate_limit(self):
         self._call_count += 1

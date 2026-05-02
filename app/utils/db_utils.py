@@ -95,3 +95,11 @@ class DatabaseUtils:
         )
         cursor = conn.cursor()
         return conn, cursor
+
+
+def get_db_connection():
+    """统一数据库连接入口，返回 (conn, cursor)。
+
+    供 scripts/ 和 Celery 任务使用，避免各处重复连接参数。
+    """
+    return DatabaseUtils.connect_to_mysql()

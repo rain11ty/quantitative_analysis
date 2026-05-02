@@ -829,7 +829,7 @@ class AkshareService:
         """
         try:
             ak_sym = cls._ts_code_to_ak(symbol)
-            df = ak.stock_individual_info_em(symbol=ak_sym)
+            df = call_with_no_proxy(ak.stock_individual_info_em, symbol=ak_sym)
             if df is None or df.empty:
                 return {}
 
