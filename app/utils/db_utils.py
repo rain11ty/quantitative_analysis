@@ -8,13 +8,20 @@ from dotenv import load_dotenv
 
 load_dotenv(encoding='utf-8')
 
+# 默认值与 config.py Config 类保持一致，避免两处维护
+_DEFAULT_HOST = 'localhost'
+_DEFAULT_USER = 'root'
+_DEFAULT_PASSWORD = 'root'
+_DEFAULT_DB_NAME = 'stock_cursor'
+_DEFAULT_CHARSET = 'utf8mb4'
+
 
 class DatabaseUtils:
-    _host = 'localhost'
-    _user = 'root'
-    _password = 'root'
-    _database = 'stock_cursor'
-    _charset = 'utf8mb4'
+    _host = _DEFAULT_HOST
+    _user = _DEFAULT_USER
+    _password = _DEFAULT_PASSWORD
+    _database = _DEFAULT_DB_NAME
+    _charset = _DEFAULT_CHARSET
     _tushare_token = ''
     _tushare_proxy_url = 'http://tsy.xiaodefa.cn'
     _env_loaded = False
@@ -31,11 +38,11 @@ class DatabaseUtils:
         """强制重新加载 .env 配置"""
         load_dotenv(override=True, encoding='utf-8')
 
-        cls._host = os.getenv('DB_HOST', 'localhost')
-        cls._user = os.getenv('DB_USER', 'root')
-        cls._password = os.getenv('DB_PASSWORD', 'root')
-        cls._database = os.getenv('DB_NAME', 'stock_cursor')
-        cls._charset = os.getenv('DB_CHARSET', 'utf8mb4')
+        cls._host = os.getenv('DB_HOST', _DEFAULT_HOST)
+        cls._user = os.getenv('DB_USER', _DEFAULT_USER)
+        cls._password = os.getenv('DB_PASSWORD', _DEFAULT_PASSWORD)
+        cls._database = os.getenv('DB_NAME', _DEFAULT_DB_NAME)
+        cls._charset = os.getenv('DB_CHARSET', _DEFAULT_CHARSET)
         cls._tushare_token = (os.getenv('TUSHARE_TOKEN', '') or '').strip()
         cls._tushare_proxy_url = (os.getenv('TUSHARE_PROXY_URL', 'http://tsy.xiaodefa.cn') or '').strip()
         cls._env_loaded = True
