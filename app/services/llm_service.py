@@ -379,14 +379,3 @@ class LLMService:
                 'provider_label': provider_label,
                 'app_id_configured': bool(provider_config.get('app_id')) if provider == 'qwen' else False,
             }
-
-
-_llm_service = None
-
-
-def get_llm_service() -> LLMService:
-    """获取单例服务实例。"""
-    global _llm_service
-    if _llm_service is None:
-        _llm_service = LLMService()
-    return _llm_service

@@ -214,6 +214,9 @@ def ai_chat():
             }
 
             def generate():
+                import time as _time
+                _stream_start = _time.time()
+                _stream_timeout = 180  # 流式响应总超时（秒）
                 full_answer = ''
                 chunk_index = 0
                 try:
@@ -221,6 +224,10 @@ def ai_chat():
                     yield f"data: {json.dumps(initial_payload, ensure_ascii=False)}\n\n"
 
                     for chunk in llm.stream_chat_completion(llm_messages):
+                        if _time.time() - _stream_start > _stream_timeout:
+                            logger.warning(f'AI stream timeout after {_stream_timeout}s')
+                            full_answer += '\n\n[响应超时，已中断]'
+                            break
                         if not chunk:
                             continue
 
