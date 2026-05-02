@@ -138,9 +138,6 @@ def get_cache():
     return _cache_instance
 
 
-# 便捷模块级对象
-cache = property(lambda self: get_cache())
-
 
 class CacheProxy:
     """模块级代理，方便 from app.utils.cache_utils import cache 直接使用"""
