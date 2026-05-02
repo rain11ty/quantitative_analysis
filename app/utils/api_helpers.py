@@ -72,6 +72,26 @@ def api_error_handler(func=None, *, default_message='服务器内部错误，请
     return decorator
 
 
+def parse_int_param(value, default, min_val=None, max_val=None):
+    """安全解析整数参数，非法值返回 default，支持 min/max 钳位。
+
+    Args:
+        value: 原始值（通常来自 request.args.get）
+        default: 解析失败时的默认值
+        min_val: 最小值（含）
+        max_val: 最大值（含）
+    """
+    try:
+        result = int(value)
+    except (TypeError, ValueError):
+        return default
+    if min_val is not None:
+        result = max(result, min_val)
+    if max_val is not None:
+        result = min(result, max_val)
+    return result
+
+
 def safe_api_response(success=True, message='success', data=None, code=200):
     """
     手动构建安全的 API 响应（用于正常响应场景）

@@ -4,7 +4,7 @@ from loguru import logger
 
 from app.api import api_bp
 from app.services.realtime_monitor_service import RealtimeMonitorService
-from app.utils.api_helpers import api_error_handler
+from app.utils.api_helpers import api_error_handler, parse_int_param
 
 
 @api_bp.route('/monitor/dashboard', methods=['GET'])
@@ -31,7 +31,7 @@ def get_monitor_dashboard():
 @api_error_handler(default_message='获取实时涨跌排名失败')
 def get_realtime_ranking():
     sort_by = (request.args.get('sort_by') or 'pct_change').strip()
-    limit = min(int(request.args.get('limit', 20)), 50)
+    limit = parse_int_param(request.args.get('limit'), 20, min_val=1, max_val=50)
     src = (request.args.get('src') or 'dc').strip()
     if src not in ('dc', 'sina'):
         src = 'dc'
@@ -82,7 +82,7 @@ def get_stock_shock():
     from sqlalchemy import desc
 
     ts_code = (request.args.get('ts_code') or '').strip()
-    limit = min(int(request.args.get('limit', 20)), 100)
+    limit = parse_int_param(request.args.get('limit'), 20, min_val=1, max_val=100)
 
     query = StockShock.query
     if ts_code:
