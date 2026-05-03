@@ -481,38 +481,6 @@
 .pct-flat { color: var(--text-muted); }
 .rank-top3 { color: #dc2626; font-weight: 800; }
 
-/* 系统状态侧边 */
-.status-sidebar {
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid var(--card-border);
-  border-radius: 18px;
-  padding: 0.7rem 0.85rem;
-  box-shadow: var(--shadow-soft);
-}
-.status-sidebar h5 {
-  font-size: 0.85rem;
-  font-weight: 700;
-  margin: 0 0 0.5rem 0;
-  padding-bottom: 0.45rem;
-  border-bottom: 1px solid rgba(226,232,240,0.5);
-}
-.ss-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.32rem 0;
-  font-size: 0.76rem;
-}
-.ss-label { color: var(--text-muted); font-weight: 500; }
-.ss-value { font-weight: 600; color: var(--text-main); }
-.ss-status-ok { color: #16a34a; font-weight: 700; }
-.ss-status-err { color: #dc2626; font-weight: 700; }
-.ss-btn-group { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed rgba(226,232,240,0.5); }
-.ss-btn-group .btn-modern {
-  padding: 0.32rem 0.6rem;
-  font-size: 0.74rem;
-}
-
 /* ===== 响应式 ===== */
 @media (max-width: 1199px) {
   .main-triple-grid {
@@ -520,7 +488,6 @@
   }
   .news-card { grid-column: 1 / -1; max-height: 200px; }
   .bottom-section { grid-template-columns: 1fr; }
-  .status-sidebar { order: -1; }
 }
 @media (max-width: 991px) {
   .main-triple-grid {
@@ -612,7 +579,7 @@
   <!-- 右：快讯列表 -->
   <div class="news-card">
     <div class="news-card-head">
-      <h5>⚡ 快讯</h5>
+      <h5>快讯</h5>
       <span class="badge-live">LIVE</span>
     </div>
     <div class="news-list" id="newsList">
@@ -652,27 +619,6 @@
     </div>
   </div>
 
-  <!-- 系统状态 -->
-  <div class="status-sidebar">
-    <h5>系统状态</h5>
-    <div class="ss-row">
-      <span class="ss-label">Tushare API</span>
-      <span class="ss-value" id="tushare-status">
-        <span class="spinner-border spinner-border-sm text-primary" role="status" style="width:14px;height:14px;"></span>
-      </span>
-    </div>
-    <div class="ss-row">
-      <span class="ss-label">API代理</span>
-      <span class="ss-value text-muted" id="proxy-url" style="font-size:0.72rem;">--</span>
-    </div>
-    <div class="ss-row">
-      <span class="ss-label">交易日</span>
-      <span class="ss-value text-primary" id="latest-trade-date">--</span>
-    </div>
-    <div class="ss-btn-group">
-      <button class="btn-modern btn-modern-outline w-100" id="check-api-btn" style="font-size:0.74rem;padding:0.32rem 0.6rem;">测试API连通性</button>
-    </div>
-  </div>
 </div>
 
 {% endblock %}
@@ -1055,28 +1001,9 @@ function renderLineChart(klineData) {
   indexChart.setOption(option, true);
 }
 
-// ===== 健康检查 =====
-async function checkTushareStatus() {
-  try {
-    const res = await apiRequest('/market/health');
-    const response = res.data;
-    const statusEl = document.getElementById('tushare-status');
-    if (response && response.success) {
-      statusEl.innerHTML = '<span class="ss-status-ok">&#x2713; 正常</span>';
-      document.getElementById('proxy-url').textContent = response.proxy_url || '未设置';
-      document.getElementById('latest-trade-date').textContent = response.latest_trade_date || '--';
-    } else {
-      statusEl.innerHTML = '<span class="ss-status-err">&#x2717; 异常</span>';
-    }
-  } catch (error) {
-    document.getElementById('tushare-status').innerHTML = '<span class="ss-status-err">&#x2717; 请求异常</span>';
-  }
-}
-
 // ===== DOM Ready =====
 document.addEventListener('DOMContentLoaded', function() {
   initChart();
-  checkTushareStatus();
 
   // 并发加载数据
   loadMarketOverview().then(() => {
@@ -1088,13 +1015,6 @@ document.addEventListener('DOMContentLoaded', function() {
   // 事件绑定
   document.getElementById('rankingSortBy').addEventListener('change', loadRanking);
 
-  document.getElementById('check-api-btn').addEventListener('click', function() {
-    const btn = this;
-    const originalText = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true" style="width:12px;height:12px;"></span>测试中...';
-    checkTushareStatus().finally(() => { btn.disabled = false; btn.innerHTML = originalText; });
-  });
 
   document.querySelectorAll('.period-btn').forEach(btn => {
     btn.addEventListener('click', function() {

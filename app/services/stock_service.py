@@ -60,8 +60,10 @@ class StockService:
                 if StockService._needs_pinyin_match(keyword):
                     # === 拼音搜索优化：先尝试 SQL 前缀匹配，再内存过滤 ===
                     # 策略1：如果关键词是纯字母，先尝试用 symbol 前缀匹配（SQL索引命中）
+                    from app.utils.sql_utils import escape_like
+                    safe_kw = escape_like(keyword)
                     sql_matches = query.filter(
-                        StockBasic.symbol.ilike(f'{keyword}%')
+                        StockBasic.symbol.ilike(f'{safe_kw}%', escape='\\')
                     ).order_by(asc(StockBasic.symbol)).limit(page_size * 3).all()  # 多取一些做二次过滤
                     
                     matched_stocks = [stock for stock in sql_matches if StockService._matches_stock_search(stock, keyword)]
@@ -87,11 +89,13 @@ class StockService:
                         'total_pages': (total + page_size - 1) // page_size if total else 0,
                     }
 
+                from app.utils.sql_utils import escape_like
+                safe_kw = escape_like(keyword)
                 query = query.filter(
                     or_(
-                        StockBasic.ts_code.ilike(f'%{keyword}%'),
-                        StockBasic.symbol.ilike(f'%{keyword}%'),
-                        StockBasic.name.ilike(f'%{keyword}%'),
+                        StockBasic.ts_code.ilike(f'%{safe_kw}%', escape='\\'),
+                        StockBasic.symbol.ilike(f'%{safe_kw}%', escape='\\'),
+                        StockBasic.name.ilike(f'%{safe_kw}%', escape='\\'),
                     )
                 )
 

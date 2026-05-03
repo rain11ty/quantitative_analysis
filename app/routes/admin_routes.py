@@ -130,7 +130,9 @@ def users():
     per_page = min(50, max(10, request.args.get('per_page', 20, type=int)))
     query = User.query
     if keyword:
-        query = query.filter(or_(User.username.ilike(f'%{keyword}%'), User.email.ilike(f'%{keyword}%')))
+        from app.utils.sql_utils import escape_like
+        safe_kw = escape_like(keyword)
+        query = query.filter(or_(User.username.ilike(f'%{safe_kw}%', escape='\\'), User.email.ilike(f'%{safe_kw}%', escape='\\')))
 
     pagination = query.order_by(User.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
     available_statuses = [User.STATUS_ACTIVE, User.STATUS_DISABLED, User.STATUS_BANNED]

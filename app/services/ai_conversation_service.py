@@ -262,10 +262,12 @@ class AIConversationService:
         text = (keyword or '').strip()
         if not text:
             return AIConversationService.list_conversations(user_id)
+        from app.utils.sql_utils import escape_like
+        safe_text = escape_like(text)
         return UserAiConversation.query.filter(
             UserAiConversation.user_id == user_id,
             or_(
-                UserAiConversation.title.ilike(f'%{text}%'),
-                UserAiConversation.summary.ilike(f'%{text}%'),
+                UserAiConversation.title.ilike(f'%{safe_text}%', escape='\\'),
+                UserAiConversation.summary.ilike(f'%{safe_text}%', escape='\\'),
             ),
         ).order_by(UserAiConversation.last_message_at.desc(), UserAiConversation.id.desc()).limit(50).all()

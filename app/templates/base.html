@@ -5,10 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>{% block title %}股票量化分析系统{% endblock %}</title>
 <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}?v={{ v }}">
-<!-- Google Fonts -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- Google Fonts (disabled, using local system fonts for faster loading) -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="{{ url_for('static', filename='css/financial-theme.css') }}?v={{ v }}" rel="stylesheet">
 <link href="{{ url_for('static', filename='css/responsive-financial.css') }}?v={{ v }}" rel="stylesheet">
@@ -35,9 +32,9 @@
  --success-color: #15803d;
  --warning-color: #b45309;
  --danger-color: #b91c1c;
- --font-display: "Space Grotesk", "Microsoft YaHei", sans-serif;
- --font-ui: "Manrope", "Microsoft YaHei", sans-serif;
- --font-body: "Manrope", "Microsoft YaHei", sans-serif;
+ --font-display: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
+ --font-ui: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
+ --font-body: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
  --radius-xs: 8px;
  --radius-sm: 12px;
  --radius-md: 16px;
@@ -519,6 +516,70 @@ textarea,
  font-weight: 500;
 }
 
+/* 左侧页面导航 */
+.navbar-financial .navbar-nav.page-nav .nav-link {
+ color: rgba(255, 255, 255, 0.74) !important;
+ font-size: 0.93rem;
+ font-weight: 700;
+ border-radius: 100000px;
+ padding: 0.58rem 0.98rem !important;
+ transition: var(--transition-smooth);
+ margin: 0 0.15rem;
+ white-space: nowrap;
+ letter-spacing: -0.01em;
+}
+
+.navbar-financial .navbar-nav.page-nav .nav-link:hover {
+ color: #ffffff !important;
+ background: rgba(255, 255, 255, 0.08);
+}
+
+.navbar-financial .navbar-nav.page-nav .nav-link.active {
+ color: #ffffff !important;
+ background: var(--brand-blue);
+ border-color: var(--brand-blue);
+}
+
+/* 右侧用户区 */
+.navbar-financial .navbar-nav.user-nav {
+ display: flex;
+ align-items: center;
+ gap: 0.25rem;
+}
+
+@media (min-width: 1200px) {
+ .navbar-financial .navbar-nav.user-nav {
+  border-left: 2px solid rgba(255, 255, 255, 0.2);
+  padding-left: 1rem;
+  margin-left: 1.5rem !important;
+ }
+}
+
+.navbar-financial .navbar-nav.user-nav .nav-link {
+ color: rgba(255, 255, 255, 0.9) !important;
+ font-size: 0.85rem;
+ font-weight: 600;
+ padding: 0.4rem 0.75rem !important;
+ border-radius: 8px;
+ transition: var(--transition-smooth);
+}
+
+.navbar-financial .navbar-nav.user-nav .nav-link:hover {
+ color: #ffffff !important;
+ background: rgba(255, 255, 255, 0.15);
+}
+
+.navbar-financial .user-badge {
+ background: rgba(255, 255, 255, 0.12);
+ color: #ffffff;
+ border: 1px solid rgba(255, 255, 255, 0.2);
+ border-radius: 20px;
+ padding: 0.3rem 0.8rem;
+ font-size: 0.82rem;
+ font-weight: 700;
+ white-space: nowrap;
+}
+
 @media (max-width: 1199.98px) {
  .navbar-financial .nav-link {
   margin-bottom: 0.35rem;
@@ -529,13 +590,19 @@ textarea,
  .page-shell {
   padding-top: 92px;
  }
+
+ .navbar-financial .navbar-nav.user-nav {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: 0.75rem;
+  margin-top: 0.5rem !important;
+ }
 }
 </style> {% block extra_css %}{% endblock %}
 
 </head>
 <body>
 <nav class="navbar navbar-expand-xl navbar-dark navbar-financial fixed-top">
-<div class="container-fluid container-xxl px-3 px-xl-4">
+<div class="container-fluid px-3 px-xl-4">
 <a class="navbar-brand d-flex align-items-center" href="{{ url_for('main.index') }}">
 <img src="{{ url_for('static', filename='logo.png') }}?v={{ v }}" alt="Logo" width="36" height="36" class="me-2 rounded-circle">
 <span>股票量化分析系统</span>
@@ -544,7 +611,7 @@ textarea,
 <span class="navbar-toggler-icon"></span>
 </button>
 <div class="collapse navbar-collapse" id="mainNavbar"> {% if current_user %}
-  <ul class="navbar-nav me-auto mt-3 mt-xl-0">
+  <ul class="navbar-nav page-nav me-auto mt-3 mt-xl-0">
 <li class="nav-item"><a class="nav-link" href="{{ url_for('main.index') }}">首页</a></li>
 <li class="nav-item"><a class="nav-link" href="{{ url_for('main.stocks') }}">股票列表</a></li>
 <li class="nav-item"><a class="nav-link" href="{{ url_for('main.news') }}">新闻资讯</a></li>
@@ -553,24 +620,23 @@ textarea,
 <li class="nav-item"><a class="nav-link" href="{{ url_for('main.backtest') }}">策略回测</a></li>
 <li class="nav-item"><a class="nav-link" href="{{ url_for('main.ai_assistant') }}">AI金融助手</a></li>
 </ul>
-<div class="navbar-nav ms-xl-3 mt-3 mt-xl-0 align-items-xl-center gap-2 gap-xl-1">
-<span class="mini-badge">{{ current_user.nickname or current_user.username }}</span>
+<div class="navbar-nav user-nav mt-3 mt-xl-0">
+<span class="user-badge">{{ current_user.nickname or current_user.username }}</span>
 <a class="nav-link" href="{{ url_for('auth.profile') }}">个人中心</a> {% if current_user.is_admin %}
-  <a class="nav-link" href="{{ url_for('admin.dashboard') }}">管理后台</a> {% endif %}
-  <a class="nav-link" href="{{ url_for('auth.logout') }}">退出登录</a>
+<a class="nav-link" href="{{ url_for('admin.dashboard') }}">管理后台</a> {% endif %}
+<a class="nav-link" href="{{ url_for('auth.logout') }}">退出登录</a>
 </div> {% else %}
-  <ul class="navbar-nav me-auto mt-3 mt-xl-0">
+  <ul class="navbar-nav page-nav me-auto mt-3 mt-xl-0">
 <li class="nav-item"><a class="nav-link" href="{{ url_for('main.index') }}">首页</a></li>
 <li class="nav-item"><a class="nav-link" href="{{ url_for('main.news') }}">新闻资讯</a></li>
 <li class="nav-item"><a class="nav-link" href="{{ url_for('main.ai_assistant') }}">AI金融助手</a></li>
 </ul>
-<div class="navbar-nav ms-xl-3 mt-3 mt-xl-0 gap-2 gap-xl-1">
+<div class="navbar-nav user-nav mt-3 mt-xl-0">
 <a class="nav-link" href="{{ url_for('auth.login') }}">用户登录</a>
 <a class="nav-link" href="{{ url_for('auth.register') }}">用户注册</a>
 <a class="nav-link" href="{{ url_for('admin.login') }}">管理员入口</a>
 </div> {% endif %}
-
-  </div>
+</div>
 </div>
 </nav>
 <div class="page-shell">
@@ -667,7 +733,7 @@ document.addEventListener('DOMContentLoaded', function() {
   };
 
   const currentPath = normalize(window.location.pathname);
-  document.querySelectorAll('.navbar-financial .nav-link').forEach(link => {
+  document.querySelectorAll('.navbar-financial .page-nav .nav-link').forEach(link => {
     const href = link.getAttribute('href');
     if (!href || href === '#') return;
     const linkPath = normalize(href);

@@ -39,11 +39,13 @@ def get_analysis_records():
 
     query = UserAnalysisRecord.query.filter_by(user_id=user_id)
     if keyword:
+        from app.utils.sql_utils import escape_like
+        safe_kw = escape_like(keyword)
         query = query.filter(
             db.or_(
-                UserAnalysisRecord.summary.ilike(f'%{keyword}%'),
-                UserAnalysisRecord.stock_name.ilike(f'%{keyword}%'),
-                UserAnalysisRecord.ts_code.ilike(f'%{keyword}%'),
+                UserAnalysisRecord.summary.ilike(f'%{safe_kw}%', escape='\\'),
+                UserAnalysisRecord.stock_name.ilike(f'%{safe_kw}%', escape='\\'),
+                UserAnalysisRecord.ts_code.ilike(f'%{safe_kw}%', escape='\\'),
             )
         )
 

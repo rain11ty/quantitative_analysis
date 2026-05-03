@@ -128,6 +128,10 @@ def create_app(config_name='default'):
     else:
         cors_origins = os.getenv('CORS_ORIGINS', '').split(',')
         cors_origins = [o.strip() for o in cors_origins if o.strip()]
+        if '*' in cors_origins:
+            cors_origins = []
+            logger.warning("[CORS] 生产环境 CORS_ORIGINS 包含通配符 *，已拒绝！"
+                        " 请在 .env 中配置具体域名：CORS_ORIGINS=https://your-domain.com")
         if not cors_origins:
             cors_origins = []  # 空白名单，仅允许同源
             logger.warning("[CORS] 生产环境未设置 CORS_ORIGINS 环境变量，将仅允许同源请求！"
