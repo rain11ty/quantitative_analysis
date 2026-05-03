@@ -2,7 +2,9 @@
 from datetime import datetime, timedelta
 
 from loguru import logger
+from sqlalchemy import text
 
+from app.extensions import db
 from app.services.akshare_service import AkshareService
 from app.utils.cache_utils import cache as _cache
 from app.utils.db_utils import DatabaseUtils

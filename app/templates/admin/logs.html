@@ -4,15 +4,51 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/account-admin.css') }}?v={{ v }}">
+<style>
+.log-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    margin-top: 1.25rem;
+}
+.log-pagination .page-link {
+    border-radius: 8px;
+    border: 1px solid rgba(76, 130, 214, 0.18);
+    color: #334155;
+    font-size: 0.85rem;
+    padding: 0.4rem 0.75rem;
+    transition: all 0.15s ease;
+}
+.log-pagination .page-link:hover {
+    background: rgba(29, 103, 242, 0.06);
+    border-color: rgba(29, 103, 242, 0.3);
+    color: #1d67f2;
+}
+.log-pagination .page-item.active .page-link {
+    background: #1d67f2;
+    border-color: #1d67f2;
+    color: #fff;
+}
+.log-pagination .page-item.disabled .page-link {
+    color: #94a3b8;
+    background: rgba(248, 250, 252, 0.7);
+    border-color: rgba(76, 130, 214, 0.1);
+}
+</style>
 {% endblock %}
 
 {% block content %}
+{% macro log_page_url(page_num) -%}
+{{ url_for('admin.logs', page=page_num, action_type=selected_action, status=selected_status, user_id=selected_user_id, start_date=selected_start_date, end_date=selected_end_date) }}
+{%- endmacro %}
+
 <div class="container py-4">
     <div class="workspace-shell">
         <section class="workspace-hero">
             <span class="workspace-kicker">后台模块</span>
             <h1 class="workspace-title">系统日志</h1>
-            <p class="workspace-subtitle">按动作类型和执行状态快速筛选日志，辅助定位登录、管理操作与运行异常问题。</p>
+            <p class="workspace-subtitle">按动作类型、执行状态、日期范围和用户ID筛选日志，辅助定位登录、管理操作与运行异常问题。</p>
             <div class="workspace-actions">
                 <a class="btn btn-light" href="{{ url_for('admin.dashboard') }}">返回后台首页</a>
                 <a class="btn btn-outline-light" href="{{ url_for('admin.users') }}">用户管理</a>
@@ -24,12 +60,12 @@
             <div class="workspace-panel-header">
                 <div>
                     <h2 class="workspace-panel-title">日志筛选</h2>
-                    <p class="workspace-panel-desc">你可以根据动作类型与执行状态快速缩小范围。</p>
+                    <p class="workspace-panel-desc">支持按动作类型、状态、日期范围和用户ID组合筛选。</p>
                 </div>
             </div>
             <form method="get">
                 <div class="row g-3 align-items-end">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label">动作类型</label>
                         <select class="form-select" name="action_type">
                             <option value="">全部</option>
@@ -38,7 +74,7 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-2">
                         <label class="form-label">状态</label>
                         <select class="form-select" name="status">
                             <option value="">全部</option>
@@ -46,8 +82,20 @@
                             <option value="failed" {% if selected_status == 'failed' %}selected{% endif %}>失败</option>
                         </select>
                     </div>
-                    <div class="col-md-4 d-grid">
-                        <button class="btn btn-primary" type="submit">应用筛选</button>
+                    <div class="col-md-2">
+                        <label class="form-label">用户ID</label>
+                        <input type="number" class="form-control" name="user_id" placeholder="例如 1" value="{{ selected_user_id or '' }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">开始日期</label>
+                        <input type="date" class="form-control" name="start_date" value="{{ selected_start_date or '' }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">结束日期</label>
+                        <input type="date" class="form-control" name="end_date" value="{{ selected_end_date or '' }}">
+                    </div>
+                    <div class="col-md-1 d-grid">
+                        <button class="btn btn-primary" type="submit">筛选</button>
                     </div>
                 </div>
             </form>
@@ -57,17 +105,19 @@
             <div class="workspace-panel-header">
                 <div>
                     <h2 class="workspace-panel-title">日志明细</h2>
-                    <p class="workspace-panel-desc">展示筛选后的系统日志，适合排查后台操作、用户登录与服务异常。</p>
+                    <p class="workspace-panel-desc">共 {{ pagination.total }} 条记录，第 {{ pagination.page }}/{{ pagination.pages or 1 }} 页</p>
                 </div>
-                <span class="workspace-chip">{{ logs|length }} 条记录</span>
+                <span class="workspace-chip">{{ pagination.total }} 条</span>
             </div>
             <div class="table-responsive">
                 <table class="table workspace-table table-sm align-middle mb-0">
                     <thead>
                         <tr>
+                            <th>ID</th>
                             <th>时间</th>
                             <th>动作</th>
-                            <th>用户</th>
+                            <th>用户ID</th>
+                            <th>用户名</th>
                             <th>IP</th>
                             <th>状态</th>
                             <th>描述</th>
@@ -76,8 +126,10 @@
                     <tbody>
                         {% for item in logs %}
                         <tr>
+                            <td class="text-muted">{{ item.id }}</td>
                             <td>{{ item.created_at.strftime('%Y-%m-%d %H:%M:%S') if item.created_at else '-' }}</td>
                             <td><span class="workspace-chip">{{ item.action_type }}</span></td>
+                            <td>{{ item.user_id or '-' }}</td>
                             <td>{{ item.username or '-' }}</td>
                             <td>{{ item.ip or '-' }}</td>
                             <td>
@@ -91,12 +143,34 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="6"><div class="workspace-empty">暂无日志。</div></td>
+                            <td colspan="8"><div class="workspace-empty">暂无日志。</div></td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+
+            {% if pagination.pages > 1 %}
+            <nav class="log-pagination">
+                <ul class="pagination mb-0">
+                    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ log_page_url(pagination.prev_num) }}">&laquo;</a>
+                    </li>
+                    {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                        <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                            <a class="page-link" href="{{ log_page_url(p) }}">{{ p }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ log_page_url(pagination.next_num) }}">&raquo;</a>
+                    </li>
+                </ul>
+            </nav>
+            {% endif %}
         </div>
     </div>
 </div>

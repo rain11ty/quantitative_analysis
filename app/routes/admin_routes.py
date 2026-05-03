@@ -244,21 +244,49 @@ def delete_user(user_id):
 def logs():
     action_type = (request.args.get('action_type') or '').strip()
     status = (request.args.get('status') or '').strip()
+    user_id = (request.args.get('user_id') or '').strip()
+    start_date = (request.args.get('start_date') or '').strip()
+    end_date = (request.args.get('end_date') or '').strip()
+    page = max(1, request.args.get('page', 1, type=int))
+    per_page = 20
 
     query = SystemLog.query
     if action_type:
         query = query.filter(SystemLog.action_type == action_type)
     if status:
         query = query.filter(SystemLog.status == status)
+    if user_id:
+        try:
+            query = query.filter(SystemLog.user_id == int(user_id))
+        except (ValueError, TypeError):
+            pass
+    if start_date:
+        from datetime import datetime as dt_cls, timedelta
+        try:
+            start_dt = dt_cls.strptime(start_date, '%Y-%m-%d')
+            query = query.filter(SystemLog.created_at >= start_dt)
+        except ValueError:
+            pass
+    if end_date:
+        from datetime import datetime as dt_cls, timedelta
+        try:
+            end_dt = dt_cls.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+            query = query.filter(SystemLog.created_at < end_dt)
+        except ValueError:
+            pass
 
-    rows = query.order_by(SystemLog.created_at.desc()).limit(300).all()
+    pagination = query.order_by(SystemLog.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
     action_types = [item[0] for item in db.session.query(SystemLog.action_type).distinct().all() if item[0]]
     return render_template(
         'admin/logs.html',
-        logs=rows,
+        logs=pagination.items,
+        pagination=pagination,
         action_types=action_types,
         selected_action=action_type,
         selected_status=status,
+        selected_user_id=user_id,
+        selected_start_date=start_date,
+        selected_end_date=end_date,
     )
 
 

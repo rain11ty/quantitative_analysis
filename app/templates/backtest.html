@@ -11,7 +11,7 @@
     padding: 1.7rem 1.9rem;
 }
 .backtest-hero p {
-    color: rgba(255, 255, 255, 0.74);
+    color: #3d5068;
     margin-bottom: 0;
 }
 .metric-card {
@@ -240,7 +240,7 @@ async function doBacktestStockSearch(keyword) {
         if (response.code === 200 && response.data.stocks?.length) {
             dropdown.innerHTML = response.data.stocks.map(s => `
                 <div class="stock-search-item" data-ts-code="${s.ts_code}" style="display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.85rem;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:background 0.15s;">
-                    <span style="font-weight:600;color:#0f172a;font-size:0.88rem;">${s.name || ''}</span>
+                    <span style="font-weight:600;color:var(--text-main);font-size:0.88rem;">${s.name || ''}</span>
                     <span style="color:#64748b;font-size:0.78rem;font-family:monospace;">${s.ts_code} · ${s.industry || ''}</span>
                 </div>
             `).join('');

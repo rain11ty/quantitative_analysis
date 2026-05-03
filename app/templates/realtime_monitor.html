@@ -6,23 +6,25 @@
 .monitor-hero {
     position: relative;
     overflow: hidden;
-    border-radius: 28px;
+    border-radius: var(--radius-xl);
     padding: 1.5rem 2rem;
-    background: radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 34%),
-                linear-gradient(135deg, #0f172a 0%, #111827 48%, #1e3a8a 100%);
-    color: #fff;
-    box-shadow: 0 24px 60px -28px rgba(15, 23, 42, 0.65);
+    background:
+        radial-gradient(circle at top right, rgba(29, 103, 242, 0.18), transparent 36%),
+        linear-gradient(135deg, rgba(236, 244, 255, 0.98) 0%, rgba(248, 251, 255, 0.98) 52%, rgba(221, 235, 255, 0.94) 100%);
+    color: var(--text-main);
+    border: 1px solid rgba(76, 130, 214, 0.16);
+    box-shadow: var(--shadow-soft);
 }
 .monitor-hero::after {
     content: '';
     position: absolute;
-    right: -60px;
-    top: -50px;
-    width: 200px;
-    height: 200px;
-    border-radius: 999px;
-    background: rgba(148, 163, 184, 0.15);
-    filter: blur(4px);
+    inset: auto -80px -80px auto;
+    width: 220px;
+    height: 220px;
+    border-radius: 100000px;
+    background: rgba(29, 103, 242, 0.12);
+    filter: blur(10px);
+    pointer-events: none;
 }
 .monitor-hero > * {
     position: relative;
@@ -31,23 +33,25 @@
 .monitor-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    padding: 0.4rem 0.85rem;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    font-size: 0.82rem;
-    font-weight: 600;
+    gap: 0.45rem;
+    padding: 0.45rem 0.9rem;
+    border-radius: 100000px;
+    background: rgba(29, 103, 242, 0.08);
+    border: 1px solid rgba(29, 103, 242, 0.14);
+    color: var(--brand-link);
+    font-size: 0.78rem;
+    font-weight: 700;
 }
 .monitor-hero-title {
     font-size: clamp(1.5rem, 2.5vw, 2.2rem);
-    font-weight: 800;
-    letter-spacing: -0.03em;
+    font-weight: 500;
+    letter-spacing: -0.06em;
     margin: 0.6rem 0 0.5rem;
+    color: #0c2f6d;
 }
 .monitor-hero-text {
     max-width: 720px;
-    color: rgba(255, 255, 255, 0.78);
+    color: #3d5068;
     font-size: 0.92rem;
     line-height: 1.65;
     margin-bottom: 1rem;
@@ -61,6 +65,7 @@
 .monitor-toolbar .form-select {
     border-radius: 14px;
     min-height: 44px;
+    border-color: var(--card-border);
 }
 .monitor-toolbar .input-group {
     max-width: 520px;
@@ -106,7 +111,7 @@
 .market-index-price {
     font-size: 1.1rem;
     font-weight: 800;
-    color: #0f172a;
+    color: var(--text-main);
     margin-top: 0.15rem;
     letter-spacing: -0.02em;
 }
@@ -166,7 +171,7 @@
 .stock-tab-price {
     font-weight: 800;
     font-size: 0.82rem;
-    color: #0f172a;
+    color: var(--text-main);
 }
 .stock-tab.active .stock-tab-price {
     color: #1d4ed8;
@@ -213,7 +218,7 @@
 .panel-title {
     font-size: 1.1rem;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--text-main);
 }
 .panel-subtitle {
     color: #64748b;
@@ -235,7 +240,7 @@
     border: 1px solid rgba(37, 99, 235, 0.12);
 }
 .source-banner strong {
-    color: #0f172a;
+    color: var(--text-main);
 }
 .source-banner span {
     color: #64748b;
@@ -251,7 +256,7 @@
 .detail-title {
     font-size: 1.4rem;
     font-weight: 800;
-    color: #0f172a;
+    color: var(--text-main);
     margin-bottom: 0.25rem;
 }
 .detail-subtitle {
@@ -263,7 +268,7 @@
 .detail-price-value {
     font-size: 2.4rem;
     font-weight: 800;
-    color: #0f172a;
+    color: var(--text-main);
     letter-spacing: -0.04em;
 }
 .detail-stat-grid {
@@ -284,7 +289,7 @@
     margin-bottom: 0.25rem;
 }
 .detail-stat-value {
-    color: #0f172a;
+    color: var(--text-main);
     font-size: 0.92rem;
     font-weight: 700;
 }
@@ -342,7 +347,7 @@
     margin-bottom: 0.45rem;
 }
 .signal-title {
-    color: #0f172a;
+    color: var(--text-main);
     font-weight: 700;
     font-size: 0.92rem;
 }
@@ -408,7 +413,7 @@
 .stock-search-item:hover { background: #eff6ff; }
 .stock-search-item .search-name {
     font-weight: 600;
-    color: #0f172a;
+    color: var(--text-main);
     font-size: 0.88rem;
 }
 .stock-search-item .search-code {
@@ -578,7 +583,7 @@
 
 {% block content %}
 <div class="d-flex flex-column gap-3">
-    <section class="monitor-hero">
+    <section class="page-hero monitor-hero">
         <span class="monitor-badge">实时日线监控</span>
         <h1 class="monitor-hero-title">自选股实时行情与日线走势监控</h1>
         <p class="monitor-hero-text">
@@ -587,18 +592,18 @@
         <div class="monitor-toolbar" style="flex-wrap:wrap;gap:0.5rem;">
             <div class="input-group" style="flex:1 1 300px;min-width:200px;">
                 <input id="monitorCodesInput" type="text" class="form-control" placeholder="输入监控代码，例如 000001.SZ,600519.SH,300750.SZ">
-                <button id="applyCodesBtn" class="btn btn-light" type="button">应用代码</button>
+                <button id="applyCodesBtn" class="btn btn-primary" type="button">应用代码</button>
             </div>
             <div class="monitor-search-wrap" style="position:relative;flex:1 1 280px;min-width:200px;">
                 <input id="stockSearchInput" type="text" class="form-control" placeholder="搜索股票名称、代码或拼音…" autocomplete="off">
                 <div id="stockSearchDropdown" class="stock-search-dropdown" style="display:none;"></div>
             </div>
-            <button id="useWatchlistBtn" class="btn btn-outline-light" type="button">使用我的自选</button>
+            <button id="useWatchlistBtn" class="btn btn-outline-primary" type="button">使用我的自选</button>
             <button id="refreshBtn" class="btn btn-primary" type="button">立即刷新</button>
             <select id="freqSelect" class="form-select" style="max-width: 160px;" disabled>
                 <option value="daily" selected>实时日线</option>
             </select>
-            <button id="autoRefreshBtn" class="btn btn-outline-light" type="button" data-enabled="false">自动刷新：关闭</button>
+            <button id="autoRefreshBtn" class="btn btn-outline-primary" type="button" data-enabled="false">自动刷新：关闭</button>
         </div>
     </section>
 
@@ -1597,8 +1602,8 @@ function toggleAutoRefresh() {
     if (enabled) {
         button.dataset.enabled = 'false';
         button.textContent = '自动刷新：关闭';
-        button.classList.remove('btn-light');
-        button.classList.add('btn-outline-light');
+        button.classList.remove('btn-primary');
+        button.classList.add('btn-outline-primary');
         if (autoRefreshTimer) {
             clearInterval(autoRefreshTimer);
             autoRefreshTimer = null;
@@ -1608,8 +1613,8 @@ function toggleAutoRefresh() {
 
     button.dataset.enabled = 'true';
     button.textContent = '自动刷新：开启';
-    button.classList.remove('btn-outline-light');
-    button.classList.add('btn-light');
+    button.classList.remove('btn-outline-primary');
+    button.classList.add('btn-primary');
     if (autoRefreshTimer) {
         clearInterval(autoRefreshTimer);
     }
@@ -1647,7 +1652,7 @@ async function loadShockData() {
                 <div style="background:${bgColor}; border-radius:12px; padding:0.7rem 0.85rem; border-left:3px solid ${borderColor}; border:1px solid rgba(226,232,240,0.9); border-left:3px solid ${borderColor};">
                     <div style="display:flex;justify-content:space-between;align-items:center;">
                         <div>
-                            <span style="font-weight:700;color:#0f172a;">${escapeHtml(item.name || item.ts_code)}</span>
+                            <span style="font-weight:700;color:var(--text-main);">${escapeHtml(item.name || item.ts_code)}</span>
                             <span style="color:#64748b;font-size:0.75rem;margin-left:6px;">${escapeHtml(item.ts_code || '')}</span>
                         </div>
                         <span style="font-size:0.72rem;color:#94a3b8;">${escapeHtml(item.trade_market || '')}</span>
