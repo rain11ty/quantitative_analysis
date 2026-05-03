@@ -19,7 +19,7 @@ COPY requirements.txt requirements-prod.txt ./
 
 # 安装所有依赖
 RUN pip install --no-cache-dir --upgrade -r requirements.txt
-RUN pip install --no-cache-dir -r requirements-prod.txt || echo "部分生产依赖安装失败"
+RUN pip install --no-cache-dir -r requirements-prod.txt
 RUN pip install --no-cache-dir gunicorn>=21.0.0 redis>=5.0.0 flask-session
 
 # 清理缓存
@@ -46,11 +46,6 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # 复制应用代码和配置文件
 COPY . .
-
-# 创建非 root 用户运行应用
-RUN useradd --create-home --shell=/bin/bash appuser && \
-    chown -R appuser:appuser /app
-USER appuser
 
 # 数据目录（用于持久化挂载）
 RUN mkdir -p /app/logs /app/data
