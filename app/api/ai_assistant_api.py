@@ -177,9 +177,14 @@ def ai_chat():
         stream = bool(data.get('stream', False))
         provider = (data.get('provider') or '').strip().lower() or None
         model = (data.get('model') or '').strip() or None
+        images = data.get('images') or []
 
-        if not question:
-            return jsonify({'code': 400, 'message': '\u8bf7\u6c42\u53c2\u6570\u9519\u8bef\uff0cquestion \u4e0d\u80fd\u4e3a\u7a7a', 'data': None}), 400
+        if not question and not images:
+            return jsonify({'code': 400, 'message': '\u8bf7\u8f93\u5165\u95ee\u9898\u6216\u4e0a\u4f20\u56fe\u7247', 'data': None}), 400
+
+        # \u56fe\u7247\u4ec5\u652f\u6301 Qwen \u591a\u6a21\u6001\u6a21\u578b
+        if images and provider != 'qwen':
+            return jsonify({'code': 400, 'message': '\u56fe\u7247\u4e0a\u4f20\u4ec5\u652f\u6301\u901a\u4e49\u5343\u95ee\u6a21\u578b\uff0c\u8bf7\u5207\u6362\u5230 Qwen \u540e\u518d\u8bd5\u3002', 'data': None}), 400
 
         if conversation_id in ('', None):
             conversation_id = None
@@ -198,6 +203,7 @@ def ai_chat():
             current_user_id,
             question,
             conversation_id=conversation_id,
+            images=images,
         )
         conversation_id = conversation.id
         user_message_id = user_message.id

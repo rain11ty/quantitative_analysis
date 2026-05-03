@@ -101,16 +101,6 @@ def run_daily_incremental_update(self, quick: bool = False):
         raise self.retry(exc=exc, countdown=300)
 
 
-@celery_app.task(name='app.tasks.sync_daily_data', bind=True, max_retries=2)
-def sync_daily_data(self, quick: bool = False):
-    """兼容旧任务名，内部转到每日增量更新脚本。"""
-    try:
-        return _execute_daily_update_task(self, quick=quick)
-    except Exception as exc:
-        logger.error(f'[Celery] 日线同步任务失败: {exc}')
-        raise self.retry(exc=exc, countdown=300)
-
-
 @celery_app.task(name='app.tasks.backfill_factors_task', bind=True, max_retries=1)
 def backfill_factors_task(self, start_date=None, force=False):
     """批量补算技术指标。"""
@@ -170,47 +160,50 @@ def refresh_stock_basic_weekly(self):
         from app.utils.db_utils import get_db_connection
         conn, cursor = get_db_connection()
 
-        logger.info('[Celery] 开始刷新股票基础信息...')
-        df = pro.stock_basic(exchange='', list_status='L',
-                             fields='ts_code,symbol,name,area,industry,market,list_date')
-        if df is None or df.empty:
-            logger.warning('[Celery] stock_basic 返回空数据')
-            return {'status': 'warning', 'message': 'stock_basic 返回空数据'}
+        try:
+            logger.info('[Celery] 开始刷新股票基础信息...')
+            df = pro.stock_basic(exchange='', list_status='L',
+                                 fields='ts_code,symbol,name,area,industry,market,list_date')
+            if df is None or df.empty:
+                logger.warning('[Celery] stock_basic 返回空数据')
+                return {'status': 'warning', 'message': 'stock_basic 返回空数据'}
 
-        import numpy as np
-        df = df.replace({np.nan: None}).where(df.notnull(), None)
+            import numpy as np
+            df = df.replace({np.nan: None}).where(df.notnull(), None)
 
-        columns = ['ts_code', 'symbol', 'name', 'area', 'industry', 'market', 'list_date']
-        cursor.execute('DELETE FROM stock_basic')
+            columns = ['ts_code', 'symbol', 'name', 'area', 'industry', 'market', 'list_date']
+            cursor.execute('DELETE FROM stock_basic')
 
-        cols_str = ', '.join(f'`{c}`' for c in columns)
-        placeholders = ', '.join(['%s'] * len(columns))
-        sql = f'INSERT INTO `stock_basic` ({cols_str}) VALUES ({placeholders})'
+            cols_str = ', '.join(f'`{c}`' for c in columns)
+            placeholders = ', '.join(['%s'] * len(columns))
+            sql = f'INSERT INTO `stock_basic` ({cols_str}) VALUES ({placeholders})'
 
-        data = []
-        for _, row in df.iterrows():
-            ld = row.get('list_date')
-            if ld and str(ld) not in ('', 'None', 'nan'):
-                try:
-                    ld = datetime.strptime(str(ld)[:8], '%Y%m%d').date()
-                except ValueError:
+            data = []
+            for _, row in df.iterrows():
+                ld = row.get('list_date')
+                if ld and str(ld) not in ('', 'None', 'nan'):
+                    try:
+                        ld = datetime.strptime(str(ld)[:8], '%Y%m%d').date()
+                    except ValueError:
+                        ld = None
+                else:
                     ld = None
-            else:
-                ld = None
-            data.append((
-                row.get('ts_code'), row.get('symbol'), row.get('name'),
-                row.get('area'), row.get('industry'), row.get('market'), ld,
-            ))
+                data.append((
+                    row.get('ts_code'), row.get('symbol'), row.get('name'),
+                    row.get('area'), row.get('industry'), row.get('market'), ld,
+                ))
 
-        for i in range(0, len(data), 5000):
-            cursor.executemany(sql, data[i:i + 5000])
-            conn.commit()
+            for i in range(0, len(data), 5000):
+                cursor.executemany(sql, data[i:i + 5000])
+                conn.commit()
 
-        cursor.close()
-        conn.close()
-
-        logger.info(f'[Celery] 股票基础信息刷新完成: {len(data)} 条')
-        return {'status': 'success', 'count': len(data)}
+            logger.info(f'[Celery] 股票基础信息刷新完成: {len(data)} 条')
+            return {'status': 'success', 'count': len(data)}
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
 
     except Exception as exc:
         logger.error(f'[Celery] 股票基础信息刷新失败: {exc}')
@@ -227,74 +220,77 @@ def run_data_health_check(self):
 
         conn, cursor = get_db_connection()
 
-        issues = []
-
-        # 检查交易日历是否覆盖到昨天
-        yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y%m%d')
-        cursor.execute(
-            'SELECT MAX(cal_date) FROM stock_trade_calendar'
-        )
-        max_cal = cursor.fetchone()[0]
-        if max_cal:
-            max_cal_str = max_cal.strftime('%Y%m%d') if hasattr(max_cal, 'strftime') else str(max_cal).replace('-', '')
-            if max_cal_str < yesterday:
-                issues.append(f'交易日历滞后: 最新={max_cal_str}, 期望>={yesterday}')
-
-        # 检查最近交易日日线数据量
-        cursor.execute("""
-            SELECT trade_date, COUNT(*) FROM stock_daily_history
-            WHERE trade_date >= DATE_SUB(CURDATE(), INTERVAL 10 DAY)
-            GROUP BY trade_date ORDER BY trade_date DESC LIMIT 3
-        """)
-        recent_counts = cursor.fetchall()
-        if len(recent_counts) >= 2:
-            latest_cnt = recent_counts[0][1]
-            prev_cnt = recent_counts[1][1]
-            if prev_cnt > 0 and (latest_cnt < prev_cnt * 0.7 or latest_cnt > prev_cnt * 1.3):
-                issues.append(
-                    f'日线数据量异常: {recent_counts[0][0]}={latest_cnt}条, '
-                    f'{recent_counts[1][0]}={prev_cnt}条'
-                )
-
-        # 检查技术指标填充率
-        cursor.execute('SELECT COUNT(*) FROM stock_factor')
-        factor_total = cursor.fetchone()[0]
-        if factor_total > 0:
-            cursor.execute(
-                'SELECT COUNT(*) FROM stock_factor WHERE macd_dif IS NOT NULL'
-            )
-            filled = cursor.fetchone()[0]
-            fill_rate = filled / factor_total * 100
-            if fill_rate < 90:
-                issues.append(f'技术指标(MACD)填充率偏低: {fill_rate:.1f}%')
-
-        # 检查 stock_basic 数量
-        cursor.execute('SELECT COUNT(*) FROM stock_basic')
-        stock_count = cursor.fetchone()[0]
-        if stock_count < 4000:
-            issues.append(f'股票基础信息数量偏少: {stock_count} 只')
-
-        status = 'ok' if not issues else 'degraded'
-        issue_text = '; '.join(issues) if issues else '无异常'
-        logger.info(f'[Celery] 数据健康检查完成: status={status}, issues={issues}')
-
-        # 写入 system_log 表
         try:
+            issues = []
+
+            # 检查交易日历是否覆盖到昨天
+            yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y%m%d')
             cursor.execute(
-                'INSERT INTO system_log (action_type, message, status, created_at) VALUES (%s, %s, %s, NOW())',
-                ('data_health_check', f'[{status}] {issue_text}', status),
+                'SELECT MAX(cal_date) FROM stock_trade_calendar'
             )
-            conn.commit()
-        except Exception as log_exc:
-            logger.warning(f'[Celery] 健康检查写入 system_log 失败: {log_exc}')
+            max_cal = cursor.fetchone()[0]
+            if max_cal:
+                max_cal_str = max_cal.strftime('%Y%m%d') if hasattr(max_cal, 'strftime') else str(max_cal).replace('-', '')
+                if max_cal_str < yesterday:
+                    issues.append(f'交易日历滞后: 最新={max_cal_str}, 期望>={yesterday}')
 
-        cursor.close()
-        conn.close()
+            # 检查最近交易日日线数据量
+            cursor.execute("""
+                SELECT trade_date, COUNT(*) FROM stock_daily_history
+                WHERE trade_date >= DATE_SUB(CURDATE(), INTERVAL 10 DAY)
+                GROUP BY trade_date ORDER BY trade_date DESC LIMIT 3
+            """)
+            recent_counts = cursor.fetchall()
+            if len(recent_counts) >= 2:
+                latest_cnt = recent_counts[0][1]
+                prev_cnt = recent_counts[1][1]
+                if prev_cnt > 0 and (latest_cnt < prev_cnt * 0.7 or latest_cnt > prev_cnt * 1.3):
+                    issues.append(
+                        f'日线数据量异常: {recent_counts[0][0]}={latest_cnt}条, '
+                        f'{recent_counts[1][0]}={prev_cnt}条'
+                    )
 
-        if issues:
-            _send_failure_alert('数据健康检查', '\n'.join(issues))
+            # 检查技术指标填充率
+            cursor.execute('SELECT COUNT(*) FROM stock_factor')
+            factor_total = cursor.fetchone()[0]
+            if factor_total > 0:
+                cursor.execute(
+                    'SELECT COUNT(*) FROM stock_factor WHERE macd_dif IS NOT NULL'
+                )
+                filled = cursor.fetchone()[0]
+                fill_rate = filled / factor_total * 100
+                if fill_rate < 90:
+                    issues.append(f'技术指标(MACD)填充率偏低: {fill_rate:.1f}%')
 
-        return {'status': status, 'issues': issues}
+            # 检查 stock_basic 数量
+            cursor.execute('SELECT COUNT(*) FROM stock_basic')
+            stock_count = cursor.fetchone()[0]
+            if stock_count < 4000:
+                issues.append(f'股票基础信息数量偏少: {stock_count} 只')
+
+            status = 'ok' if not issues else 'degraded'
+            issue_text = '; '.join(issues) if issues else '无异常'
+            logger.info(f'[Celery] 数据健康检查完成: status={status}, issues={issues}')
+
+            # 写入 system_log 表
+            try:
+                cursor.execute(
+                    'INSERT INTO system_log (action_type, message, status, created_at) VALUES (%s, %s, %s, NOW())',
+                    ('data_health_check', f'[{status}] {issue_text}', status),
+                )
+                conn.commit()
+            except Exception as log_exc:
+                logger.warning(f'[Celery] 健康检查写入 system_log 失败: {log_exc}')
+
+            if issues:
+                _send_failure_alert('数据健康检查', '\n'.join(issues))
+
+            return {'status': status, 'issues': issues}
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
 
     except Exception as exc:
         logger.error(f'[Celery] 数据健康检查执行异常: {exc}')
@@ -311,10 +307,11 @@ def sync_minute_data_daily(self):
 
         with MinuteDataSyncService() as svc:
             today = datetime.now().strftime('%Y-%m-%d')
-            # 只同步前500只活跃股票，避免超时
+            stock_list = svc.get_stock_list_from_db()[:500]
             result = svc.sync_multiple_stocks_data(
-                stock_count=500,
-                date=today,
+                stock_list=stock_list,
+                start_date=today,
+                end_date=today,
             )
             logger.info(f'[Celery] 分钟数据归档完成: {result}')
             return {'status': 'success', 'result': result}
@@ -322,6 +319,180 @@ def sync_minute_data_daily(self):
     except Exception as exc:
         logger.error(f'[Celery] 分钟数据归档失败: {exc}')
         raise self.retry(exc=exc, countdown=600)
+
+
+@celery_app.task(name='app.tasks.sync_stock_business_wide', bind=True, max_retries=1)
+def sync_stock_business_wide(self, days=30, full=False):
+    """同步 stock_business 宽表：将源表数据合并到筛选宽表。"""
+    try:
+        app = _get_app()
+        with app.app_context():
+            import time as _time
+
+            from scripts.sync_stock_business import (
+                _get_db_connection,
+                get_target_dates,
+                sync_one_date,
+            )
+
+            logger.info(f'[Celery] 开始同步 stock_business 宽表: days={days}, full={full}')
+
+            conn = _get_db_connection()
+            try:
+                dates = get_target_dates(conn, days=days, full=full)
+                if not dates:
+                    logger.warning('[Celery] 没有找到需要同步的交易日数据')
+                    return {'status': 'success', 'days': days, 'full': full, 'total_rows': 0}
+
+                mode = '全量' if full else f'最近{days}天'
+                logger.info('[Celery] 模式: %s，共 %d 个交易日待同步', mode, len(dates))
+
+                total_rows = 0
+                start_time = _time.time()
+
+                for i, trade_date in enumerate(dates, 1):
+                    try:
+                        count = sync_one_date(conn, trade_date)
+                        total_rows += count
+                        elapsed = _time.time() - start_time
+                        avg = elapsed / i
+                        eta = avg * (len(dates) - i)
+                        logger.info(
+                            '[Celery] [%d/%d] %s: %d 条 | 累计 %d 条 | 耗时 %.0fs | 预计剩余 %.0fs',
+                            i, len(dates), trade_date, count, total_rows, elapsed, eta,
+                        )
+                    except Exception as e:
+                        logger.error('[Celery] [%d/%d] %s: 失败 - %s', i, len(dates), trade_date, e)
+                        conn.ping(reconnect=True)
+
+                elapsed = _time.time() - start_time
+                logger.info(
+                    '[Celery] stock_business 宽表同步完成: %d 个交易日, %d 条数据, 耗时 %.1fs',
+                    len(dates), total_rows, elapsed,
+                )
+            finally:
+                conn.close()
+
+            # 写入 system_log
+            db_conn = None
+            cursor = None
+            try:
+                from app.utils.db_utils import get_db_connection
+                db_conn, cursor = get_db_connection()
+                cursor.execute(
+                    'INSERT INTO system_log (action_type, message, status, created_at) VALUES (%s, %s, %s, NOW())',
+                    ('sync_stock_business', f'宽表同步完成: days={days}, full={full}', 'success'),
+                )
+                db_conn.commit()
+            except Exception as log_exc:
+                logger.warning(f'[Celery] 写入 system_log 失败: {log_exc}')
+            finally:
+                if cursor:
+                    cursor.close()
+                if db_conn:
+                    db_conn.close()
+
+            return {'status': 'success', 'days': days, 'full': full, 'total_rows': total_rows}
+
+    except Exception as exc:
+        logger.error(f'[Celery] stock_business 宽表同步失败: {exc}')
+        if self.request.retries >= self.max_retries:
+            _send_failure_alert('stock_business 宽表同步', str(exc))
+        raise self.retry(exc=exc, countdown=600)
+
+
+@celery_app.task(name='app.tasks.refresh_news_cache')
+def refresh_news_cache():
+    """每 60 秒爬取 4 个新闻源，聚合后写入 Redis（news_aggregate:all，TTL 120s）。"""
+    try:
+        from app.services.news_service import NewsService
+        from app.utils.cache_utils import get_cache
+
+        cache = get_cache()
+
+        all_items: list = []
+        source_errors: list = []
+        sources = [
+            ('cjzc', NewsService.get_cjzc),
+            ('global_em', NewsService.get_global_em),
+            ('cls', NewsService.get_global_cls),
+            ('ths', NewsService.get_global_ths),
+        ]
+
+        for name, func in sources:
+            try:
+                data = func()
+                if data.get('items'):
+                    all_items.extend(data['items'])
+                elif data.get('error'):
+                    source_errors.append(f"{data.get('source', name)}: {data['error']}")
+            except Exception as exc:
+                source_errors.append(f'{name}: {exc}')
+                logger.warning(f'[Celery] 新闻源 {name} 爬取失败: {exc}')
+
+        all_items.sort(key=lambda x: x.get('time', ''), reverse=True)
+
+        result = {
+            'items': all_items,
+            'count': len(all_items),
+            'source': '全部来源',
+            'errors': source_errors if source_errors else None,
+        }
+        cache.set('news_aggregate:all', result, ttl=120)
+        logger.info(f'[Celery] 新闻缓存已刷新: {len(all_items)} 条')
+    except Exception as exc:
+        logger.error(f'[Celery] 新闻缓存刷新失败: {exc}')
+
+
+@celery_app.task(name='app.tasks.refresh_ranking_cache')
+def refresh_ranking_cache():
+    """每 30 秒爬取涨跌排行，写入 Redis（realtime_ranking_pct_change / realtime_ranking_amount，TTL 90s）。"""
+    try:
+        from app.services.realtime_monitor_service import RealtimeMonitorService
+        from app.utils.cache_utils import get_cache
+
+        cache = get_cache()
+
+        for sort_by, cache_keys in [
+            ('pct_change', ['realtime_ranking_pct_change']),
+            ('amount', ['realtime_ranking_amount', 'realtime_ranking_volume']),
+        ]:
+            try:
+                result = RealtimeMonitorService.get_realtime_ranking(sort_by=sort_by)
+                for key in cache_keys:
+                    cache.set(key, result, ttl=90)
+            except Exception as exc:
+                logger.warning(f'[Celery] 排行缓存刷新失败 (sort_by={sort_by}): {exc}')
+
+        logger.info('[Celery] 涨跌排行缓存已刷新')
+    except Exception as exc:
+        logger.error(f'[Celery] 涨跌排行缓存刷新失败: {exc}')
+
+
+@celery_app.task(name='app.tasks.refresh_market_overview_cache')
+def refresh_market_overview_cache():
+    """每 30 秒预热市场概览和指数 K 线，写入 Redis（market_overview / index_kline_000001.SH_1Y，TTL 90s）。"""
+    try:
+        from app.services.market_overview_service import MarketOverviewService
+        from app.utils.cache_utils import get_cache
+
+        cache = get_cache()
+
+        try:
+            overview = MarketOverviewService.get_market_overview()
+            cache.set('market_overview', overview, ttl=90)
+        except Exception as exc:
+            logger.warning(f'[Celery] 市场概览缓存刷新失败: {exc}')
+
+        try:
+            kline = MarketOverviewService.get_index_kline('000001.SH', '1Y')
+            cache.set('index_kline_000001.SH_1Y', kline, ttl=90)
+        except Exception as exc:
+            logger.warning(f'[Celery] 指数 K 线缓存刷新失败: {exc}')
+
+        logger.info('[Celery] 市场概览缓存已刷新')
+    except Exception as exc:
+        logger.error(f'[Celery] 市场概览缓存刷新失败: {exc}')
 
 
 @celery_app.task(name='app.tasks.health_check')

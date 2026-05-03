@@ -10,6 +10,7 @@
   4. 个股资金流向 (stock_moneyflow)
   5. 北向资金 (moneyflow_hsgt)
   6. 技术指标补算 (MACD/KDJ/RSI/BOLL/CCI)
+  7. 宽表同步 (stock_business)
 
 用法:
   python scripts/daily_auto_update.py          # 全量增量更新
@@ -330,6 +331,22 @@ class DailyAutoUpdater:
             conn2.close()
 
     # ================================================================
+    #  同步：stock_business 宽表
+    # ================================================================
+    def sync_stock_business(self):
+        """同步 stock_business 宽表（增量同步最近1天）"""
+        from scripts.sync_stock_business import sync_stock_business as _sync_business
+
+        logger.info('[6/6] 同步 stock_business 宽表（增量）...')
+        try:
+            total = _sync_business(days=1)
+            logger.info(f'stock_business 宽表完成: +{total} 条')
+            return total
+        except Exception as e:
+            logger.error(f'stock_business 宽表同步失败(不影响主流程): {e}')
+            return 0
+
+    # ================================================================
     #  全量运行
     # ================================================================
     def run_all(self, quick=False):
@@ -352,6 +369,9 @@ class DailyAutoUpdater:
 
         # 总是补算技术指标
         results['factors'] = self.recalc_factors()
+
+        # 同步 stock_business 宽表（增量）
+        results['business'] = self.sync_stock_business()
 
         elapsed = time.time() - t_start
         logger.info('=' * 60)

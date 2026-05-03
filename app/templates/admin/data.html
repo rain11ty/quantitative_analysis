@@ -1,51 +1,395 @@
 {% extends "base.html" %}
 
-{% block title %}数据管理 - 管理后台{% endblock %}
+{% block title %}数据中心 - 管理后台{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/account-admin.css') }}?v={{ v }}">
+<style>
+/* ===== 数据中心专属样式 ===== */
+.data-center-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+}
+.data-card {
+    background: rgba(255,255,255,0.96);
+    border-radius: 14px;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid rgba(76,130,214,0.18);
+    transition: box-shadow .2s, border-color .2s, transform .2s;
+    position: relative;
+    overflow: hidden;
+}
+.data-card:hover {
+    box-shadow: 0 6px 24px rgba(10,11,13,0.12);
+    border-color: rgba(76,130,214,0.32);
+    transform: translateY(-2px);
+}
+.data-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px; height: 100%;
+    border-radius: 14px 0 0 14px;
+}
+.data-card.status-ok::before       { background: #22c55e; }
+.data-card.status-empty::before    { background: #ef4444; }
+.data-card.status-unknown::before  { background: #94a3b8; }
+
+.data-card-label {
+    font-size: .78rem;
+    font-weight: 700;
+    color: #5b616e;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    margin-bottom: .5rem;
+}
+.data-card-value {
+    font-size: 1.65rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+}
+.data-card-value.text-ok      { color: #15803d; }
+.data-card-value.text-empty   { color: #b91c1c; }
+.data-card-value.text-unknown { color: #94a3b8; }
+
+.data-card-meta {
+    margin-top: .5rem;
+    font-size: .82rem;
+    color: #5b616e;
+}
+.data-card-meta code {
+    background: rgba(29,103,242,0.06);
+    padding: .15rem .4rem;
+    border-radius: 6px;
+    font-size: .78rem;
+}
+
+/* ===== 同步状态面板 ===== */
+.sync-status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+}
+.sync-status-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: rgba(255,255,255,0.96);
+    border-radius: 12px;
+    border: 1px solid rgba(76,130,214,0.18);
+    transition: border-color .2s;
+}
+.sync-status-item:hover {
+    border-color: rgba(76,130,214,0.32);
+}
+.sync-status-icon {
+    width: 42px; height: 42px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; color: #fff; font-weight: 700;
+    flex-shrink: 0;
+}
+.sync-status-icon.ok,
+.sync-status-icon.success    { background: #22c55e; }
+.sync-status-icon.failed     { background: #ef4444; }
+.sync-status-icon.degraded   { background: #f59e0b; color: #1a1a1a !important; }
+.sync-status-icon.unknown    { background: #94a3b8; }
+
+.sync-status-body { flex: 1; min-width: 0; }
+.sync-status-title {
+    font-weight: 600; font-size: .92rem; color: #0a0b0d;
+    margin-bottom: .25rem;
+}
+.sync-status-time {
+    font-size: .82rem; color: #5b616e;
+}
+.sync-status-badge {
+    display: inline-block;
+    font-size: .75rem; font-weight: 700;
+    padding: .18rem .55rem;
+    border-radius: 20px;
+    border: 1px solid transparent;
+    margin-top: .25rem;
+}
+.sync-status-badge.ok,
+.sync-status-badge.success { background: rgba(21,128,61,0.08); color: #15803d; border-color: rgba(21,128,61,0.18); }
+.sync-status-badge.failed  { background: rgba(185,28,28,0.06); color: #b91c1c; border-color: rgba(185,28,28,0.16); }
+.sync-status-badge.degraded{ background: rgba(180,83,9,0.08); color: #b45309; border-color: rgba(180,83,9,0.18); }
+.sync-status-badge.unknown { background: rgba(100,116,139,0.1); color: #64748b; border-color: rgba(100,116,139,0.18); }
+
+/* ===== 操作按钮 ===== */
+.action-btn-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem;
+}
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .65rem 1.3rem;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: .88rem;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all .2s cubic-bezier(.4,0,.2,1);
+    position: relative;
+}
+.action-btn:hover {
+    transform: translateY(-1.5px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.action-btn:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+.action-btn.btn-sync    { background: linear-gradient(135deg, #1d4ed8, #3b82f6); color: #fff; }
+.action-btn.btn-rebuild { background: linear-gradient(135deg, #b45309, #f59e0b); color: #fff; }
+.action-btn.btn-health  { background: linear-gradient(135deg, #15803d, #22c55e); color: #fff; }
+.action-btn.btn-refresh { background: rgba(29,103,242,0.08); color: #1d67f2; border-color: rgba(29,103,242,0.2); }
+
+.action-btn .spinner-border {
+    width: 1rem; height: 1rem;
+    border-width: .15em;
+}
+
+/* ===== Toast 通知 ===== */
+.toast-container {
+    position: fixed;
+    top: 100px; right: 1.5rem;
+    z-index: 1080;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+.toast-msg {
+    padding: .75rem 1.25rem;
+    border-radius: 10px;
+    font-size: .88rem;
+    font-weight: 600;
+    color: #fff;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    animation: toast-in .3s ease;
+    max-width: 380px;
+}
+.toast-msg.success { background: #22c55e; }
+.toast-msg.danger  { background: #ef4444; }
+.toast-msg.warning { background: #f59e0b; color: #1a1a1a; }
+.toast-msg.info    { background: #3b82f6; }
+
+@keyframes toast-in {
+    from { opacity: 0; transform: translateX(40px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ===== 确认对话框 ===== */
+.confirm-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.35);
+    z-index: 1070;
+    display: flex; align-items: center; justify-content: center;
+    animation: fade-in .2s ease;
+}
+.confirm-dialog {
+    background: #fff;
+    border-radius: 16px;
+    padding: 1.75rem 2rem;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    animation: dialog-in .25s ease;
+}
+.confirm-dialog h3 {
+    font-size: 1.1rem; font-weight: 700;
+    margin-bottom: .75rem; color: #0a0b0d;
+}
+.confirm-dialog p {
+    font-size: .9rem; color: #5b616e;
+    margin-bottom: 1.25rem; line-height: 1.5;
+}
+.confirm-dialog-actions {
+    display: flex; gap: .75rem; justify-content: flex-end;
+}
+.confirm-dialog-actions .btn {
+    border-radius: 8px; padding: .5rem 1.2rem;
+    font-size: .85rem; font-weight: 600;
+}
+
+@keyframes fade-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dialog-in { from { opacity: 0; transform: scale(.95); } to { opacity: 1; transform: scale(1); } }
+</style>
 {% endblock %}
 
 {% block content %}
 <div class="container py-4">
     <div class="workspace-shell">
+        {# ── Hero 区域 ── #}
         <section class="workspace-hero">
             <span class="workspace-kicker">后台模块</span>
-            <h1 class="workspace-title">数据管理中心</h1>
-            <p class="workspace-subtitle">查看当前基础股票数据与分钟数据规模，并手动尝试同步单只股票的分钟级数据。</p>
+            <h1 class="workspace-title">数据中心</h1>
+            <p class="workspace-subtitle">查看各数据表规模与同步状态，手动触发宽表同步、全量重建或数据健康检查。</p>
             <div class="workspace-actions">
                 <a class="btn btn-light" href="{{ url_for('admin.dashboard') }}">返回后台首页</a>
-                <a class="btn btn-outline-light" href="{{ url_for('admin.system_check') }}">系统自检</a>
-                <a class="btn btn-outline-light" href="{{ url_for('admin.logs') }}">查看日志</a>
-                <a class="btn btn-outline-light" href="{{ url_for('admin.users') }}">用户管理</a>
+                <a class="btn btn-light" href="{{ url_for('admin.system_check') }}">系统自检</a>
+                <a class="btn btn-light" href="{{ url_for('admin.logs') }}">查看日志</a>
+                <a class="btn btn-light" href="{{ url_for('admin.users') }}">用户管理</a>
             </div>
         </section>
 
-        <div class="note-banner">
-            <strong>当前为稳定演示模式：</strong>
-            分钟级接口暂不可用时，系统会自动退回到最近交易日的日线数据用于演示，但后台仍保留同步入口，方便你验证链路和权限状态。
+        {# ── Flash messages ── #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
 
-        <div class="workspace-summary-grid">
-            <div class="workspace-stat-card">
-                <div class="workspace-stat-label">股票基础数据数量</div>
-                <div class="workspace-stat-value text-primary">{{ data_stats.stock_basic_count }}</div>
-                <div class="workspace-stat-help">用于股票列表与详情页展示</div>
-            </div>
-            <div class="workspace-stat-card">
-                <div class="workspace-stat-label">分钟级数据行数</div>
-                <div class="workspace-stat-value text-warning">{{ data_stats.minute_data_count }}</div>
-                <div class="workspace-stat-help">用于实时监控与分钟走势演示</div>
-            </div>
-        </div>
-
-        <div class="workspace-panel workspace-form">
+        {# ── 数据概览卡片 ── #}
+        <section class="workspace-panel">
             <div class="workspace-panel-header">
                 <div>
-                    <h2 class="workspace-panel-title">手动同步单只股票分钟数据</h2>
-                    <p class="workspace-panel-desc">适合临时验证单只股票分钟数据接口是否可用，也便于检查数据库入库链路。</p>
+                    <h2 class="workspace-panel-title">数据概览</h2>
+                    <p class="workspace-panel-desc">各核心数据表的行数与最新数据日期，数据量来自 information_schema 估算值。</p>
+                </div>
+                <button class="action-btn btn-refresh" onclick="refreshOverview()" id="btnRefreshOverview">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                    刷新数据
+                </button>
+            </div>
+
+            <div class="data-center-grid" id="dataOverviewGrid">
+                {% for table_name, info in data_stats.items() %}
+                <div class="data-card {% if info.count > 0 %}status-ok{% elif info.count == 0 %}status-empty{% else %}status-unknown{% endif %}"
+                     id="card-{{ table_name }}">
+                    <div class="data-card-label">{{ info.label }}</div>
+                    <div class="data-card-value {% if info.count > 0 %}text-ok{% elif info.count == 0 %}text-empty{% else %}text-unknown{% endif %}">
+                        {% if info.count == -1 %}
+                            N/A
+                        {% else %}
+                            {{ "{:,}".format(info.count) }}
+                        {% endif %}
+                    </div>
+                    <div class="data-card-meta">
+                        {% if info.latest_date is defined and info.latest_date %}
+                            最新交易日: <strong>{{ info.latest_date }}</strong>
+                        {% else %}
+                            表名: <code>{{ table_name }}</code>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        {# ── 同步状态面板 ── #}
+        <section class="workspace-panel">
+            <div class="workspace-panel-header">
+                <div>
+                    <h2 class="workspace-panel-title">同步状态</h2>
+                    <p class="workspace-panel-desc">各自动化任务的最近一次执行状态，帮助快速判断数据是否及时更新。</p>
                 </div>
             </div>
+
+            <div class="sync-status-grid" id="syncStatusGrid">
+                {# 增量更新 #}
+                <div class="sync-status-item" id="status-incremental">
+                    <div class="sync-status-icon {% if sync_status.incremental.status == 'success' %}ok{% elif sync_status.incremental.status == 'failed' %}failed{% else %}unknown{% endif %}">IN</div>
+                    <div class="sync-status-body">
+                        <div class="sync-status-title">每日增量更新</div>
+                        <div class="sync-status-time">
+                            {% if sync_status.incremental.time %}
+                                {{ sync_status.incremental.time }}
+                            {% else %}
+                                暂无执行记录
+                            {% endif %}
+                        </div>
+                        <span class="sync-status-badge {% if sync_status.incremental.status == 'success' %}ok{% elif sync_status.incremental.status == 'failed' %}failed{% else %}unknown{% endif %}">
+                            {% if sync_status.incremental.status == 'success' %}成功{% elif sync_status.incremental.status == 'failed' %}失败{% else %}未知{% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                {# 宽表同步 #}
+                <div class="sync-status-item" id="status-wide-sync">
+                    <div class="sync-status-icon {% if sync_status.wide_sync.status == 'success' %}ok{% elif sync_status.wide_sync.status == 'failed' %}failed{% else %}unknown{% endif %}">WB</div>
+                    <div class="sync-status-body">
+                        <div class="sync-status-title">宽表同步</div>
+                        <div class="sync-status-time">
+                            {% if sync_status.wide_sync.time %}
+                                {{ sync_status.wide_sync.time }}
+                            {% else %}
+                                暂无执行记录
+                            {% endif %}
+                        </div>
+                        <span class="sync-status-badge {% if sync_status.wide_sync.status == 'success' %}ok{% elif sync_status.wide_sync.status == 'failed' %}failed{% else %}unknown{% endif %}">
+                            {% if sync_status.wide_sync.status == 'success' %}成功{% elif sync_status.wide_sync.status == 'failed' %}失败{% else %}未知{% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                {# 健康检查 #}
+                <div class="sync-status-item" id="status-health">
+                    <div class="sync-status-icon {% if sync_status.health.status == 'ok' %}ok{% elif sync_status.health.status == 'degraded' %}failed{% elif sync_status.health.status == 'success' %}ok{% elif sync_status.health.status == 'failed' %}failed{% else %}unknown{% endif %}">HC</div>
+                    <div class="sync-status-body">
+                        <div class="sync-status-title">数据健康检查</div>
+                        <div class="sync-status-time">
+                            {% if sync_status.health.time %}
+                                {{ sync_status.health.time }}
+                            {% else %}
+                                暂无执行记录
+                            {% endif %}
+                        </div>
+                        <span class="sync-status-badge {% if sync_status.health.status in ('ok', 'success') %}ok{% elif sync_status.health.status in ('degraded', 'failed') %}failed{% else %}unknown{% endif %}">
+                            {% if sync_status.health.status == 'ok' %}正常{% elif sync_status.health.status == 'degraded' %}异常{% elif sync_status.health.status == 'success' %}成功{% elif sync_status.health.status == 'failed' %}失败{% else %}未知{% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        {# ── 操作按钮区 ── #}
+        <section class="workspace-panel workspace-form">
+            <div class="workspace-panel-header">
+                <div>
+                    <h2 class="workspace-panel-title">手动操作</h2>
+                    <p class="workspace-panel-desc">手动触发数据同步、重建或健康检查，操作前请确认。</p>
+                </div>
+            </div>
+
+            <div class="action-btn-group mb-4">
+                <button class="action-btn btn-sync" id="btnSyncBusiness"
+                        onclick="confirmAction('同步宽表', '确认触发 stock_business 宽表同步（近30天增量）？预计 5-15 分钟完成。', doSyncBusiness)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+                    同步宽表
+                </button>
+
+                <button class="action-btn btn-rebuild" id="btnFullRebuild"
+                        onclick="confirmAction('全量重建', '确认执行全量重建？这将覆盖 stock_business 全部数据，耗时较长。', doFullRebuild)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 2v6h6M2.66 15.57a10 10 0 1 0 .57-8.38"/></svg>
+                    全量重建
+                </button>
+
+                <button class="action-btn btn-health" id="btnHealthCheck"
+                        onclick="confirmAction('健康检查', '确认触发数据健康检查？将检查交易日历、日线数据量、技术指标填充率等。', doHealthCheck)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    健康检查
+                </button>
+            </div>
+
+            <hr class="my-4">
+
+            {# 手动同步单只股票 #}
+            <h3 class="h6 mb-3">手动同步单只股票分钟数据</h3>
             <form method="post" action="{{ url_for('admin.sync_one_stock') }}">
                 <div class="row g-3 align-items-end">
                     <div class="col-md-5">
@@ -63,11 +407,311 @@
                         </select>
                     </div>
                     <div class="col-md-4 d-grid">
-                        <button class="btn btn-primary" type="submit">立即同步</button>
+                        <button class="btn btn-outline-primary" type="submit">立即同步</button>
                     </div>
                 </div>
             </form>
-        </div>
+        </section>
+
+        {# ── 同步历史表格 ── #}
+        <section class="workspace-panel">
+            <div class="workspace-panel-header">
+                <div>
+                    <h2 class="workspace-panel-title">同步历史</h2>
+                    <p class="workspace-panel-desc">最近 20 条同步与数据健康检查日志记录。</p>
+                </div>
+                <span class="workspace-chip" id="syncLogCount">{{ sync_logs|length }} 条</span>
+            </div>
+
+            <div class="table-responsive" id="syncLogTable">
+                {% if sync_logs %}
+                <table class="table workspace-table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 170px;">时间</th>
+                            <th style="width: 170px;">操作类型</th>
+                            <th style="width: 80px;">状态</th>
+                            <th>详情</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in sync_logs %}
+                        <tr>
+                            <td class="text-muted small">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else '-' }}</td>
+                            <td><span class="workspace-chip">{{ log.action_type }}</span></td>
+                            <td>
+                                {% if log.status == 'success' or log.status == 'ok' %}
+                                    <span class="status-pill success">成功</span>
+                                {% elif log.status == 'failed' or log.status == 'degraded' %}
+                                    <span class="status-pill danger">失败</span>
+                                {% else %}
+                                    <span class="status-pill" style="background:rgba(100,116,139,0.1);color:#64748b;">{{ log.status or '未知' }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="small text-muted">{{ log.message or '-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="text-center py-4 text-muted">
+                    <p class="mb-0">暂无同步日志记录。</p>
+                </div>
+                {% endif %}
+            </div>
+        </section>
     </div>
 </div>
+
+{# ── Toast 容器 ── #}
+<div class="toast-container" id="toastContainer"></div>
+
+{# ── 确认对话框容器 ── #}
+<div id="confirmContainer"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* ===== Toast 通知 ===== */
+function showToast(message, type) {
+    type = type || 'info';
+    var container = document.getElementById('toastContainer');
+    var el = document.createElement('div');
+    el.className = 'toast-msg ' + type;
+    el.textContent = message;
+    container.appendChild(el);
+    setTimeout(function() {
+        el.style.transition = 'opacity .3s';
+        el.style.opacity = '0';
+        setTimeout(function() { el.remove(); }, 300);
+    }, 4000);
+}
+
+/* ===== 确认对话框 ===== */
+function confirmAction(title, message, onConfirm) {
+    var container = document.getElementById('confirmContainer');
+    container.innerHTML =
+        '<div class="confirm-overlay" id="confirmOverlay">' +
+        '  <div class="confirm-dialog">' +
+        '    <h3>' + title + '</h3>' +
+        '    <p>' + message + '</p>' +
+        '    <div class="confirm-dialog-actions">' +
+        '      <button class="btn btn-light" onclick="closeConfirm()">取消</button>' +
+        '      <button class="btn btn-primary" id="confirmOkBtn">确认执行</button>' +
+        '    </div>' +
+        '  </div>' +
+        '</div>';
+    document.getElementById('confirmOkBtn').onclick = function() {
+        closeConfirm();
+        onConfirm();
+    };
+    document.getElementById('confirmOverlay').onclick = function(e) {
+        if (e.target === this) closeConfirm();
+    };
+}
+
+function closeConfirm() {
+    var el = document.getElementById('confirmOverlay');
+    if (el) el.remove();
+}
+
+/* ===== 按钮 loading 状态 ===== */
+function setBtnLoading(btnId, loading) {
+    var btn = document.getElementById(btnId);
+    if (!btn) return;
+    if (loading) {
+        btn.disabled = true;
+        btn._originalHtml = btn.innerHTML;
+        var spinner = '<span class="spinner-border" role="status"></span>';
+        btn.innerHTML = spinner + ' ' + btn.textContent.trim() + '中...';
+    } else {
+        btn.disabled = false;
+        if (btn._originalHtml) btn.innerHTML = btn._originalHtml;
+    }
+}
+
+/* ===== AJAX API 调用 ===== */
+function postAction(url, btnId, successMsg) {
+    setBtnLoading(btnId, true);
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({})
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(data) {
+        if (data.success) {
+            showToast(data.message || successMsg || '操作成功', 'success');
+        } else {
+            showToast(data.message || '操作失败', 'danger');
+        }
+    })
+    .catch(function(err) {
+        showToast('请求失败: ' + err.message, 'danger');
+    })
+    .finally(function() {
+        setBtnLoading(btnId, false);
+    });
+}
+
+function doSyncBusiness() {
+    postAction(
+        '{{ url_for("admin.api_sync_business") }}',
+        'btnSyncBusiness',
+        '宽表同步任务已提交'
+    );
+}
+
+function doFullRebuild() {
+    setBtnLoading('btnFullRebuild', true);
+    fetch('{{ url_for("admin.api_sync_business") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({ full: true })
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(data) {
+        if (data.success) {
+            showToast(data.message || '全量重建任务已提交', 'success');
+        } else {
+            showToast(data.message || '操作失败', 'danger');
+        }
+    })
+    .catch(function(err) {
+        showToast('请求失败: ' + err.message, 'danger');
+    })
+    .finally(function() {
+        setBtnLoading('btnFullRebuild', false);
+    });
+}
+
+function doHealthCheck() {
+    postAction(
+        '{{ url_for("admin.api_health_check") }}',
+        'btnHealthCheck',
+        '健康检查任务已提交'
+    );
+}
+
+/* ===== 刷新数据概览 ===== */
+function refreshOverview() {
+    var btn = document.getElementById('btnRefreshOverview');
+    btn.disabled = true;
+    btn._origHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> 刷新中...';
+
+    fetch('{{ url_for("admin.api_data_overview") }}', {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(data) {
+        // 更新数据概览卡片
+        if (data.data_stats) {
+            var grid = document.getElementById('dataOverviewGrid');
+            grid.innerHTML = '';
+            var tableOrder = [
+                'stock_basic', 'stock_daily_basic', 'stock_daily_history',
+                'stock_factor', 'stock_moneyflow', 'stock_business',
+                'stock_minute_data', 'stock_trade_calendar'
+            ];
+            tableOrder.forEach(function(key) {
+                var info = data.data_stats[key];
+                if (!info) return;
+                var statusClass = info.count > 0 ? 'status-ok' : (info.count === 0 ? 'status-empty' : 'status-unknown');
+                var textClass = info.count > 0 ? 'text-ok' : (info.count === 0 ? 'text-empty' : 'text-unknown');
+                var countStr = info.count === -1 ? 'N/A' : Number(info.count).toLocaleString();
+                var meta = info.latest_date
+                    ? '最新交易日: <strong>' + info.latest_date + '</strong>'
+                    : '表名: <code>' + key + '</code>';
+                grid.innerHTML +=
+                    '<div class="data-card ' + statusClass + '" id="card-' + key + '">' +
+                    '  <div class="data-card-label">' + info.label + '</div>' +
+                    '  <div class="data-card-value ' + textClass + '">' + countStr + '</div>' +
+                    '  <div class="data-card-meta">' + meta + '</div>' +
+                    '</div>';
+            });
+        }
+
+        // 更新同步状态
+        if (data.sync_status) {
+            updateStatusItem('status-incremental', data.sync_status.incremental, 'IN');
+            updateStatusItem('status-wide-sync', data.sync_status.wide_sync, 'WB');
+            var h = data.sync_status.health;
+            var el = document.getElementById('status-health');
+            if (el && h) {
+                var iconClass = (h.status === 'ok' || h.status === 'success') ? 'ok' : ((h.status === 'degraded' || h.status === 'failed') ? 'failed' : 'unknown');
+                var badgeClass = (h.status === 'ok' || h.status === 'success') ? 'ok' : ((h.status === 'degraded' || h.status === 'failed') ? 'failed' : 'unknown');
+                var badgeText = h.status === 'ok' ? '正常' : (h.status === 'degraded' ? '异常' : (h.status === 'success' ? '成功' : (h.status === 'failed' ? '失败' : '未知')));
+                el.querySelector('.sync-status-icon').className = 'sync-status-icon ' + iconClass;
+                el.querySelector('.sync-status-time').textContent = h.time || '暂无执行记录';
+                var badge = el.querySelector('.sync-status-badge');
+                badge.className = 'sync-status-badge ' + badgeClass;
+                badge.textContent = badgeText;
+            }
+        }
+
+        // 更新同步历史
+        if (data.sync_logs) {
+            var tableDiv = document.getElementById('syncLogTable');
+            document.getElementById('syncLogCount').textContent = data.sync_logs.length + ' 条';
+            if (data.sync_logs.length === 0) {
+                tableDiv.innerHTML = '<div class="text-center py-4 text-muted"><p class="mb-0">暂无同步日志记录。</p></div>';
+            } else {
+                var html = '<table class="table workspace-table table-sm align-middle mb-0"><thead><tr>' +
+                    '<th style="width:170px;">时间</th><th style="width:170px;">操作类型</th>' +
+                    '<th style="width:80px;">状态</th><th>详情</th></tr></thead><tbody>';
+                data.sync_logs.forEach(function(log) {
+                    var time = log.created_at || '-';
+                    var statusHtml = '';
+                    if (log.status === 'success' || log.status === 'ok') {
+                        statusHtml = '<span class="status-pill success">成功</span>';
+                    } else if (log.status === 'failed' || log.status === 'degraded') {
+                        statusHtml = '<span class="status-pill danger">失败</span>';
+                    } else {
+                        statusHtml = '<span class="status-pill" style="background:rgba(100,116,139,0.1);color:#64748b;">' + (log.status || '未知') + '</span>';
+                    }
+                    html += '<tr><td class="text-muted small">' + time + '</td>' +
+                        '<td><span class="workspace-chip">' + log.action_type + '</span></td>' +
+                        '<td>' + statusHtml + '</td>' +
+                        '<td class="small text-muted">' + (log.message || '-') + '</td></tr>';
+                });
+                html += '</tbody></table>';
+                tableDiv.innerHTML = html;
+            }
+        }
+
+        showToast('数据已刷新', 'info');
+    })
+    .catch(function(err) {
+        showToast('刷新失败: ' + err.message, 'danger');
+    })
+    .finally(function() {
+        btn.disabled = false;
+        btn.innerHTML = btn._origHtml || btn.innerHTML;
+    });
+}
+
+function updateStatusItem(elId, statusData, iconText) {
+    var el = document.getElementById(elId);
+    if (!el || !statusData) return;
+    var iconClass = statusData.status === 'success' ? 'ok' : (statusData.status === 'failed' ? 'failed' : 'unknown');
+    var badgeClass = statusData.status === 'success' ? 'ok' : (statusData.status === 'failed' ? 'failed' : 'unknown');
+    var badgeText = statusData.status === 'success' ? '成功' : (statusData.status === 'failed' ? '失败' : '未知');
+    el.querySelector('.sync-status-icon').className = 'sync-status-icon ' + iconClass;
+    el.querySelector('.sync-status-time').textContent = statusData.time || '暂无执行记录';
+    var badge = el.querySelector('.sync-status-badge');
+    badge.className = 'sync-status-badge ' + badgeClass;
+    badge.textContent = badgeText;
+}
+</script>
 {% endblock %}

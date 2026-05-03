@@ -19,7 +19,7 @@ services:
       - TUSHARE_PROXY_URL=${TUSHARE_PROXY_URL:-}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
-      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-chat}
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-v4-flash}
       - QWEN_API_KEY=${QWEN_API_KEY:-}
       - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY:-}
       - QWEN_MODEL=${QWEN_MODEL:-qwen-plus}
@@ -30,12 +30,19 @@ services:
       - LLM_PROVIDER=${LLM_PROVIDER:-deepseek}
       - CORS_ORIGINS=${CORS_ORIGINS:-}
       - FLASK_ENV=production
-      - GUNICORN_DAEMON=False
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
     env_file:
       - .env
     volumes:
       - ./logs:/app/logs          # 日志持久化
       - ./data:/app/data          # 数据缓存持久化
+      - ./app/templates:/app/app/templates:ro  # 模板热更新
+      - ./app/services:/app/app/services:ro    # 服务层热更新
+      - ./app/api:/app/app/api:ro              # API 层热更新
+      - ./app/routes:/app/app/routes:ro        # 路由热更新
+      - ./app/models:/app/app/models:ro        # 模型热更新
+      - ./scripts:/app/scripts:ro              # 脚本热更新
     depends_on:
       mysql:
         condition: service_healthy
@@ -66,7 +73,7 @@ services:
     image: mysql:8.0
     container_name: stock-analysis-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-123456}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme}
       MYSQL_DATABASE: ${DB_NAME:-stock_cursor}
       # 注意：当 DB_USER=root 时不设置 MYSQL_USER（避免冲突）
       MYSQL_AUTHENTICATION_PLUGIN: mysql_native_password
@@ -95,6 +102,96 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+    restart: unless-stopped
+
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stock-analysis-celery-worker
+    command: celery -A app.celery_app:celery_app worker --loglevel=info --concurrency=4
+    environment:
+      # Copy ALL same env vars as web service
+      - DB_HOST=mysql
+      - DB_USER=${DB_USER:-stock_user}
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - DB_NAME=${DB_NAME:-stock_cursor}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
+      - DEBUG=False
+      - REDIS_HOST=redis
+      - TUSHARE_TOKEN=${TUSHARE_TOKEN}
+      - TUSHARE_PROXY_URL=${TUSHARE_PROXY_URL:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-v4-flash}
+      - QWEN_API_KEY=${QWEN_API_KEY:-}
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY:-}
+      - QWEN_MODEL=${QWEN_MODEL:-qwen-plus}
+      - QWEN_BASE_URL=${QWEN_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      - QWEN_TIMEOUT=${QWEN_TIMEOUT:-60}
+      - QWEN_TEMPERATURE=${QWEN_TEMPERATURE:-0.1}
+      - QWEN_MAX_TOKENS=${QWEN_MAX_TOKENS:-2048}
+      - LLM_PROVIDER=${LLM_PROVIDER:-deepseek}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+      - FLASK_ENV=production
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./scripts:/app/scripts:ro              # 脚本热更新
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stock-analysis-celery-beat
+    command: celery -A app.celery_app:celery_app beat --loglevel=info
+    environment:
+      # Same env vars as celery-worker
+      - DB_HOST=mysql
+      - DB_USER=${DB_USER:-stock_user}
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - DB_NAME=${DB_NAME:-stock_cursor}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
+      - DEBUG=False
+      - REDIS_HOST=redis
+      - TUSHARE_TOKEN=${TUSHARE_TOKEN}
+      - TUSHARE_PROXY_URL=${TUSHARE_PROXY_URL:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-v4-flash}
+      - QWEN_API_KEY=${QWEN_API_KEY:-}
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY:-}
+      - QWEN_MODEL=${QWEN_MODEL:-qwen-plus}
+      - QWEN_BASE_URL=${QWEN_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      - QWEN_TIMEOUT=${QWEN_TIMEOUT:-60}
+      - QWEN_TEMPERATURE=${QWEN_TEMPERATURE:-0.1}
+      - QWEN_MAX_TOKENS=${QWEN_MAX_TOKENS:-2048}
+      - LLM_PROVIDER=${LLM_PROVIDER:-deepseek}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+      - FLASK_ENV=production
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./scripts:/app/scripts:ro              # 脚本热更新
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

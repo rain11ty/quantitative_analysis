@@ -1216,7 +1216,7 @@ class RealtimeMonitorService:
         }
 
     @classmethod
-    def get_realtime_ranking(cls, sort_by: str = 'pct_change', limit: int = 20, src: str = 'sina') -> Dict[str, Any]:
+    def get_realtime_ranking(cls, sort_by: str = 'pct_change', limit: int = 20, src: str = 'sina', cache_only: bool = False) -> Dict[str, Any]:
         """获取实时涨跌幅排名
 
         数据源优先级：
@@ -1228,12 +1228,25 @@ class RealtimeMonitorService:
             sort_by: 排序字段，可选 pct_change(涨跌幅) / turnover_rate(换手率) / amount(成交额)
             limit: 返回条数，默认20
             src: 数据源标识（sina/dc），实际数据源按优先级自动选择
+            cache_only: 是否仅读缓存，不触发外部爬取
         """
         cache_key = f'realtime_ranking_{sort_by}'
         # 排名数据使用独立的较长缓存
         ranking_cache = _cache.get(cache_key)
         if ranking_cache is not None:
             return ranking_cache
+
+        # 纯读缓存模式：缓存未命中时直接返回空数据
+        if cache_only:
+            return {
+                'success': False,
+                'message': '数据暂未就绪，请等待后台任务预热缓存。',
+                'sort_by': sort_by,
+                'src': src,
+                'top_gainers': [],
+                'top_losers': [],
+                'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            }
 
         result = None
 

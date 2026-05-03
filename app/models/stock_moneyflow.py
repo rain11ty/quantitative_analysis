@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 from app.extensions import db
-from sqlalchemy import Column, String, Date, DECIMAL
+from sqlalchemy import Column, String, Date, DECIMAL, Index
 
 class StockMoneyflow(db.Model):
     """个股资金流向数据表"""
     __tablename__ = 'stock_moneyflow'
-    
+
+    __table_args__ = (
+        Index('idx_stock_moneyflow_trade_date', 'trade_date'),
+    )
+
     ts_code = Column(String(20), primary_key=True, comment='股票代码')
     trade_date = Column(Date, primary_key=True, comment='交易日期')
     

@@ -24,12 +24,14 @@ class NewsService:
         return str(value).strip()
 
     @staticmethod
-    def get_cjzc():
+    def get_cjzc(cache_only=False):
         """获取东方财富-财经早餐"""
         cache_key = 'news_cjzc'
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
+        if cache_only:
+            return {'items': [], 'source': '东方财富-财经早餐', 'count': 0, 'message': '数据暂未就绪'}
 
         try:
             df = call_with_no_proxy(ak.stock_info_cjzc_em)
@@ -54,12 +56,14 @@ class NewsService:
             return {'items': [], 'source': '东方财富-财经早餐', 'count': 0, 'error': str(exc)}
 
     @staticmethod
-    def get_global_em():
+    def get_global_em(cache_only=False):
         """获取东方财富-全球财经快讯"""
         cache_key = 'news_global_em'
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
+        if cache_only:
+            return {'items': [], 'source': '东方财富-全球快讯', 'count': 0, 'message': '数据暂未就绪'}
 
         try:
             df = call_with_no_proxy(ak.stock_info_global_em)
@@ -84,12 +88,14 @@ class NewsService:
             return {'items': [], 'source': '东方财富-全球快讯', 'count': 0, 'error': str(exc)}
 
     @staticmethod
-    def get_global_cls():
+    def get_global_cls(cache_only=False):
         """获取财联社-电报"""
         cache_key = 'news_global_cls'
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
+        if cache_only:
+            return {'items': [], 'source': '财联社-电报', 'count': 0, 'message': '数据暂未就绪'}
 
         try:
             df = call_with_no_proxy(ak.stock_info_global_cls, symbol="全部")
@@ -117,12 +123,14 @@ class NewsService:
             return {'items': [], 'source': '财联社-电报', 'count': 0, 'error': str(exc)}
 
     @staticmethod
-    def get_global_ths():
+    def get_global_ths(cache_only=False):
         """获取同花顺-全球财经直播"""
         cache_key = 'news_global_ths'
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
+        if cache_only:
+            return {'items': [], 'source': '同花顺-财经直播', 'count': 0, 'message': '数据暂未就绪'}
 
         try:
             df = call_with_no_proxy(ak.stock_info_global_ths)
@@ -147,7 +155,7 @@ class NewsService:
             return {'items': [], 'source': '同花顺-财经直播', 'count': 0, 'error': str(exc)}
 
     @staticmethod
-    def get_all_news():
+    def get_all_news(cache_only=False):
         """获取所有来源的新闻（合并按时间排序）"""
         cache_key = 'news_all'
         cached = cache.get(cache_key)
@@ -165,7 +173,7 @@ class NewsService:
         source_errors = []
         for name, func in sources:
             try:
-                data = func()
+                data = func(cache_only=cache_only)
                 if data.get('items'):
                     all_items.extend(data['items'])
                 elif data.get('error'):
@@ -173,6 +181,10 @@ class NewsService:
             except Exception as exc:
                 source_errors.append(f"{name}: {exc}")
                 logger.warning(f'获取新闻来源 {name} 失败: {exc}')
+
+        # 纯读缓存模式：没有任何来源命中缓存时返回空数据
+        if cache_only and not all_items:
+            return {'items': [], 'count': 0, 'source': '全部来源', 'message': '数据暂未就绪', 'errors': None}
 
         # 按时间降序排序（最新的在前面）
         all_items.sort(key=lambda x: x.get('time', ''), reverse=True)

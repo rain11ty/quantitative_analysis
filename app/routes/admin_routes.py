@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from __future__ import annotations
+
 from flask import Blueprint, flash, g, jsonify, redirect, render_template, request, session, url_for
 from sqlalchemy import or_
 
@@ -27,6 +29,95 @@ def _write_admin_log(action_type, message, status='success'):
         SystemLogService.write(action_type, message, user=g.current_user, status=status)
     except Exception:
         db.session.rollback()
+
+
+def _get_data_overview_stats():
+    """获取数据概览统计（data_center 和 api_data_overview 共用）。"""
+    from sqlalchemy import text
+
+    data_stats = {}
+    table_names = [
+        ('stock_basic', '股票基础信息'),
+        ('stock_daily_basic', '每日基本面'),
+        ('stock_daily_history', '日线行情'),
+        ('stock_factor', '技术指标'),
+        ('stock_moneyflow', '资金流向'),
+        ('stock_business', '选股宽表'),
+        ('stock_minute_data', '分钟数据'),
+        ('stock_trade_calendar', '交易日历'),
+    ]
+
+    db_name = db.engine.url.database
+
+    with db.engine.connect() as conn:
+        # 使用 information_schema 快速获取行数估计值，避免大表 COUNT(*) 全表扫描
+        for table_name, label in table_names:
+            try:
+                r = conn.execute(
+                    text("SELECT TABLE_ROWS FROM information_schema.TABLES "
+                         "WHERE TABLE_SCHEMA = :db AND TABLE_NAME = :tbl"),
+                    {'db': db_name, 'tbl': table_name},
+                )
+                row = r.fetchone()
+                count = row[0] if row else -1
+            except Exception:
+                count = -1
+            data_stats[table_name] = {'count': count, 'label': label}
+
+        # 获取 stock_business 最新交易日
+        try:
+            r = conn.execute(text('SELECT MAX(trade_date) FROM stock_business'))
+            data_stats['stock_business']['latest_date'] = r.scalar()
+        except Exception:
+            data_stats['stock_business']['latest_date'] = None
+
+        # 获取各源表最新交易日
+        for tbl in ['stock_daily_basic', 'stock_daily_history', 'stock_factor', 'stock_moneyflow']:
+            try:
+                r = conn.execute(text(f'SELECT MAX(trade_date) FROM `{tbl}`'))
+                data_stats[tbl]['latest_date'] = r.scalar()
+            except Exception:
+                data_stats[tbl]['latest_date'] = None
+
+    # 同步状态：查最近的关键操作记录
+    def _latest_log(action_type_list):
+        return SystemLog.query.filter(
+            SystemLog.action_type.in_(action_type_list)
+        ).order_by(SystemLog.created_at.desc()).first()
+
+    latest_incremental = _latest_log(['daily_incremental_update'])
+    latest_wide_sync = _latest_log(['sync_stock_business', 'admin_sync_wide_table'])
+    latest_health = _latest_log(['data_health_check'])
+
+    sync_status = {
+        'incremental': {
+            'time': latest_incremental.created_at.strftime('%Y-%m-%d %H:%M:%S') if latest_incremental else None,
+            'status': latest_incremental.status if latest_incremental else 'unknown',
+            'message': latest_incremental.message if latest_incremental else '暂无记录',
+        },
+        'wide_sync': {
+            'time': latest_wide_sync.created_at.strftime('%Y-%m-%d %H:%M:%S') if latest_wide_sync else None,
+            'status': latest_wide_sync.status if latest_wide_sync else 'unknown',
+            'message': latest_wide_sync.message if latest_wide_sync else '暂无记录',
+        },
+        'health': {
+            'time': latest_health.created_at.strftime('%Y-%m-%d %H:%M:%S') if latest_health else None,
+            'status': latest_health.status if latest_health else 'unknown',
+            'message': latest_health.message if latest_health else '暂无记录',
+        },
+    }
+
+    # 最近同步日志
+    sync_action_types = [
+        'sync_stock_business', 'admin_sync_stock_data',
+        'daily_incremental_update', 'data_health_check',
+        'admin_sync_wide_table',
+    ]
+    sync_logs = SystemLog.query.filter(
+        SystemLog.action_type.in_(sync_action_types)
+    ).order_by(SystemLog.created_at.desc()).limit(20).all()
+
+    return data_stats, sync_status, sync_logs
 
 
 @admin_routes.route('/login', methods=['GET', 'POST'])
@@ -295,11 +386,32 @@ def logs():
 @admin_routes.route('/data')
 @admin_required
 def data_center():
-    data_stats = {
-        'stock_basic_count': StockBasic.query.count(),
-        'minute_data_count': StockMinuteData.query.count(),
-    }
-    return render_template('admin/data.html', data_stats=data_stats)
+    data_stats, sync_status, sync_logs = _get_data_overview_stats()
+    return render_template('admin/data.html',
+                           data_stats=data_stats,
+                           sync_logs=sync_logs,
+                           sync_status=sync_status)
+
+
+@admin_routes.route('/data/sync-wide', methods=['POST'])
+@admin_required
+def sync_wide_table():
+    """触发 stock_business 宽表同步（表单提交，兼容旧方式）"""
+    days = request.form.get('days', 30, type=int)
+    full = request.form.get('full', 'false') == 'true'
+
+    try:
+        from app.tasks import sync_stock_business_wide
+        task = sync_stock_business_wide.delay(days=days, full=full)
+        _write_admin_log(
+            'admin_sync_wide_table',
+            f'Admin {g.current_user.username} triggered stock_business sync: days={days}, full={full}',
+        )
+        flash(f'宽表同步任务已提交（任务ID: {task.id}），预计 5-15 分钟完成。', 'success')
+    except Exception as exc:
+        flash(f'任务提交失败: {exc}', 'danger')
+
+    return redirect(url_for('admin.data_center'))
 
 
 @admin_routes.route('/data/sync-one', methods=['POST'])
@@ -333,6 +445,73 @@ def sync_one_stock():
         flash(f'Sync error: {exc}', 'danger')
 
     return redirect(url_for('admin.data_center'))
+
+
+# ======================== 数据中心 API ========================
+
+@admin_routes.route('/data/api/overview', methods=['GET'])
+@admin_required
+def api_data_overview():
+    """返回数据概览 JSON，供前端 AJAX 刷新使用"""
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return jsonify({'success': False, 'message': '非法请求'}), 400
+
+    data_stats, sync_status, sync_logs = _get_data_overview_stats()
+    return jsonify({
+        'data_stats': data_stats,
+        'sync_status': sync_status,
+        'sync_logs': [log.to_dict() for log in sync_logs],
+    })
+
+
+@admin_routes.route('/data/api/sync-business', methods=['POST'])
+@admin_required
+def api_sync_business():
+    """API: 触发宽表同步（AJAX 调用）"""
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return jsonify({'success': False, 'message': '非法请求'}), 400
+
+    data = request.get_json(silent=True) or {}
+    days = data.get('days', 30)
+    full = data.get('full', False)
+
+    try:
+        from app.tasks import sync_stock_business_wide
+        task = sync_stock_business_wide.delay(days=int(days), full=bool(full))
+        _write_admin_log(
+            'admin_sync_wide_table',
+            f'Admin {g.current_user.username} triggered stock_business sync via API: days={days}, full={full}',
+        )
+        return jsonify({
+            'success': True,
+            'message': f'宽表同步任务已提交（任务ID: {task.id}），预计 5-15 分钟完成。',
+            'task_id': task.id,
+        })
+    except Exception as exc:
+        return jsonify({'success': False, 'message': f'任务提交失败: {exc}'}), 500
+
+
+@admin_routes.route('/data/api/health-check', methods=['POST'])
+@admin_required
+def api_health_check():
+    """API: 触发数据健康检查（AJAX 调用）"""
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return jsonify({'success': False, 'message': '非法请求'}), 400
+
+    try:
+        from app.tasks import run_data_health_check
+        task = run_data_health_check.delay()
+        _write_admin_log(
+            'admin_health_check',
+            f'Admin {g.current_user.username} triggered data health check via API',
+        )
+        return jsonify({
+            'success': True,
+            'message': f'健康检查任务已提交（任务ID: {task.id}），请稍后刷新查看结果。',
+            'task_id': task.id,
+        })
+    except Exception as exc:
+        return jsonify({'success': False, 'message': f'任务提交失败: {exc}'}), 500
 
 
 # ======================== 系统自检 ========================

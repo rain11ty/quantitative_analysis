@@ -20,10 +20,23 @@
 """
 
 import json
+import threading
 import time
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from loguru import logger
+
+# Per-key locks for thundering herd protection
+_locks: dict = {}
+_locks_lock = threading.Lock()
+
+
+def _get_lock(key: str) -> threading.Lock:
+    """Get or create a per-key lock."""
+    with _locks_lock:
+        if key not in _locks:
+            _locks[key] = threading.Lock()
+        return _locks[key]
 
 
 class MemoryCache:
@@ -54,6 +67,23 @@ class MemoryCache:
         keys_to_delete = [k for k in self._store if k.startswith(prefix)]
         for k in keys_to_delete:
             del self._store[k]
+
+    def get_or_compute(self, key: str, compute_fn: Callable[[], Any], ttl: int = 30) -> Any:
+        """Thundering-herd-safe get-or-compute. Uses a per-key lock so that
+        only one thread executes *compute_fn* for a given *key* at a time."""
+        result = self.get(key)
+        if result is not None:
+            return result
+
+        lock = _get_lock(key)
+        with lock:
+            # Double-check after acquiring lock
+            result = self.get(key)
+            if result is not None:
+                return result
+            value = compute_fn()
+            self.set(key, value, ttl=ttl)
+            return value
 
     def is_redis(self) -> bool:
         return False
@@ -98,6 +128,23 @@ class RedisCache:
                 self._client.delete(*keys)
         except Exception as exc:
             logger.warning(f'[RedisCache] clear failed for prefix={prefix}: {exc}')
+
+    def get_or_compute(self, key: str, compute_fn: Callable[[], Any], ttl: int = 30) -> Any:
+        """Thundering-herd-safe get-or-compute. Uses a per-key lock so that
+        only one thread executes *compute_fn* for a given *key* at a time."""
+        result = self.get(key)
+        if result is not None:
+            return result
+
+        lock = _get_lock(key)
+        with lock:
+            # Double-check after acquiring lock
+            result = self.get(key)
+            if result is not None:
+                return result
+            value = compute_fn()
+            self.set(key, value, ttl=ttl)
+            return value
 
     def is_redis(self) -> bool:
         return True
@@ -153,6 +200,9 @@ class CacheProxy:
 
     def clear(self, prefix: str = '') -> None:
         get_cache().clear(prefix)
+
+    def get_or_compute(self, key: str, compute_fn: Callable[[], Any], ttl: int = 30) -> Any:
+        return get_cache().get_or_compute(key, compute_fn, ttl=ttl)
 
     def is_redis(self) -> bool:
         return get_cache().is_redis()

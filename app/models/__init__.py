@@ -14,9 +14,6 @@ from .user import User
 from .user_activity import UserWatchlist, UserAnalysisRecord, UserChatHistory, UserBacktestResult
 from .ai_conversation import UserAiConversation, UserAiMessage
 from .system_log import SystemLog
-from .trading_signals import TradingSignals
-from .portfolio_positions import PortfolioPositions
-from .risk_alerts import RiskAlerts
 from .stock_shock import StockShock
 from .stock_cyq_chips import StockCyqChips
 
@@ -41,8 +38,5 @@ __all__ = [
     'UserAiConversation',
     'UserAiMessage',
     'SystemLog',
-    'TradingSignals',
-    'PortfolioPositions',
-    'RiskAlerts',
     'StockShock',
 ] 

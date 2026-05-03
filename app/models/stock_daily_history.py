@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 from app.extensions import db
-from sqlalchemy import Column, String, Date, DECIMAL, BigInteger
+from sqlalchemy import Column, String, Date, DECIMAL, BigInteger, Index
 
 class StockDailyHistory(db.Model):
     """股票日线行情历史数据表"""
     __tablename__ = 'stock_daily_history'
-    
+
+    __table_args__ = (
+        Index('idx_stock_daily_history_trade_date', 'trade_date'),
+    )
+
     ts_code = Column(String(20), primary_key=True, comment='股票代码')
     trade_date = Column(Date, primary_key=True, comment='交易日期')
     open = Column(DECIMAL(10, 2), comment='开盘价')

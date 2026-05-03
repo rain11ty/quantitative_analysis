@@ -1005,10 +1005,9 @@ function renderLineChart(klineData) {
 document.addEventListener('DOMContentLoaded', function() {
   initChart();
 
-  // 并发加载数据
-  loadMarketOverview().then(() => {
-    loadIndexKline(selectedIndex, currentPeriod);
-  });
+  // 所有请求并行发起，不互相等待
+  loadMarketOverview();
+  loadIndexKline('000001.SH', '1Y');  // 直接用默认指数并行加载
   loadRanking();
   loadNews();
 

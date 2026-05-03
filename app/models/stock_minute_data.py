@@ -4,6 +4,8 @@
 支持1分钟、5分钟、15分钟、30分钟、60分钟等多种周期的K线数据
 """
 
+from __future__ import annotations
+
 from app.extensions import db
 from datetime import datetime
 from sqlalchemy import Index, func
@@ -38,6 +40,7 @@ class StockMinuteData(db.Model):
     # 创建复合索引以提高查询性能
     __table_args__ = (
         Index('idx_ts_code_datetime_period', 'ts_code', 'datetime', 'period_type'),
+        Index('idx_ts_code_period_datetime', 'ts_code', 'period_type', 'datetime'),
         Index('idx_datetime_period', 'datetime', 'period_type'),
         Index('idx_ts_code_period', 'ts_code', 'period_type'),
     )
@@ -67,21 +70,46 @@ class StockMinuteData(db.Model):
     
     @classmethod
     def get_latest_data(cls, ts_code, period_type='1min', limit=100):
-        """获取最新的K线数据"""
-        return cls.query.filter_by(
+        """获取最新的K线数据（带 Redis 缓存，TTL 5 分钟）"""
+        from app.utils.cache_utils import cache
+
+        cache_key = f'kline:latest:{ts_code}:{period_type}:{limit}'
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        result = cls.query.filter_by(
             ts_code=ts_code,
             period_type=period_type
         ).order_by(cls.datetime.desc()).limit(limit).all()
-    
+
+        data = [row.to_dict() for row in result]
+        cache.set(cache_key, data, ttl=300)
+        return data
+
     @classmethod
     def get_data_by_time_range(cls, ts_code, start_time, end_time, period_type='1min'):
-        """根据时间范围获取K线数据"""
-        return cls.query.filter(
+        """根据时间范围获取K线数据（带 Redis 缓存，TTL 10 分钟）"""
+        from app.utils.cache_utils import cache
+
+        start_str = start_time.strftime('%Y%m%d%H%M%S') if hasattr(start_time, 'strftime') else str(start_time)
+        end_str = end_time.strftime('%Y%m%d%H%M%S') if hasattr(end_time, 'strftime') else str(end_time)
+        cache_key = f'kline:range:{ts_code}:{period_type}:{start_str}:{end_str}'
+
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        result = cls.query.filter(
             cls.ts_code == ts_code,
             cls.period_type == period_type,
             cls.datetime >= start_time,
             cls.datetime <= end_time
         ).order_by(cls.datetime.asc()).all()
+
+        data = [row.to_dict() for row in result]
+        cache.set(cache_key, data, ttl=600)
+        return data
     
     @classmethod
     def get_data_range(cls, ts_code, period_type, start_time, end_time):
@@ -157,6 +185,6 @@ class StockMinuteData(db.Model):
             'data_count': actual_points,
             'missing_count': missing_points,
             'completeness': completeness,
-            'latest_time': data[-1].datetime.isoformat() if data else None,
-            'earliest_time': data[0].datetime.isoformat() if data else None
+            'latest_time': data[-1].get('datetime') if data else None,
+            'earliest_time': data[0].get('datetime') if data else None
         } 

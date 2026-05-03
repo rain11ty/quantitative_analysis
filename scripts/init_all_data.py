@@ -12,6 +12,7 @@
   6. 资金流向       (stock_moneyflow)       — 近 N 年
   7. 北向资金       (moneyflow_hsgt)        — 近 N 年
   8. 技术指标补算   — 全量
+  9. 宽表同步       (stock_business)        — 全量
 
 用法:
   python scripts/init_all_data.py                  # 全量初始化（近3年，约2-4小时）
@@ -19,7 +20,7 @@
   python scripts/init_all_data.py --skip calendar,basic  # 跳过已完成的步骤
   python scripts/init_all_data.py --dry-run        # 仅检测各表现在数据量，不写入
 
-可跳过的步骤名: calendar, basic, daily, adj, daily_basic, moneyflow, hsgt, factors
+可跳过的步骤名: calendar, basic, daily, adj, daily_basic, moneyflow, hsgt, factors, business
 """
 
 import sys
@@ -76,7 +77,7 @@ def main():
     parser.add_argument('--years', type=int, default=3, help='同步近N年数据 (默认3)')
     parser.add_argument(
         '--skip', type=str, default='',
-        help='跳过指定步骤，逗号分隔 (calendar, basic, daily, adj, daily_basic, moneyflow, hsgt, factors)',
+        help='跳过指定步骤，逗号分隔 (calendar, basic, daily, adj, daily_basic, moneyflow, hsgt, factors, business)',
     )
     parser.add_argument('--dry-run', action='store_true', help='仅检测不写入')
     args = parser.parse_args()
@@ -96,7 +97,7 @@ def main():
             tables = [
                 'stock_trade_calendar', 'stock_basic', 'stock_daily_history',
                 'stock_factor', 'stock_daily_basic', 'stock_moneyflow',
-                'moneyflow_hsgt',
+                'moneyflow_hsgt', 'stock_business',
             ]
             for t in tables:
                 sync.cursor.execute(f'SELECT COUNT(*), MIN(trade_date), MAX(trade_date) FROM `{t}`')
@@ -119,6 +120,7 @@ def main():
         ('moneyflow',   '个股资金流向',     'sync_moneyflow',        start_date, 100),
         ('hsgt',        '北向资金',         'sync_moneyflow_hsgt',   start_date, 100),
         ('factors',     '技术指标补算',     None,                    None,     0),
+        ('business',    'stock_business宽表', None,                  None,     0),
     ]
 
     total_steps = len([s for s in STEPS if s[0] not in skip_set])
@@ -170,6 +172,16 @@ def main():
                     print_result(name, total, time.time() - t_step)
                 finally:
                     conn2.close()
+
+            elif key == 'business':
+                # stock_business 宽表全量同步
+                from scripts.sync_stock_business import sync_stock_business as _sync_business
+                try:
+                    total = _sync_business(full=True)
+                    print_result(name, total or 0, time.time() - t_step)
+                except Exception as e:
+                    logger.error(f'stock_business 宽表同步失败: {e}')
+                    print(f'    [WARN] 宽表同步失败(不影响主流程): {e}')
             else:
                 method = getattr(sync, method_name)
                 if default_start:

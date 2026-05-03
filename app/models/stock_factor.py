@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 from app.extensions import db
-from sqlalchemy import Column, String, Date, DECIMAL
+from sqlalchemy import Column, String, Date, DECIMAL, Index
 
 class StockFactor(db.Model):
     """股票技术面因子数据表"""
     __tablename__ = 'stock_factor'
-    
+
+    __table_args__ = (
+        Index('idx_stock_factor_trade_date', 'trade_date'),
+    )
+
     ts_code = Column(String(20), primary_key=True, comment='股票代码')
     trade_date = Column(Date, primary_key=True, comment='交易日期')
     close = Column(DECIMAL(10, 2), comment='收盘价')

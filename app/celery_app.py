@@ -7,6 +7,8 @@ Celery 异步任务配置
 
 import os
 
+from datetime import timedelta
+
 from celery import Celery
 from celery.schedules import crontab
 from dotenv import load_dotenv
@@ -47,6 +49,37 @@ def _build_beat_schedule() -> dict:
         schedule['daily-minute-data-sync'] = {
             'task': 'app.tasks.sync_minute_data_daily',
             'schedule': crontab(hour=15, minute=47),
+        }
+
+    # 5. 每日收盘后同步 stock_business 宽表
+    if os.getenv('STOCK_BUSINESS_SYNC_ENABLED', 'true').lower() == 'true':
+        hour = int(os.getenv('STOCK_BUSINESS_SYNC_HOUR', '18'))
+        minute = int(os.getenv('STOCK_BUSINESS_SYNC_MINUTE', '30'))
+        schedule['daily-stock-business-sync'] = {
+            'task': 'app.tasks.sync_stock_business_wide',
+            'schedule': crontab(hour=hour, minute=minute),
+            'kwargs': {'days': 30, 'full': False},
+        }
+
+    # 6. 新闻快讯定时爬取（每 60 秒）
+    if os.getenv('NEWS_CACHE_REFRESH_ENABLED', 'true').lower() == 'true':
+        schedule['refresh-news-cache'] = {
+            'task': 'app.tasks.refresh_news_cache',
+            'schedule': timedelta(seconds=60),
+        }
+
+    # 7. 涨跌排行定时爬取（每 30 秒）
+    if os.getenv('RANKING_CACHE_REFRESH_ENABLED', 'true').lower() == 'true':
+        schedule['refresh-ranking-cache'] = {
+            'task': 'app.tasks.refresh_ranking_cache',
+            'schedule': timedelta(seconds=30),
+        }
+
+    # 8. 市场概览定时预热（每 30 秒）
+    if os.getenv('MARKET_OVERVIEW_CACHE_REFRESH_ENABLED', 'true').lower() == 'true':
+        schedule['refresh-market-overview-cache'] = {
+            'task': 'app.tasks.refresh_market_overview_cache',
+            'schedule': timedelta(seconds=30),
         }
 
     return schedule

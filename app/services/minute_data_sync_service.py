@@ -284,36 +284,75 @@ class MinuteDataSyncService:
             # 转换为字典列表
             data_list = df.to_dict('records')
             
-            # 批量插入数据库
+            # ---- 批量处理：先查已有记录，再统一插入/更新 ----
             success_count = 0
             error_count = 0
-            
+
+            # 过滤掉不可序列化到数据库的字段（如 NaN）
+            model_columns = {c.name for c in StockMinuteData.__table__.columns}
+            clean_data_list = []
             for data in data_list:
                 try:
-                    # 检查是否已存在
-                    existing = StockMinuteData.query.filter_by(
-                        ts_code=data['ts_code'],
-                        datetime=data['datetime'],
-                        period_type=data['period_type']
-                    ).first()
-                    
-                    if existing:
-                        # 更新现有记录
-                        for key, value in data.items():
-                            if hasattr(existing, key):
-                                setattr(existing, key, value)
-                    else:
-                        # 创建新记录
-                        minute_data = StockMinuteData(**data)
-                        db.session.add(minute_data)
-                    
-                    success_count += 1
-                    
-                except Exception as e:
-                    logger.error(f"插入数据失败: {data}, 错误: {e}")
+                    clean = {k: v for k, v in data.items()
+                             if k in model_columns and not (isinstance(v, float) and pd.isna(v))}
+                    # 确保必要字段存在
+                    if all(k in clean for k in ('ts_code', 'datetime', 'period_type', 'open', 'high', 'low', 'close')):
+                        clean_data_list.append(clean)
+                except Exception:
                     error_count += 1
-                    continue
-            
+
+            if not clean_data_list:
+                return {
+                    'success': False,
+                    'message': f'未获取到{ts_code}的有效{period_type}数据',
+                    'data_count': 0
+                }
+
+            # 一次性查询该股票+周期在同步时间范围内所有已存在的记录
+            datetimes = [d['datetime'] for d in clean_data_list]
+            min_dt, max_dt = min(datetimes), max(datetimes)
+            existing_rows = StockMinuteData.query.filter(
+                StockMinuteData.ts_code == ts_code,
+                StockMinuteData.period_type == period_type,
+                StockMinuteData.datetime >= min_dt,
+                StockMinuteData.datetime <= max_dt,
+            ).all()
+            existing_map = {
+                (r.ts_code, r.datetime, r.period_type): r for r in existing_rows
+            }
+
+            # 分离更新和新增
+            to_insert = []
+            for data in clean_data_list:
+                key = (data['ts_code'], data['datetime'], data['period_type'])
+                existing = existing_map.get(key)
+                if existing:
+                    for k, v in data.items():
+                        if hasattr(existing, k):
+                            setattr(existing, k, v)
+                    success_count += 1
+                else:
+                    to_insert.append(data)
+                    success_count += 1
+
+            # 批量插入新记录
+            if to_insert:
+                try:
+                    db.session.bulk_insert_mappings(StockMinuteData, to_insert)
+                except Exception as e:
+                    logger.error(f"批量插入失败: {e}")
+                    # 逐条回退
+                    error_count += len(to_insert)
+                    success_count -= len(to_insert)
+                    for data in to_insert:
+                        try:
+                            db.session.add(StockMinuteData(**data))
+                            db.session.flush()
+                            success_count += 1
+                            error_count -= 1
+                        except Exception as e2:
+                            logger.error(f"单条插入失败: {e2}")
+
             # 提交事务
             db.session.commit()
             

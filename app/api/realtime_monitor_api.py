@@ -30,17 +30,36 @@ def get_monitor_dashboard():
 @api_bp.route('/monitor/ranking', methods=['GET'])
 @api_error_handler(default_message='获取实时涨跌排名失败')
 def get_realtime_ranking():
+    """获取实时涨跌排名（纯读缓存，数据由 Celery 定时任务刷新）"""
     sort_by = (request.args.get('sort_by') or 'pct_change').strip()
     limit = parse_int_param(request.args.get('limit'), 20, min_val=1, max_val=50)
-    src = (request.args.get('src') or 'dc').strip()
-    if src not in ('dc', 'sina'):
-        src = 'dc'
-    result = RealtimeMonitorService.get_realtime_ranking(
-        sort_by=sort_by,
-        limit=limit,
-        src=src,
-    )
-    return jsonify({'code': 200, 'message': 'success', 'data': result})
+
+    # 与 Celery 任务 refresh_ranking_cache 写入的缓存键一致
+    cache_key = f'realtime_ranking_{sort_by}'
+    try:
+        from app.utils.cache_utils import get_cache
+        cached = get_cache().get(cache_key)
+    except Exception:
+        cached = None
+
+    if cached is not None:
+        # 按 limit 裁剪返回条数
+        if 'top_gainers' in cached:
+            cached['top_gainers'] = cached['top_gainers'][:limit]
+        if 'top_losers' in cached:
+            cached['top_losers'] = cached['top_losers'][:limit]
+        return jsonify({'code': 200, 'message': 'success', 'data': cached})
+
+    return jsonify({
+        'code': 200,
+        'message': '数据暂未就绪，请稍后重试',
+        'data': {
+            'success': False,
+            'sort_by': sort_by,
+            'top_gainers': [],
+            'top_losers': [],
+        },
+    })
 
 
 @api_bp.route('/monitor/stocks/<path:ts_code>', methods=['GET'])

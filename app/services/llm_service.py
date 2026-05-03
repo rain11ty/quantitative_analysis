@@ -155,11 +155,25 @@ class LLMService:
             headers['X-DashScope-App-Id'] = app_id
         return headers
 
+    @staticmethod
+    def _has_multimodal_content(messages: List[Dict[str, Any]]) -> bool:
+        for msg in messages:
+            content = msg.get('content')
+            if isinstance(content, list):
+                for item in content:
+                    if isinstance(item, dict) and item.get('type') == 'image_url':
+                        return True
+        return False
+
     def chat_completion(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
         """非流式对话。"""
         try:
             request_kwargs = dict(kwargs)
             request_kwargs.pop('stream', None)
+            provider = self._resolve_provider()
+            provider_config = self._get_provider_config(provider)
+            if provider == 'qwen' and provider_config.get('app_id') and not self._has_multimodal_content(messages):
+                return self._bailian_app_chat(messages, **request_kwargs)
             return self._openai_chat(messages, **request_kwargs)
         except Exception as exc:
             logger.error(f'大模型调用失败: {exc}')
@@ -175,10 +189,98 @@ class LLMService:
         request_kwargs.pop('stream', None)
 
         try:
-            yield from self._openai_stream_chat(messages, **request_kwargs)
+            provider = self._resolve_provider()
+            provider_config = self._get_provider_config(provider)
+            if provider == 'qwen' and provider_config.get('app_id') and not self._has_multimodal_content(messages):
+                yield from self._bailian_app_stream(messages, **request_kwargs)
+            else:
+                yield from self._openai_stream_chat(messages, **request_kwargs)
         except Exception as exc:
             logger.error(f'大模型流式调用失败: {exc}')
             raise
+
+    # ── 百炼智能应用体 API ──
+
+    def _bailian_app_headers(self, provider_config: Dict[str, Any]) -> Dict[str, str]:
+        return {
+            'Authorization': f"Bearer {provider_config.get('api_key')}",
+            'Content-Type': 'application/json',
+            'X-DashScope-App-Id': str(provider_config.get('app_id') or '').strip(),
+        }
+
+    def _bailian_app_url(self, provider_config: Dict[str, Any]) -> str:
+        base_url = (provider_config.get('base_url') or 'https://dashscope.aliyuncs.com').rstrip('/')
+        # Bailian App API uses a different path than compatible-mode; strip the compatible-mode suffix
+        base_url = base_url.rstrip('/')
+        if '/compatible-mode' in base_url:
+            base_url = base_url.split('/compatible-mode')[0]
+        return f'{base_url}/api/v1/apps/{provider_config["app_id"]}/completion'
+
+    def _bailian_app_chat(self, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
+        provider_config = self._get_provider_config('qwen')
+        headers = self._bailian_app_headers(provider_config)
+        data = {
+            'input': {'messages': messages},
+            'parameters': {'result_format': 'message'},
+        }
+        try:
+            url = self._bailian_app_url(provider_config)
+            response = requests.post(url, headers=headers, json=data,
+                                     timeout=provider_config.get('timeout', 120))
+            if response.status_code != 200:
+                return {'success': False, 'error': f'百炼 API 错误: {response.status_code} - {response.text}', 'content': None}
+            result = response.json()
+            choices = result.get('output', {}).get('choices', [])
+            content = (choices[0].get('message', {}) if choices else {}).get('content', '')
+            return {
+                'success': True,
+                'content': content,
+                'model': provider_config.get('model', 'qwen3.6-plus'),
+                'usage': result.get('usage', {}),
+                'provider': 'qwen',
+            }
+        except Exception as exc:
+            return {'success': False, 'error': f'百炼调用异常: {exc}', 'content': None}
+
+    def _bailian_app_stream(self, messages: List[Dict[str, Any]], **kwargs) -> Iterator[str]:
+        provider_config = self._get_provider_config('qwen')
+        headers = self._bailian_app_headers(provider_config)
+        data = {
+            'input': {'messages': messages},
+            'parameters': {'result_format': 'message'},
+            'stream': True,
+        }
+        url = self._bailian_app_url(provider_config)
+        try:
+            with requests.post(url, headers=headers, json=data,
+                               timeout=provider_config.get('timeout', 120), stream=True) as response:
+                if response.status_code != 200:
+                    raise RuntimeError(f'百炼 API 错误: {response.status_code} - {response.text}')
+                for raw_line in response.iter_lines(decode_unicode=True, chunk_size=1):
+                    if not raw_line:
+                        continue
+                    line = raw_line.strip()
+                    if not line.startswith('data:'):
+                        continue
+                    payload = line[5:].strip()
+                    if payload == '[DONE]':
+                        break
+                    try:
+                        chunk = json.loads(payload)
+                    except json.JSONDecodeError:
+                        continue
+                    choices = chunk.get('output', {}).get('choices', [])
+                    if choices:
+                        delta = choices[0].get('message', {})
+                        content = delta.get('content', '')
+                        if content:
+                            yield content
+        except requests.exceptions.ConnectionError:
+            raise RuntimeError('百炼服务无法连接')
+        except requests.exceptions.Timeout:
+            raise RuntimeError('百炼请求超时')
+        except Exception as exc:
+            raise RuntimeError(f'百炼调用异常: {exc}')
 
     def _openai_chat(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
         provider, provider_label, provider_config = self._get_compatible_provider()

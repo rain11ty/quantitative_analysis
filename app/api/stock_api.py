@@ -31,11 +31,29 @@ def get_stocks():
 @api_bp.route('/market/overview', methods=['GET'])
 @api_error_handler(default_message='获取市场概览失败')
 def get_market_overview():
-    result = MarketOverviewService.get_market_overview()
-    # 三级降级保证 success=True（即使数据来自缓存/空），始终返回 200
-    # 前端通过 result.get('degraded') 判断是否需要展示降级提示
-    status_code = 200 if result.get('success') else 503
-    return jsonify({'code': status_code, 'message': result.get('message'), 'data': result}), status_code
+    """获取市场概览（纯读缓存，数据由 Celery 定时任务刷新）"""
+    try:
+        from app.utils.cache_utils import get_cache
+        cached = get_cache().get('market_overview')
+    except Exception:
+        cached = None
+
+    if cached is not None:
+        status_code = 200 if cached.get('success') else 503
+        return jsonify({'code': status_code, 'message': cached.get('message'), 'data': cached}), status_code
+
+    return jsonify({
+        'code': 200,
+        'message': '数据暂未就绪，请稍后重试',
+        'data': {
+            'success': True,
+            'source': 'none',
+            'items': [],
+            'advancing': 0,
+            'declining': 0,
+            'flat': 0,
+        },
+    })
 
 
 @api_bp.route('/market/health', methods=['GET'])
@@ -181,12 +199,31 @@ def get_areas():
 @api_bp.route('/market/index/<path:ts_code>/kline', methods=['GET'])
 @api_error_handler(default_message='获取指数K线数据失败')
 def get_index_kline(ts_code):
-    """获取指数历史K线数据"""
+    """获取指数历史K线数据（纯读缓存，数据由 Celery 定时任务刷新）"""
     period = request.args.get('period', '1Y')
     if period not in ('1M', '3M', '6M', '1Y', '3Y'):
         period = '1Y'
-    result = MarketOverviewService.get_index_kline(ts_code, period=period)
-    return jsonify({'code': 200, 'message': 'success', 'data': result})
+
+    cache_key = f'index_kline_{ts_code}_{period}'
+    try:
+        from app.utils.cache_utils import get_cache
+        cached = get_cache().get(cache_key)
+    except Exception:
+        cached = None
+
+    if cached is not None:
+        return jsonify({'code': 200, 'message': 'success', 'data': cached})
+
+    return jsonify({
+        'code': 200,
+        'message': '数据暂未就绪，请稍后重试',
+        'data': {
+            'success': False,
+            'ts_code': ts_code,
+            'kline': [],
+            'count': 0,
+        },
+    })
 
 
 @api_bp.route('/watchlist', methods=['GET'])

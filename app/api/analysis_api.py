@@ -3,6 +3,8 @@ from flask import request, jsonify
 from app.api import api_bp
 from app.services.stock_service import StockService
 from loguru import logger
+import hashlib
+import json
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -408,8 +410,28 @@ class BacktestEngine:
 
         return df
 
+    def _backtest_cache_key(self, suffix, df):
+        """Build a deterministic cache key from backtest config and data bounds."""
+        raw = (
+            f"{self.ts_code}:{self.strategy_type}:"
+            f"{json.dumps(self.params, sort_keys=True)}:"
+            f"{self.start_date}:{self.end_date}:"
+            f"{len(df)}:{df['trade_date'].iloc[0]}:{df['trade_date'].iloc[-1]}"
+        )
+        digest = hashlib.md5(raw.encode()).hexdigest()[:12]
+        return f"backtest_{suffix}:{digest}"
+
     def _calculate_signals(self, df):
-        """计算策略信号"""
+        """计算策略信号 (cached, 300s TTL)"""
+        from app.utils.cache_utils import get_cache
+        cache = get_cache()
+        cache_key = self._backtest_cache_key("signals", df)
+
+        cached_signals = cache.get(cache_key)
+        if cached_signals is not None:
+            df['signal'] = cached_signals
+            return df
+
         df['signal'] = 0  # 0: 无操作, 1: 买入, -1: 卖出
 
         if self.strategy_type == 'ma_cross':
@@ -422,6 +444,11 @@ class BacktestEngine:
             df = self._rsi_strategy(df)
         elif self.strategy_type == 'bollinger':
             df = self._bollinger_strategy(df)
+
+        try:
+            cache.set(cache_key, df['signal'].tolist(), ttl=300)
+        except Exception:
+            pass
 
         return df
 
@@ -591,7 +618,15 @@ class BacktestEngine:
             })
 
     def _calculate_performance(self, df):
-        """计算绩效指标"""
+        """计算绩效指标 (cached, 600s TTL)"""
+        from app.utils.cache_utils import get_cache
+        cache = get_cache()
+        cache_key = self._backtest_cache_key("perf", df)
+
+        cached_perf = cache.get(cache_key)
+        if cached_perf is not None:
+            return cached_perf
+
         if not self.daily_values:
             return self._get_default_performance()
 
@@ -656,7 +691,7 @@ class BacktestEngine:
         # 计算总手续费
         total_commission = sum(t['commission'] for t in self.trades if 'commission' in t)
 
-        return {
+        perf_result = {
             'total_return': total_return,
             'annual_return': annual_return,
             'sharpe_ratio': sharpe_ratio,
@@ -670,6 +705,13 @@ class BacktestEngine:
             'total_commission': total_commission,
             'benchmark_return': benchmark_return
         }
+
+        try:
+            cache.set(cache_key, perf_result, ttl=600)
+        except Exception:
+            pass
+
+        return perf_result
 
     def _get_default_performance(self):
         """获取默认绩效指标（无交易情况）"""

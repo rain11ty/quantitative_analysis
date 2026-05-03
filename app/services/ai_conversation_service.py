@@ -147,23 +147,24 @@ class AIConversationService:
         db.session.commit()
 
     @staticmethod
-    def prepare_conversation_for_question(user_id: int, question: str, conversation_id: Optional[int] = None) -> Tuple[UserAiConversation, UserAiMessage]:
+    def prepare_conversation_for_question(user_id: int, question: str, conversation_id: Optional[int] = None, images: Optional[List[str]] = None) -> Tuple[UserAiConversation, UserAiMessage]:
         conversation = AIConversationService.require_conversation(user_id, conversation_id) if conversation_id else AIConversationService.create_conversation(user_id)
         question_text = (question or '').strip()
-        if not question_text:
+        if not question_text and not images:
             raise ValueError('\u95ee\u9898\u4e0d\u80fd\u4e3a\u7a7a')
 
         if not conversation.title or conversation.title == AIConversationService.DEFAULT_TITLE:
-            conversation.title = AIConversationService.generate_title_from_question(question_text)
+            conversation.title = AIConversationService.generate_title_from_question(question_text or '[\u56fe\u7247]')
 
         user_message = UserAiMessage(
             conversation_id=conversation.id,
             role='user',
-            content=question_text,
+            content=question_text or '',
+            message_images=images if images else None,
             status=UserAiMessage.STATUS_COMPLETED,
         )
         db.session.add(user_message)
-        AIConversationService._touch_conversation(conversation, preview=question_text)
+        AIConversationService._touch_conversation(conversation, preview=question_text or '[\u56fe\u7247]')
         db.session.commit()
         return conversation, user_message
 
@@ -177,7 +178,8 @@ class AIConversationService:
         total_chars = 0
         for record in recent_records:
             content = (record.content or '').strip()
-            if not content or record.status == UserAiMessage.STATUS_FAILED:
+            has_images = bool(record.message_images)
+            if (not content and not has_images) or record.status == UserAiMessage.STATUS_FAILED:
                 continue
 
             if selected and len(selected) >= AIConversationService.MAX_CONTEXT_MESSAGES:
@@ -187,7 +189,15 @@ class AIConversationService:
             if selected and projected > AIConversationService.MAX_CONTEXT_CHARS:
                 break
 
-            selected.append({'role': record.role, 'content': content})
+            if record.role == 'user' and has_images:
+                multimodal_content = []
+                if content:
+                    multimodal_content.append({'type': 'text', 'text': content})
+                for img_url in record.message_images:
+                    multimodal_content.append({'type': 'image_url', 'image_url': {'url': img_url}})
+                selected.append({'role': 'user', 'content': multimodal_content})
+            else:
+                selected.append({'role': record.role, 'content': content})
             total_chars = projected
 
         selected.reverse()

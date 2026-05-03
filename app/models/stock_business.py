@@ -1,11 +1,16 @@
 # -*- coding: utf-8 -*-
 from app.extensions import db
 from datetime import datetime
+from sqlalchemy import Index
 
 class StockBusiness(db.Model):
     """股票业务大宽表模型"""
     __tablename__ = 'stock_business'
-    
+
+    __table_args__ = (
+        Index('idx_stock_business_trade_date', 'trade_date'),
+    )
+
     # 主键
     ts_code = db.Column(db.String(20), primary_key=True, comment='TS股票代码')
     trade_date = db.Column(db.Date, primary_key=True, comment='交易日期')

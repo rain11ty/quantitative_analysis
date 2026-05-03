@@ -67,11 +67,25 @@ class MarketOverviewService:
     # ======================== 核心入口（带缓存）========================
 
     @classmethod
-    def get_market_overview(cls):
+    def get_market_overview(cls, cache_only=False):
         """获取市场概览数据（指数行情 + 涨跌家数），带30秒缓存"""
         cached = _cache.get('market_overview')
         if cached is not None:
             return cached
+
+        # 纯读缓存模式：缓存未命中时直接返回空数据，不触发外部爬取
+        if cache_only:
+            return {
+                'success': False,
+                'message': '数据暂未就绪，请等待后台任务预热缓存。',
+                'source': 'none',
+                'trade_date': None,
+                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'items': [],
+                'advancing': 0,
+                'declining': 0,
+                'flat': 0,
+            }
 
         # ① 优先尝试 Akshare
         ak_result = cls._fetch_from_akshare()
@@ -95,12 +109,13 @@ class MarketOverviewService:
     # ======================== 指数历史K线 ========================
 
     @classmethod
-    def get_index_kline(cls, ts_code: str, period: str = '1Y') -> dict:
+    def get_index_kline(cls, ts_code: str, period: str = '1Y', cache_only: bool = False) -> dict:
         """获取指数历史K线数据
 
         Args:
             ts_code: 指数代码，如 000001.SH
             period: 时间范围 1M/3M/6M/1Y/3Y
+            cache_only: 是否仅读缓存，不触发外部爬取
         """
         period_days = {'1M': 30, '3M': 90, '6M': 180, '1Y': 365, '3Y': 1095}
         days = period_days.get(period, 365)
@@ -110,6 +125,17 @@ class MarketOverviewService:
         cached = _cache.get(cache_key)
         if cached is not None:
             return cached
+
+        # 纯读缓存模式：缓存未命中时直接返回空数据
+        if cache_only:
+            return {
+                'success': False,
+                'ts_code': ts_code,
+                'source': 'none',
+                'kline': [],
+                'count': 0,
+                'message': 'K线数据暂未就绪，请等待后台任务预热缓存。',
+            }
 
         result = cls._fetch_index_kline(ts_code, days)
         _cache.set(cache_key, result, ttl=cls.CACHE_TTL_KLINE)
@@ -414,105 +440,108 @@ class MarketOverviewService:
 
     @classmethod
     def _fetch_from_local_cache(cls):
-        """第三级降级：从本地 MySQL 读取最近缓存的指数/大盘数据"""
+        """第三级降级：从本地 MySQL 读取最近缓存的指数/大盘数据（单次批量查询优化）"""
         try:
             conn, cursor = DatabaseUtils.connect_to_mysql()
+
+            # 构建 ts_code -> name 映射，以及 ts_code -> fallback_code 映射
+            index_map = {item['ts_code']: item['name'] for item in cls.INDEX_ITEMS}
+            fallback_codes = {
+                '000001.SH': '000001.SZ',
+                '399001.SZ': '000001.SZ',
+                '399006.SZ': '300750.SZ',
+            }
+            # 收集所有需要查询的 ts_code（主码 + 回退码）
+            all_codes = list(index_map.keys()) + list(set(fallback_codes.values()))
+
+            # 单次查询获取所有相关指数的最近行情
+            placeholders = ', '.join(['%s'] * len(all_codes))
+            sql = (
+                "SELECT ts_code, trade_date, open, high, low, close, pre_close, pct_chg, vol, amount "
+                "FROM stock_daily_history "
+                f"WHERE ts_code IN ({placeholders}) "
+                "ORDER BY ts_code, trade_date DESC"
+            )
+            cursor.execute(sql, all_codes)
+            all_rows = cursor.fetchall()
+            conn.close()
+
+            # 按 ts_code 分组，每个组最多保留最近 60 条
+            rows_by_code = {}
+            current_code = None
+            count = 0
+            for row in all_rows:
+                code = row[0]
+                if code != current_code:
+                    current_code = code
+                    count = 0
+                if count < 60:
+                    rows_by_code.setdefault(code, []).append(row)
+                    count += 1
+
+            # 为每个 INDEX_ITEM 构建结果
             items = []
             latest_trade_date = None
 
             for index_item in cls.INDEX_ITEMS:
                 ts_code = index_item['ts_code']
+                # 主码有数据则用主码，否则查回退码
+                rows = rows_by_code.get(ts_code, [])
+                if not rows:
+                    fb_code = fallback_codes.get(ts_code)
+                    if fb_code:
+                        rows = rows_by_code.get(fb_code, [])
 
-                try:
-                    cursor.execute(
-                        "SELECT trade_date, open, high, low, close, pre_close, pct_chg, vol, amount "
-                        "FROM stock_daily_history "
-                        "WHERE ts_code = %s "
-                        "ORDER BY trade_date DESC LIMIT 60",
-                        (ts_code,),
-                    )
-                    rows = cursor.fetchall()
+                kline_data = [
+                    {
+                        'trade_date': str(row[1]) if row[1] else '',
+                        'open': cls._to_float(row[2]),
+                        'high': cls._to_float(row[3]),
+                        'low': cls._to_float(row[4]),
+                        'close': cls._to_float(row[5]),
+                        'vol': cls._to_float(row[8], 0),
+                    }
+                    for row in rows
+                ]
 
-                    if not rows:
-                        fallback_codes = {
-                            '000001.SH': '000001.SZ',
-                            '399001.SZ': '000001.SZ',
-                            '399006.SZ': '300750.SZ',
-                        }
-                        fb_code = fallback_codes.get(ts_code)
-                        if fb_code:
-                            cursor.execute(
-                                "SELECT trade_date, open, high, low, close, pre_close, pct_chg, vol, amount "
-                                "FROM stock_daily_history "
-                                "WHERE ts_code = %s "
-                                "ORDER BY trade_date DESC LIMIT 60",
-                                (fb_code,),
-                            )
-                            rows = cursor.fetchall()
+                if rows:
+                    first = rows[0]
+                    close_val = cls._to_float(first[5])
+                    pre_close_val = cls._to_float(first[6])
+                    pct_chg_val = cls._to_float(first[7])
+                    change_val = None
+                    if close_val is not None and pre_close_val is not None:
+                        change_val = cls._to_float(close_val - pre_close_val)
+                    if pct_chg_val is None and change_val is not None and pre_close_val not in (None, 0):
+                        pct_chg_val = cls._to_float(change_val / pre_close_val * 100)
 
-                    kline_data = []
-                    for row in rows:
-                        kline_data.append({
-                            'trade_date': str(row[0]) if row[0] else '',
-                            'open': cls._to_float(row[1]),
-                            'high': cls._to_float(row[2]),
-                            'low': cls._to_float(row[3]),
-                            'close': cls._to_float(row[4]),
-                            'vol': cls._to_float(row[7], 0),
-                        })
-
-                    if rows:
-                        first = rows[0]
-                        close_val = cls._to_float(first[4])
-                        pre_close_val = cls._to_float(first[5])
-                        pct_chg_val = cls._to_float(first[6])
-                        change_val = None
-                        if close_val is not None and pre_close_val is not None:
-                            change_val = cls._to_float(close_val - pre_close_val)
-                        if pct_chg_val is None and change_val is not None and pre_close_val not in (None, 0):
-                            pct_chg_val = cls._to_float(change_val / pre_close_val * 100)
-
-                        trade_dt = str(first[0]) if first[0] else ''
-                        items.append({
-                            'ts_code': ts_code,
-                            'name': index_item['name'],
-                            'trade_date': trade_dt,
-                            'close': close_val,
-                            'change': change_val,
-                            'pct_chg': pct_chg_val,
-                            'vol': cls._to_float(first[7], 0),
-                            'amount': cls._to_float(first[8], 0),
-                            'error': None,
-                            'kline': kline_data,
-                            '_is_fallback': True,
-                        })
-                        if trade_dt and (latest_trade_date is None or trade_dt > latest_trade_date):
-                            latest_trade_date = trade_dt
-                    else:
-                        items.append({
-                            'ts_code': ts_code,
-                            'name': index_item['name'],
-                            'trade_date': None,
-                            'close': None, 'change': None, 'pct_chg': None,
-                            'vol': None, 'amount': None,
-                            'error': '无本地缓存数据',
-                            'kline': [],
-                            '_is_fallback': True,
-                        })
-                except Exception as inner_exc:
-                    logger.warning(f'Local cache query failed for {ts_code}: {inner_exc}')
+                    trade_dt = str(first[1]) if first[1] else ''
+                    items.append({
+                        'ts_code': ts_code,
+                        'name': index_item['name'],
+                        'trade_date': trade_dt,
+                        'close': close_val,
+                        'change': change_val,
+                        'pct_chg': pct_chg_val,
+                        'vol': cls._to_float(first[8], 0),
+                        'amount': cls._to_float(first[9], 0),
+                        'error': None,
+                        'kline': kline_data,
+                        '_is_fallback': True,
+                    })
+                    if trade_dt and (latest_trade_date is None or trade_dt > latest_trade_date):
+                        latest_trade_date = trade_dt
+                else:
                     items.append({
                         'ts_code': ts_code,
                         'name': index_item['name'],
                         'trade_date': None,
                         'close': None, 'change': None, 'pct_chg': None,
                         'vol': None, 'amount': None,
-                        'error': f'本地查询失败: {inner_exc}',
+                        'error': '无本地缓存数据',
                         'kline': [],
                         '_is_fallback': True,
                     })
-
-            conn.close()
 
             valid_items = [it for it in items if it.get('trade_date')]
             if valid_items:

@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from flask import Flask, flash, g, jsonify, redirect, render_template, request, session, url_for
 from flask_cors import CORS
+from flask_compress import Compress
 try:
     from flask_limiter import Limiter
     from flask_limiter.util import get_remote_address
@@ -106,6 +107,9 @@ def create_app(config_name='default'):
 
     if hasattr(app, 'json'):
         app.json.ensure_ascii = False
+
+    # 启用 gzip 压缩（自动压缩 JSON、HTML、CSS、JS 等响应）
+    Compress(app)
 
     db.init_app(app)
 

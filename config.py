@@ -45,7 +45,7 @@ DEFAULT_OPENAI_MODELS = (
 class Config:
     DB_HOST = os.getenv('DB_HOST', 'localhost')
     DB_USER = os.getenv('DB_USER', 'root')
-    DB_PASSWORD = os.getenv('DB_PASSWORD', 'root')
+    DB_PASSWORD = os.getenv('DB_PASSWORD', '123456')
     DB_NAME = os.getenv('DB_NAME', 'stock_cursor')
     DB_CHARSET = os.getenv('DB_CHARSET', 'utf8mb4')
     
@@ -87,8 +87,12 @@ class Config:
     REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', '') or None
     REDIS_ENABLED = os.getenv('REDIS_ENABLED', 'true').lower() == 'true'
 
+    # --- 静态文件缓存 ---
+    SEND_FILE_MAX_AGE_DEFAULT = 86400  # 24 hours
+    TEMPLATES_AUTO_RELOAD = True  # 每次请求检查模板文件变更，避免多 worker 版本不一致
+
     # --- 静态文件版本号（每次更新代码后修改此值，强制浏览器刷新缓存）---
-    STATIC_VERSION = '20260503_1'
+    STATIC_VERSION = '20260503_3'
 
     DEFAULT_PAGE_SIZE = 20
     MAX_PAGE_SIZE = 100

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, JSON
 
 from app.extensions import db
 
@@ -42,6 +42,7 @@ class UserAiMessage(db.Model):
     conversation_id = Column(Integer, ForeignKey('user_ai_conversation.id'), nullable=False, index=True, comment='conversation id')
     role = Column(String(20), nullable=False, index=True, comment='message role')
     content = Column(Text, nullable=False, comment='message content')
+    message_images = Column(JSON, nullable=True, comment='attached images (base64 data URLs)')
     status = Column(String(20), nullable=False, default=STATUS_COMPLETED, index=True, comment='message status')
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True, comment='created time')
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False, comment='updated time')
@@ -52,6 +53,7 @@ class UserAiMessage(db.Model):
             'conversation_id': self.conversation_id,
             'role': self.role,
             'content': self.content,
+            'images': self.message_images or [],
             'status': self.status,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
