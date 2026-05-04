@@ -211,9 +211,13 @@ class LLMService:
     def _bailian_app_url(self, provider_config: Dict[str, Any]) -> str:
         base_url = (provider_config.get('base_url') or 'https://dashscope.aliyuncs.com').rstrip('/')
         # Bailian App API uses a different path than compatible-mode; strip the compatible-mode suffix
-        base_url = base_url.rstrip('/')
+        # e.g. "https://dashscope.aliyuncs.com/compatible-mode/v1" -> "https://dashscope.aliyuncs.com"
         if '/compatible-mode' in base_url:
             base_url = base_url.split('/compatible-mode')[0]
+        # Also strip trailing /v1 if present
+        if base_url.endswith('/v1'):
+            base_url = base_url[:-3]
+        base_url = base_url.rstrip('/')
         return f'{base_url}/api/v1/apps/{provider_config["app_id"]}/completion'
 
     @staticmethod
