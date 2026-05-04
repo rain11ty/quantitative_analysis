@@ -854,6 +854,84 @@ class TushareDataSync:
             print(f"\n  错误: {e}")
 
     # ================================================================
+    #  同步：每日筹码胜率
+    # ================================================================
+    def sync_cyq_perf(self, start_date=None, end_date=None):
+        """同步每日筹码胜率数据（cyq_perf，按日期拉取，每次返回所有股票）"""
+        if not end_date:
+            end_date = datetime.now().strftime('%Y%m%d')
+
+        if not start_date:
+            latest = self._get_latest_date('stock_cyq_perf')
+            if latest:
+                next_day = (datetime.strptime(latest, '%Y%m%d') + timedelta(days=1)).strftime('%Y%m%d')
+                start_date = next_day
+            else:
+                start_date = '20180101'
+
+        if start_date > end_date:
+            print("  cyq_perf 已是最新")
+            return 0
+
+        # 获取交易日列表
+        trade_dates = self._get_trading_dates(start_date, end_date)
+
+        if not trade_dates:
+            print("  没有交易日需要同步")
+            return 0
+
+        print("\n" + "=" * 60)
+        print(f"  同步筹码胜率 (stock_cyq_perf) {start_date} ~ {end_date}")
+        print(f"  共 {len(trade_dates)} 个交易日")
+        print("=" * 60)
+
+        columns = ['ts_code', 'trade_date', 'his_low', 'his_high',
+                    'cost_5pct', 'cost_15pct', 'cost_50pct', 'cost_85pct',
+                    'cost_95pct', 'weight_avg', 'winner_rate']
+        total_rows = 0
+        self._start_time = time.time()
+
+        try:
+            for idx, trade_date in enumerate(trade_dates, 1):
+                try:
+                    self._rate_limit()
+                    df = self._call_with_retry(
+                        self.pro.cyq_perf, trade_date=trade_date)
+
+                    if df is not None and not df.empty:
+                        df = _clean_nan(df)
+                        data = []
+                        for _, row in df.iterrows():
+                            td = datetime.strptime(str(row['trade_date']), '%Y%m%d').date() if row.get('trade_date') else None
+                            data.append((
+                                row.get('ts_code'), td,
+                                row.get('his_low'), row.get('his_high'),
+                                row.get('cost_5pct'), row.get('cost_15pct'),
+                                row.get('cost_50pct'), row.get('cost_85pct'),
+                                row.get('cost_95pct'), row.get('weight_avg'),
+                                row.get('winner_rate'),
+                            ))
+                        inserted = self._batch_upsert(
+                            'stock_cyq_perf', columns, data, batch_size=5000)
+                        total_rows += inserted
+
+                    self._print_progress(idx, len(trade_dates), f'{trade_date} ({len(df) if df is not None else 0}条)')
+
+                except Exception as e:
+                    print(f"\n  {trade_date} 错误: {e}")
+                    self.conn.rollback()
+                    continue
+
+            elapsed = time.time() - self._start_time
+            print(f"\n\n  完成！共写入 {total_rows} 条筹码胜率数据，耗时 {elapsed:.0f}s，API调用 {self._call_count}次")
+            return total_rows
+
+        except Exception as e:
+            self.conn.rollback()
+            print(f"\n  错误: {e}")
+            return 0
+
+    # ================================================================
     #  同步所有
     # ================================================================
     def sync_all(self, start_date=None, end_date=None):
@@ -878,6 +956,7 @@ class TushareDataSync:
 
         # 筹码分布（增量）
         self.sync_cyq_chips(start_date=start_date, end_date=end_date)
+        self.sync_cyq_perf(start_date=start_date, end_date=end_date)
 
         print("\n" + "=" * 60)
         print("  全量同步完成！")
@@ -914,7 +993,7 @@ def main():
     parser.add_argument('--type', required=True,
                         choices=['basic', 'calendar', 'daily', 'adj_factor',
                                  'daily_basic', 'moneyflow', 'moneyflow_hsgt',
-                                 'cyq_chips', 'all'],
+                                 'cyq_chips', 'cyq_perf', 'all'],
                         help='同步的数据类型')
     parser.add_argument('--start', default=None,
                         help='起始日期 YYYYMMDD（不指定则自动增量）')
@@ -934,6 +1013,7 @@ def main():
             'moneyflow': sync.sync_moneyflow,
             'moneyflow_hsgt': sync.sync_moneyflow_hsgt,
             'cyq_chips': sync.sync_cyq_chips,
+            'cyq_perf': sync.sync_cyq_perf,
             'all': sync.sync_all,
         }
 

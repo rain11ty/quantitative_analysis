@@ -550,9 +550,9 @@ function renderBacktestResults(results, config) {
                                                 ${trade.action === 'buy' ? '买入' : '卖出'}
                                             </span>
                                         </td>
-                                        <td>?${formatNumber(trade.price, 2)}</td>
+                                        <td>￥${formatNumber(trade.price, 2)}</td>
                                         <td>${trade.quantity ?? '--'}</td>
-                                        <td>?${formatNumber(trade.amount, 2)}</td>
+                                        <td>￥${formatNumber(trade.amount, 2)}</td>
                                         <td class="${(trade.return_rate || 0) >= 0 ? 'text-success' : 'text-danger'}">
                                             ${trade.return_rate === null || trade.return_rate === undefined ? '--' : formatPercent(trade.return_rate)}
                                         </td>
@@ -574,7 +574,7 @@ function renderBacktestResults(results, config) {
                         <p class="mb-1"><strong>回测股票：</strong>${stockName}</p>
                         <p class="mb-1"><strong>策略类型：</strong>${getStrategyTypeName(config.strategy_type)}</p>
                         <p class="mb-1"><strong>回测区间：</strong>${config.start_date} 至 ${config.end_date}</p>
-                        <p class="mb-0"><strong>初始资金：</strong>?${formatNumber(config.initial_capital, 0)}</p>
+                        <p class="mb-0"><strong>初始资金：</strong>￥${formatNumber(config.initial_capital, 0)}</p>
                     </div>
                 </div>
             </div>
@@ -608,8 +608,8 @@ function renderBacktestResults(results, config) {
                     <div class="card-body">
                         <h6>风险指标</h6>
                         <p class="mb-1"><strong>波动率：</strong>${formatPercent(perf.volatility)}</p>
-                        <p class="mb-1"><strong>最终资金：</strong>?${formatNumber(perf.final_capital, 2)}</p>
-                        <p class="mb-1"><strong>总手续费：</strong>?${formatNumber(perf.total_commission, 2)}</p>
+                        <p class="mb-1"><strong>最终资金：</strong>￥${formatNumber(perf.final_capital, 2)}</p>
+                        <p class="mb-1"><strong>总手续费：</strong>￥${formatNumber(perf.total_commission, 2)}</p>
                         <p class="mb-0"><strong>基准收益率：</strong>${formatPercent(perf.benchmark_return)}</p>
                     </div>
                 </div>

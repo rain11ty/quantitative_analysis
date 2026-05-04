@@ -23,6 +23,7 @@ PUBLIC_ENDPOINTS = {
     'main.index',
     'main.news',
     'main.ai_assistant',
+    'main.monitor',
     'auth.login',
     'auth.register',
     'auth.send_verify_code',
@@ -63,6 +64,7 @@ PUBLIC_PATH_PREFIXES = (
     '/auth/register',
     '/auth/send-verify-code',
     '/auth/forgot-password',
+    '/auth/logout',
     '/admin/login',
 )
 
@@ -159,7 +161,7 @@ def create_app(config_name='default'):
             key_func=get_remote_address,
             app=app,
             default_limits=["200 per minute"],       # 全局默认：每分钟 200 次请求
-            storage_uri="memory://",                 # 内存存储（单机够用）
+            storage_uri="redis://redis:6379/3",      # Redis 存储（多进程共享）
             strategy="fixed-window",                 # 固定窗口算法
         )
         # 自定义超限响应（统一 JSON 格式，不泄露内部信息）

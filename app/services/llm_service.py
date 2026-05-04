@@ -334,6 +334,7 @@ class LLMService:
                         raise RuntimeError(f'百炼 API 错误: {error_msg}')
 
                     output = chunk.get('output', {})
+                    yielded = False
 
                     # 从 output.choices 提取内容
                     choices = output.get('choices', [])
@@ -355,19 +356,21 @@ class LLMService:
                         if content:
                             has_content = True
                             yield content
-                            continue
-                        # content 为空且无工具调用，检查 finish_reason
-                        finish_reason = choices[0].get('finish_reason', '')
-                        if finish_reason:
-                            logger.debug('百炼 SSE: finish_reason=%s, content 为空', finish_reason)
-                        continue
+                            yielded = True
+                        else:
+                            # content 为空且无工具调用，检查 finish_reason
+                            finish_reason = choices[0].get('finish_reason', '')
+                            if finish_reason:
+                                logger.debug('百炼 SSE: finish_reason=%s, content 为空', finish_reason)
 
-                    # 兼容 output.text 格式（部分插件/工具使用此格式）
-                    text = output.get('text', '')
-                    if text:
-                        has_content = True
-                        yield text
-                        continue
+                    # 兼容 output.text 格式（部分插件/工具/MCP 响应使用此格式）
+                    # 必须在 choices 之后检查，因为工具调用完成后可能返回 text 格式
+                    if not yielded:
+                        text = output.get('text', '')
+                        if text:
+                            has_content = True
+                            yield text
+                            continue
 
                     # 某些中间事件（如 ping、keepalive）可能不含 output，
                     # 仅含 request_id / usage 等元数据，正常跳过

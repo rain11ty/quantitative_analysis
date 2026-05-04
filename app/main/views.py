@@ -37,10 +37,11 @@ def backtest():
 @main_bp.route('/ai-assistant')
 def ai_assistant():
     """AI智能助手页面"""
-    return render_template(
-        'ai_assistant.html',
-        llm_options=LLMService().get_frontend_options(),
-    )
+    try:
+        llm_options = LLMService().get_frontend_options()
+    except Exception:
+        llm_options = {}
+    return render_template('ai_assistant.html', llm_options=llm_options)
 
 
 @main_bp.route('/news')
@@ -53,6 +54,7 @@ def news():
 def monitor():
     """实时监控页面"""
     return render_template('realtime_monitor.html')
+
 
 
 

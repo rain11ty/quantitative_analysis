@@ -1,0 +1,628 @@
+{% extends "base.html" %}
+
+{% block title %}数据中心 - 股票量化分析系统{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Breadcrumb */
+.breadcrumb-nav {
+  padding: 0.6rem 0;
+  margin-bottom: 0.8rem;
+}
+.breadcrumb-list {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.82rem;
+}
+.breadcrumb-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.breadcrumb-list li:not(:last-child)::after {
+  content: '>';
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+.breadcrumb-list a {
+  color: var(--brand-blue);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.breadcrumb-list a:hover {
+  color: var(--brand-blue-hover);
+  text-decoration: underline;
+}
+.breadcrumb-list .current {
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* Page header */
+.dc-header {
+  margin-bottom: 1rem;
+}
+.dc-header h1 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 0.25rem;
+}
+.dc-header p {
+  color: #64748b;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+/* Section cards */
+.dc-section {
+  background: rgba(255,255,255,0.97);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-soft);
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+.dc-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid rgba(226,232,240,0.92);
+  background: linear-gradient(180deg, rgba(248,250,252,0.96), #fff);
+}
+.dc-section-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+.dc-section-body {
+  padding: 0.8rem 1rem;
+}
+
+/* Tabs */
+.dc-tabs {
+  display: flex;
+  gap: 0.3rem;
+}
+.dc-tab {
+  padding: 0.3rem 0.8rem;
+  border-radius: 5px;
+  border: 1px solid rgba(203,213,225,0.95);
+  background: #fff;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.dc-tab:hover {
+  border-color: rgba(59,130,246,0.3);
+  color: var(--brand-blue);
+}
+.dc-tab.active {
+  background: var(--brand-blue);
+  color: #fff;
+  border-color: var(--brand-blue);
+}
+
+/* Table */
+.dc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.dc-table th {
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+  font-weight: 600;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+.dc-table td {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #0f172a;
+}
+.dc-table tr:hover {
+  background: rgba(59,130,246,0.04);
+}
+.dc-table .num-up { color: #dc2626; font-weight: 600; }
+.dc-table .num-down { color: #16a34a; font-weight: 600; }
+.dc-table .rank-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.dc-table .rank-1 { background: #fef2f2; color: #dc2626; }
+.dc-table .rank-2 { background: #fff7ed; color: #ea580c; }
+.dc-table .rank-3 { background: #fefce8; color: #ca8a04; }
+.dc-table .rank-other { background: #f8fafc; color: #64748b; }
+
+/* Loading */
+.dc-loading {
+  text-align: center;
+  padding: 2rem;
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+/* Grid layout for two columns */
+.dc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+@media (max-width: 991.98px) {
+  .dc-grid { grid-template-columns: 1fr; }
+}
+
+/* Northbound card */
+.northbound-stats {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.northbound-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.northbound-label {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+.northbound-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+/* Pagination */
+.dc-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border-top: 1px solid #f1f5f9;
+}
+.dc-pagination button {
+  padding: 0.25rem 0.7rem;
+  border-radius: 5px;
+  border: 1px solid rgba(203,213,225,0.95);
+  background: #fff;
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.dc-pagination button:hover:not(:disabled) {
+  border-color: rgba(59,130,246,0.3);
+  color: var(--brand-blue);
+}
+.dc-pagination button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.dc-pagination .page-info {
+  font-size: 0.74rem;
+  color: #94a3b8;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav class="breadcrumb-nav">
+  <ol class="breadcrumb-list">
+    <li><a href="{{ url_for('main.index') }}">首页</a></li>
+    <li><span class="current">数据中心</span></li>
+  </ol>
+</nav>
+
+<div class="dc-header">
+  <h1>数据中心</h1>
+  <p>热门板块排行、资金流向、北向资金等市场核心数据一览</p>
+</div>
+
+<!-- Northbound Fund -->
+<div class="dc-section">
+  <div class="dc-section-header">
+    <h2 class="dc-section-title">北向资金净流入</h2>
+    <span id="northbound-time" style="font-size:0.72rem;color:#94a3b8;"></span>
+  </div>
+  <div class="dc-section-body">
+    <div class="northbound-stats" id="northbound-stats">
+      <div class="dc-loading">加载中...</div>
+    </div>
+  </div>
+</div>
+
+<!-- Two column grid -->
+<div class="dc-grid">
+  <!-- Hot Boards -->
+  <div class="dc-section">
+    <div class="dc-section-header">
+      <h2 class="dc-section-title">热门板块排行</h2>
+      <div class="dc-tabs">
+        <button class="dc-tab active" data-board-type="industry">行业板块</button>
+        <button class="dc-tab" data-board-type="concept">概念板块</button>
+      </div>
+    </div>
+    <div class="dc-section-body" style="padding:0;">
+      <table class="dc-table">
+        <thead>
+          <tr>
+            <th style="width:40px;">排名</th>
+            <th>板块名称</th>
+            <th>涨跌幅</th>
+            <th>换手率</th>
+            <th>上涨/下跌</th>
+            <th>领涨股</th>
+          </tr>
+        </thead>
+        <tbody id="board-tbody">
+          <tr><td colspan="6" class="dc-loading">加载中...</td></tr>
+        </tbody>
+      </table>
+      <div class="dc-pagination" id="boards-pagination">
+        <button id="boards-prev" onclick="boardsChangePage(-1)" disabled>上一页</button>
+        <span class="page-info" id="boards-page-info">第 1 页</span>
+        <button id="boards-next" onclick="boardsChangePage(1)">下一页</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sector Fund Flow -->
+  <div class="dc-section">
+    <div class="dc-section-header">
+      <h2 class="dc-section-title">板块资金流向</h2>
+      <div class="dc-tabs">
+        <button class="dc-tab active" data-flow-type="inflow">净流入 TOP</button>
+        <button class="dc-tab" data-flow-type="outflow">净流出 TOP</button>
+      </div>
+    </div>
+    <div class="dc-section-body" style="padding:0;">
+      <table class="dc-table">
+        <thead>
+          <tr>
+            <th style="width:40px;">排名</th>
+            <th>板块名称</th>
+            <th>涨跌幅</th>
+            <th>主力净流入</th>
+            <th>净占比</th>
+          </tr>
+        </thead>
+        <tbody id="fund-flow-tbody">
+          <tr><td colspan="5" class="dc-loading">加载中...</td></tr>
+        </tbody>
+      </table>
+      <div class="dc-pagination" id="fund-flow-pagination">
+        <button id="fund-flow-prev" onclick="fundFlowChangePage(-1)" disabled>上一页</button>
+        <span class="page-info" id="fund-flow-page-info">第 1 页</span>
+        <button id="fund-flow-next" onclick="fundFlowChangePage(1)">下一页</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Full width ranking -->
+<div class="dc-section">
+  <div class="dc-section-header">
+    <h2 class="dc-section-title">实时涨跌排名</h2>
+    <div class="dc-tabs">
+      <button class="dc-tab active" data-sort="pct_change">涨跌幅</button>
+      <button class="dc-tab" data-sort="turnover_rate">换手率</button>
+      <button class="dc-tab" data-sort="amount">成交额</button>
+    </div>
+  </div>
+  <div class="dc-section-body" style="padding:0;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
+      <div style="border-right:1px solid #f1f5f9;">
+        <div style="padding:0.4rem 0.6rem;background:#fef2f2;font-size:0.78rem;font-weight:600;color:#dc2626;">涨幅榜</div>
+        <table class="dc-table">
+          <thead>
+            <tr><th style="width:40px;">排名</th><th>名称</th><th>代码</th><th>最新价</th><th>涨跌幅</th></tr>
+          </thead>
+          <tbody id="gainers-tbody">
+            <tr><td colspan="5" class="dc-loading">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <div style="padding:0.4rem 0.6rem;background:#f0fdf4;font-size:0.78rem;font-weight:600;color:#16a34a;">跌幅榜</div>
+        <table class="dc-table">
+          <thead>
+            <tr><th style="width:40px;">排名</th><th>名称</th><th>代码</th><th>最新价</th><th>涨跌幅</th></tr>
+          </thead>
+          <tbody id="losers-tbody">
+            <tr><td colspan="5" class="dc-loading">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="dc-pagination" id="ranking-pagination">
+      <button id="ranking-prev" onclick="rankingChangePage(-1)" disabled>上一页</button>
+      <span class="page-info" id="ranking-page-info">第 1 页</span>
+      <button id="ranking-next" onclick="rankingChangePage(1)">下一页</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const state = {
+  boardType: 'industry',
+  flowType: 'inflow',
+  sortby: 'pct_change',
+};
+
+// Pagination state
+const PAGE_SIZE = 20;
+let boardsPage = 1;
+let boardsTotal = 0;
+let fundFlowPage = 1;
+let fundFlowTotal = 0;
+let rankingPage = 1;
+let rankingTotal = 0;
+
+function fmtPct(val) {
+  if (val == null) return '-';
+  const n = Number(val);
+  const cls = n > 0 ? 'num-up' : n < 0 ? 'num-down' : '';
+  return `<span class="${cls}">${n > 0 ? '+' : ''}${n.toFixed(2)}%</span>`;
+}
+function fmtNum(val, digits=2) {
+  if (val == null) return '-';
+  return Number(val).toFixed(digits);
+}
+function fmtAmount(val) {
+  if (val == null) return '-';
+  const n = Number(val);
+  if (n >= 1e8) return (n / 1e8).toFixed(2) + '亿';
+  if (n >= 1e4) return (n / 1e4).toFixed(2) + '万';
+  return n.toFixed(2);
+}
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+function rankClass(i) {
+  if (i === 0) return 'rank-1';
+  if (i === 1) return 'rank-2';
+  if (i === 2) return 'rank-3';
+  return 'rank-other';
+}
+
+function updatePagination(prefix, page, total, pageSize) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const prevBtn = document.getElementById(prefix + '-prev');
+  const nextBtn = document.getElementById(prefix + '-next');
+  const pageInfo = document.getElementById(prefix + '-page-info');
+  if (prevBtn) prevBtn.disabled = page <= 1;
+  if (nextBtn) nextBtn.disabled = page >= totalPages;
+  if (pageInfo) pageInfo.textContent = `第 ${page}/${totalPages} 页`;
+}
+
+function boardsChangePage(delta) {
+  const totalPages = Math.max(1, Math.ceil(boardsTotal / PAGE_SIZE));
+  const newPage = boardsPage + delta;
+  if (newPage < 1 || newPage > totalPages) return;
+  boardsPage = newPage;
+  loadBoards();
+}
+
+function fundFlowChangePage(delta) {
+  const totalPages = Math.max(1, Math.ceil(fundFlowTotal / PAGE_SIZE));
+  const newPage = fundFlowPage + delta;
+  if (newPage < 1 || newPage > totalPages) return;
+  fundFlowPage = newPage;
+  loadFundFlow();
+}
+
+function rankingChangePage(delta) {
+  const totalPages = Math.max(1, Math.ceil(rankingTotal / PAGE_SIZE));
+  const newPage = rankingPage + delta;
+  if (newPage < 1 || newPage > totalPages) return;
+  rankingPage = newPage;
+  loadRanking();
+}
+
+// Board tabs
+document.querySelectorAll('[data-board-type]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-board-type]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.boardType = btn.dataset.boardType;
+    boardsPage = 1;
+    loadBoards();
+  });
+});
+
+// Fund flow tabs
+document.querySelectorAll('[data-flow-type]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-flow-type]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.flowType = btn.dataset.flowType;
+    fundFlowPage = 1;
+    loadFundFlow();
+  });
+});
+
+// Ranking tabs
+document.querySelectorAll('[data-sort]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-sort]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.sortby = btn.dataset.sort;
+    rankingPage = 1;
+    loadRanking();
+  });
+});
+
+async function loadNorthbound() {
+  try {
+    const resp = await fetch('/api/market/northbound');
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const d = data.data || {};
+    const el = document.getElementById('northbound-stats');
+    if (!d.success && !d.total_net_inflow) {
+      el.innerHTML = '<div style="color:#94a3b8;font-size:0.85rem;">北向资金数据暂未就绪</div>';
+      return;
+    }
+    const total = d.total_net_inflow;
+    const sh = d.sh_net_inflow;
+    const sz = d.sz_net_inflow;
+    const unit = escapeHtml(d.unit || '亿元');
+    el.innerHTML = `
+      <div class="northbound-item">
+        <span class="northbound-label">北向合计</span>
+        <span class="northbound-value" style="color:${total >= 0 ? '#dc2626' : '#16a34a'}">${total >= 0 ? '+' : ''}${fmtNum(total)} ${unit}</span>
+      </div>
+      <div class="northbound-item">
+        <span class="northbound-label">沪股通</span>
+        <span class="northbound-value" style="color:${sh >= 0 ? '#dc2626' : '#16a34a'}">${sh != null ? (sh >= 0 ? '+' : '') + fmtNum(sh) + ' ' + unit : '-'}</span>
+      </div>
+      <div class="northbound-item">
+        <span class="northbound-label">深股通</span>
+        <span class="northbound-value" style="color:${sz >= 0 ? '#dc2626' : '#16a34a'}">${sz != null ? (sz >= 0 ? '+' : '') + fmtNum(sz) + ' ' + unit : '-'}</span>
+      </div>
+    `;
+    document.getElementById('northbound-time').textContent = d.update_time ? '更新于 ' + d.update_time : '';
+  } catch (e) {
+    document.getElementById('northbound-stats').innerHTML = '<div style="color:#b91c1c;font-size:0.85rem;">加载失败</div>';
+  }
+}
+
+async function loadBoards() {
+  const tbody = document.getElementById('board-tbody');
+  tbody.innerHTML = '<tr><td colspan="6" class="dc-loading">加载中...</td></tr>';
+  try {
+    const resp = await fetch(`/api/market/boards?type=${state.boardType}&page=${boardsPage}&page_size=${PAGE_SIZE}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const d = data.data || {};
+    const items = d.items || [];
+    boardsTotal = d.total || items.length;
+    updatePagination('boards', boardsPage, boardsTotal, PAGE_SIZE);
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="dc-loading">暂无数据</td></tr>';
+      return;
+    }
+    const offset = (boardsPage - 1) * PAGE_SIZE;
+    tbody.innerHTML = items.map((b, i) => `
+      <tr>
+        <td><span class="rank-num ${rankClass(i)}">${offset + i + 1}</span></td>
+        <td style="font-weight:600;">${escapeHtml(b.name || '-')}</td>
+        <td>${fmtPct(b.pct_change)}</td>
+        <td>${fmtNum(b.turnover_rate)}%</td>
+        <td><span class="num-up">${b.up_count || 0}</span> / <span class="num-down">${b.down_count || 0}</span></td>
+        <td>${escapeHtml(b.lead_stock || '-')} ${b.lead_stock_pct != null ? fmtPct(b.lead_stock_pct) : ''}</td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    tbody.innerHTML = '<tr><td colspan="6" class="dc-loading" style="color:#b91c1c;">加载失败</td></tr>';
+  }
+}
+
+async function loadFundFlow() {
+  const tbody = document.getElementById('fund-flow-tbody');
+  tbody.innerHTML = '<tr><td colspan="5" class="dc-loading">加载中...</td></tr>';
+  try {
+    const flowDir = state.flowType === 'outflow' ? 'asc' : 'desc';
+    const resp = await fetch(`/api/market/sector-fund-flow?page=${fundFlowPage}&page_size=${PAGE_SIZE}&sort=${flowDir}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const d = data.data || {};
+    const items = d.items || [];
+    fundFlowTotal = d.total || items.length;
+    updatePagination('fund-flow', fundFlowPage, fundFlowTotal, PAGE_SIZE);
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="dc-loading">暂无数据</td></tr>';
+      return;
+    }
+    const offset = (fundFlowPage - 1) * PAGE_SIZE;
+    tbody.innerHTML = items.map((b, i) => {
+      const netFlow = b.main_net_inflow;
+      const pct = b.main_net_pct;
+      return `
+        <tr>
+          <td><span class="rank-num ${rankClass(i)}">${offset + i + 1}</span></td>
+          <td style="font-weight:600;">${escapeHtml(b.name || '-')}</td>
+          <td>${fmtPct(b.pct_change)}</td>
+          <td style="color:${netFlow >= 0 ? '#dc2626' : '#16a34a'};font-weight:600;">${fmtAmount(netFlow)}</td>
+          <td style="color:${pct >= 0 ? '#dc2626' : '#16a34a'}">${pct != null ? fmtNum(pct) + '%' : '-'}</td>
+        </tr>
+      `;
+    }).join('');
+  } catch (e) {
+    tbody.innerHTML = '<tr><td colspan="5" class="dc-loading" style="color:#b91c1c;">加载失败</td></tr>';
+  }
+}
+
+async function loadRanking() {
+  const gainersTbody = document.getElementById('gainers-tbody');
+  const losersTbody = document.getElementById('losers-tbody');
+  gainersTbody.innerHTML = '<tr><td colspan="5" class="dc-loading">加载中...</td></tr>';
+  losersTbody.innerHTML = '<tr><td colspan="5" class="dc-loading">加载中...</td></tr>';
+  try {
+    const resp = await fetch(`/api/monitor/ranking?sort_by=${state.sortby}&page=${rankingPage}&page_size=${PAGE_SIZE}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const d = data.data || {};
+    const gainers = d.top_gainers || [];
+    const losers = d.top_losers || [];
+    rankingTotal = d.total || Math.max(gainers.length, losers.length);
+    updatePagination('ranking', rankingPage, rankingTotal, PAGE_SIZE);
+    const offset = (rankingPage - 1) * PAGE_SIZE;
+
+    gainersTbody.innerHTML = gainers.length ? gainers.map((s, i) => `
+      <tr>
+        <td><span class="rank-num ${rankClass(i)}">${offset + i + 1}</span></td>
+        <td style="font-weight:600;">${escapeHtml(s.name || '-')}</td>
+        <td style="color:#94a3b8;font-size:0.76rem;">${escapeHtml(s.ts_code || '-')}</td>
+        <td>${fmtNum(s.close, 2)}</td>
+        <td class="num-up">${s.pct_change != null ? '+' + fmtNum(s.pct_change) + '%' : '-'}</td>
+      </tr>
+    `).join('') : '<tr><td colspan="5" class="dc-loading">暂无数据</td></tr>';
+
+    losersTbody.innerHTML = losers.length ? losers.map((s, i) => `
+      <tr>
+        <td><span class="rank-num ${rankClass(i)}">${offset + i + 1}</span></td>
+        <td style="font-weight:600;">${escapeHtml(s.name || '-')}</td>
+        <td style="color:#94a3b8;font-size:0.76rem;">${escapeHtml(s.ts_code || '-')}</td>
+        <td>${fmtNum(s.close, 2)}</td>
+        <td class="num-down">${s.pct_change != null ? fmtNum(s.pct_change) + '%' : '-'}</td>
+      </tr>
+    `).join('') : '<tr><td colspan="5" class="dc-loading">暂无数据</td></tr>';
+  } catch (e) {
+    gainersTbody.innerHTML = '<tr><td colspan="5" class="dc-loading" style="color:#b91c1c;">加载失败</td></tr>';
+    losersTbody.innerHTML = '<tr><td colspan="5" class="dc-loading" style="color:#b91c1c;">加载失败</td></tr>';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadNorthbound();
+  loadBoards();
+  loadFundFlow();
+  loadRanking();
+});
+</script>
+{% endblock %}

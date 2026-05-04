@@ -34,7 +34,7 @@
  .filter-group-wide {
  grid-column: 1 / -1;
  }
- .filter-group .mb-3:last-child {
+ .filter-group .mb-2:last-child {
  margin-bottom: 0 !important;
  }
  .filter-title {
@@ -136,51 +136,102 @@
  grid-column: auto;
  }
  }
+
+/* === Full-width container override === */
+.screen-page.container-fluid {
+ max-width: 100% !important;
+ padding-left: 1rem !important;
+ padding-right: 1rem !important;
+}
+
+/* === Compact screen-page overrides === */
+.screen-page .filter-board {
+ padding: 0.5rem !important;
+ margin-bottom: 0.5rem !important;
+}
+.screen-page .filter-grid {
+ gap: 0.4rem !important;
+}
+.screen-page .filter-group {
+ margin-bottom: 0.3rem !important;
+}
+.screen-page .filter-group label {
+ font-size: 0.8rem !important;
+ margin-bottom: 0.15rem !important;
+}
+.screen-page .form-control, .screen-page .form-select {
+ font-size: 0.8rem !important;
+ padding: 0.25rem 0.5rem !important;
+ min-height: 30px !important;
+}
+.screen-page .btn {
+ min-height: 30px !important;
+ padding: 0.2rem 0.5rem !important;
+ font-size: 0.8rem !important;
+}
+.screen-page .card {
+ padding: 0.5rem !important;
+ margin-bottom: 0.5rem !important;
+}
+.screen-page .card-header {
+ padding: 0.35rem 0.5rem !important;
+ font-size: 0.85rem !important;
+}
+.screen-page .card-body {
+ padding: 0.5rem !important;
+}
+.screen-page h5, .screen-page .h5 {
+ font-size: 0.9rem !important;
+}
+.screen-page .table {
+ font-size: 0.78rem !important;
+}
+.screen-page .table th, .screen-page .table td {
+ padding: 0.25rem 0.4rem !important;
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container py-4">
-<div class="row mb-4">
+<div class="container-fluid screen-page py-2">
+<div class="row mb-2">
 <div class="col-12">
-<div class="page-hero p-4 p-lg-5">
+<div class="page-hero p-2 p-lg-3">
 <span class="hero-eyebrow">screening engine</span>
-<h1 class="hero-title">条件选股</h1>
-<p class="hero-text mb-2">通过多维度财务、行情、技术指标筛选符合策略的股票组合。</p>
-<p class="screen-summary mb-0" style="color:#3d5068;">当前支持基础条件、估值指标、市值与交易、技术指标、资金流向，以及多条动态字段比较条件。</p>
+<h1 class="hero-title mb-1">条件选股</h1>
+<p class="screen-summary mb-0" style="color:#3d5068;">支持基础条件、估值指标、市值与交易、技术指标、资金流向，以及多条动态字段比较条件。</p>
 </div>
 </div>
 </div>
-<div class="row g-4">
+<div class="row g-2">
 <div class="col-12">
 <form id="screen-form">
-<div class="filter-board page-card p-4">
-<div class="filter-board-header">
+<div class="filter-board page-card p-2">
+<div class="filter-board-header mb-2">
 <div>
-<h5 class="mb-2 fw-bold">筛选条件</h5>
-<p class="text-muted mb-0">搜索条件已调整为从上到下、从左到右的紧凑排列，录入完成后再统一查看下方结果即可。</p>
+<h5 class="mb-0 fw-bold">筛选条件</h5>
 </div>
 <div class="screen-action-bar">
-<button type="submit" class="btn-modern btn-modern-primary btn-lg" id="screen-btn">开始筛选</button>
-<button type="reset" class="btn btn-light btn-lg" id="reset-btn">清空条件</button>
+<button type="submit" class="btn-modern btn-modern-primary" id="screen-btn">开始筛选</button>
+<button type="reset" class="btn btn-light" id="reset-btn">清空条件</button>
 </div>
 </div>
 <div class="filter-grid">
 <div class="filter-group shadow-sm">
-<h5 class="filter-title">基础条件</h5>
-<div class="mb-3">
+<h5 class="filter-title mb-2">基础条件</h5>
+<div class="mb-2">
 <label class="form-label text-muted small">行业</label>
 <select class="form-select" id="industry" name="industry">
 <option value="">不限</option>
 </select>
 </div>
-<div class="mb-3">
+<div class="mb-2">
 <label class="form-label text-muted small">地域</label>
 <select class="form-select" id="area" name="area">
 <option value="">不限</option>
 </select>
 </div>
-<div class="mb-3">
+<div class="mb-2">
 <label class="form-label text-muted small">市场</label>
 <select class="form-select" id="market" name="market">
 <option value="">不限</option>
@@ -196,18 +247,18 @@
 </div>
 </div>
 <div class="filter-group shadow-sm">
-<h5 class="filter-title">估值指标</h5>
-<div class="range-grid mb-3">
+<h5 class="filter-title mb-2">估值指标</h5>
+<div class="range-grid mb-2">
 <label class="form-label text-muted small">市盈率 (PE)</label>
 <input type="number" step="0.1" class="form-control" id="pe_min" name="pe_min" placeholder="最小值">
 <input type="number" step="0.1" class="form-control" id="pe_max" name="pe_max" placeholder="最大值">
 </div>
-<div class="range-grid mb-3">
+<div class="range-grid mb-2">
 <label class="form-label text-muted small">市净率 (PB)</label>
 <input type="number" step="0.1" class="form-control" id="pb_min" name="pb_min" placeholder="最小值">
 <input type="number" step="0.1" class="form-control" id="pb_max" name="pb_max" placeholder="最大值">
 </div>
-<div class="range-grid mb-3">
+<div class="range-grid mb-2">
 <label class="form-label text-muted small">市销率 (PS)</label>
 <input type="number" step="0.1" class="form-control" id="ps_min" name="ps_min" placeholder="最小值">
 <input type="number" step="0.1" class="form-control" id="ps_max" name="ps_max" placeholder="最大值">
@@ -219,18 +270,18 @@
 </div>
 </div>
 <div class="filter-group shadow-sm">
-<h5 class="filter-title">市值与交易</h5>
-<div class="range-grid mb-3">
+<h5 class="filter-title mb-2">市值与交易</h5>
+<div class="range-grid mb-2">
 <label class="form-label text-muted small">总市值 (万元)</label>
 <input type="number" step="100" class="form-control" id="mv_min" name="mv_min" placeholder="最小值">
 <input type="number" step="100" class="form-control" id="mv_max" name="mv_max" placeholder="最大值">
 </div>
-<div class="range-grid mb-3">
+<div class="range-grid mb-2">
 <label class="form-label text-muted small">流通市值 (万元)</label>
 <input type="number" step="100" class="form-control" id="circ_mv_min" name="circ_mv_min" placeholder="最小值">
 <input type="number" step="100" class="form-control" id="circ_mv_max" name="circ_mv_max" placeholder="最大值">
 </div>
-<div class="range-grid mb-3">
+<div class="range-grid mb-2">
 <label class="form-label text-muted small">换手率 (%)</label>
 <input type="number" step="0.1" class="form-control" id="turnover_min" name="turnover_min" placeholder="最小值">
 <input type="number" step="0.1" class="form-control" id="turnover_max" name="turnover_max" placeholder="最大值">
@@ -242,18 +293,18 @@
 </div>
 </div>
 <div class="filter-group shadow-sm">
-<h5 class="filter-title">技术指标</h5>
-<div class="range-grid mb-3">
+<h5 class="filter-title mb-2">技术指标</h5>
+<div class="range-grid mb-2">
 <label class="form-label text-muted small">RSI (6日)</label>
 <input type="number" step="0.1" class="form-control" id="rsi6_min" name="rsi6_min" placeholder="最小值">
 <input type="number" step="0.1" class="form-control" id="rsi6_max" name="rsi6_max" placeholder="最大值">
 </div>
-<div class="range-grid mb-3">
+<div class="range-grid mb-2">
 <label class="form-label text-muted small">KDJ-K值</label>
 <input type="number" step="0.1" class="form-control" id="kdj_k_min" name="kdj_k_min" placeholder="最小值">
 <input type="number" step="0.1" class="form-control" id="kdj_k_max" name="kdj_k_max" placeholder="最大值">
 </div>
-<div class="range-grid mb-3">
+<div class="range-grid mb-2">
 <label class="form-label text-muted small">MACD</label>
 <input type="number" step="0.01" class="form-control" id="macd_min" name="macd_min" placeholder="最小值">
 <input type="number" step="0.01" class="form-control" id="macd_max" name="macd_max" placeholder="最大值">
@@ -265,13 +316,13 @@
 </div>
 </div>
 <div class="filter-group shadow-sm">
-<h5 class="filter-title">资金流向</h5>
-<div class="range-grid mb-3">
+<h5 class="filter-title mb-2">资金流向</h5>
+<div class="range-grid mb-2">
 <label class="form-label text-muted small">净流入额 (万元)</label>
 <input type="number" step="1" class="form-control" id="net_amount_min" name="net_amount_min" placeholder="最小值">
 <input type="number" step="1" class="form-control" id="net_amount_max" name="net_amount_max" placeholder="最大值">
 </div>
-<div class="range-grid mb-3">
+<div class="range-grid mb-2">
 <label class="form-label text-muted small">大单买入占比 (%)</label>
 <input type="number" step="0.1" class="form-control" id="lg_buy_rate_min" name="lg_buy_rate_min" placeholder="最小值">
 <input type="number" step="0.1" class="form-control" id="lg_buy_rate_max" name="lg_buy_rate_max" placeholder="最大值">
@@ -282,14 +333,14 @@
 <input type="number" step="1" class="form-control" id="net_d5_amount_max" name="net_d5_amount_max" placeholder="最大值">
 </div>
 </div>
-<div class="filter-group filter-group-wide shadow-sm">
-<div class="d-flex justify-content-between align-items-center gap-2 mb-3">
-<h5 class="filter-title mb-0">动态查询条件</h5>
-<button type="button" class="btn btn-sm btn-outline-primary" id="add-dynamic-condition">添加条件</button>
+<div class=”filter-group filter-group-wide shadow-sm”>
+<div class=”d-flex justify-content-between align-items-center gap-2 mb-2”>
+<h5 class=”filter-title mb-0”>动态查询条件</h5>
+<button type=”button” class=”btn btn-sm btn-outline-primary” id=”add-dynamic-condition”>添加条件</button>
 </div>
-<p class="text-muted small mb-3">支持字段与字段比较，也支持字段与固定值比较，例如 <code>MA5 &gt; MA10</code>、<code>PE &lt; PB</code>。</p>
-<div id="dynamic-conditions-container">
-<div class="dynamic-empty" id="dynamic-empty-state">暂未添加动态条件，点击右上角“添加条件”开始配置。</div>
+<p class=”text-muted small mb-2”>支持字段与字段比较或字段与固定值比较，例如 <code>MA5 &gt; MA10</code>、<code>PE &lt; PB</code>。</p>
+<div id=”dynamic-conditions-container”>
+<div class=”dynamic-empty” id=”dynamic-empty-state”>暂未添加动态条件，点击右上角”添加条件”开始配置。</div>
 </div>
 </div>
 </div>
@@ -297,14 +348,14 @@
 </form>
 </div>
 <div class="col-12">
-<div class="page-card p-4 result-panel">
-<div class="d-flex justify-content-between align-items-center mb-2">
+<div class="page-card p-2 result-panel">
+<div class="d-flex justify-content-between align-items-center mb-1">
 <h5 class="mb-0 fw-bold">筛选结果</h5>
-<span class="badge bg-primary px-3 py-2" id="result-count">共找到 0 只股票</span>
+<span class="badge bg-primary px-2 py-1" id="result-count">共找到 0 只股票</span>
 </div>
-<div class="text-muted small mb-4" id="result-tip">支持多条件组合筛选，结果默认按命中数量返回，最多展示前 200 条。</div>
+<div class="text-muted small mb-2" id="result-tip">支持多条件组合筛选，结果默认按命中数量返回，最多展示前 200 条。</div>
 <div id="results-container">
-<div class="text-center text-muted py-5">
+<div class="text-center text-muted py-3">
 <p class="mb-0">请在上方设置条件并点击“开始筛选”</p>
 </div>
 </div>
@@ -378,7 +429,7 @@ document.addEventListener('DOMContentLoaded', async function() {
  document.getElementById('result-count').textContent = '共找到 0 只股票';
  document.getElementById('result-tip').textContent = '支持多条件组合筛选，结果默认按命中数量返回，最多展示前 200 条。';
  document.getElementById('results-container').innerHTML = `
-  <div class="text-center text-muted py-5">
+  <div class="text-center text-muted py-3">
 <p class="mb-0">请在上方设置条件并点击“开始筛选”</p>
 </div> `;
  preloadLatestTradeDate();
@@ -596,7 +647,7 @@ function renderResults(payload) {
  if (!stocks || stocks.length === 0) {
  countEl.textContent = '共找到 0 只股票';
  tipEl.textContent = '当前条件下没有匹配结果，请适当放宽筛选范围。';
- container.innerHTML = '<div class="text-center text-muted py-5"><p class="mb-0">未找到符合条件的股票</p></div>';
+ container.innerHTML = '<div class="text-center text-muted py-3"><p class="mb-0">未找到符合条件的股票</p></div>';
  return;
  }
  countEl.textContent = `共找到 ${total} 只股票`;
@@ -604,7 +655,7 @@ function renderResults(payload) {
  let html = '';
  if (has_more) {
  html += `
-  <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">匹配结果过多，当前仅展示前 200 条，请增加筛选条件以便进一步缩小范围。
+  <div class="alert alert-warning d-flex align-items-center mb-2" role="alert">匹配结果过多，当前仅展示前 200 条，请增加筛选条件以便进一步缩小范围。
   </div> `;
  }
  html += `

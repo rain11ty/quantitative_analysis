@@ -1,3 +1,31 @@
+x-common-env: &common-env
+  DB_HOST: mysql
+  DB_USER: ${DB_USER:-stock_user}
+  DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
+  DB_NAME: ${DB_NAME:-stock_cursor}
+  SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set}
+  DEBUG: "False"
+  REDIS_HOST: redis
+  TUSHARE_TOKEN: ${TUSHARE_TOKEN}
+  TUSHARE_PROXY_URL: ${TUSHARE_PROXY_URL:-}
+  DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+  DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
+  DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-v4-flash}
+  QWEN_API_KEY: ${QWEN_API_KEY:-}
+  DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+  QWEN_APP_ID: ${QWEN_APP_ID:-}
+  DASHSCOPE_APP_ID: ${DASHSCOPE_APP_ID:-}
+  QWEN_MODEL: ${QWEN_MODEL:-qwen-plus}
+  QWEN_BASE_URL: ${QWEN_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+  QWEN_TIMEOUT: ${QWEN_TIMEOUT:-60}
+  QWEN_TEMPERATURE: ${QWEN_TEMPERATURE:-0.1}
+  QWEN_MAX_TOKENS: ${QWEN_MAX_TOKENS:-2048}
+  LLM_PROVIDER: ${LLM_PROVIDER:-deepseek}
+  CORS_ORIGINS: ${CORS_ORIGINS:-}
+  FLASK_ENV: production
+  CELERY_BROKER_URL: redis://redis:6379/1
+  CELERY_RESULT_BACKEND: redis://redis:6379/2
+
 services:
   web:
     build:
@@ -7,33 +35,7 @@ services:
     ports:
       - "5001:5001"
     environment:
-      # 容器间通信使用 Docker 服务名（不能用 localhost！）
-      - DB_HOST=mysql
-      - DB_USER=${DB_USER:-stock_user}
-      - DB_PASSWORD=${DB_PASSWORD:-changeme}
-      - DB_NAME=${DB_NAME:-stock_cursor}
-      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
-      - DEBUG=False
-      - REDIS_HOST=redis
-      - TUSHARE_TOKEN=${TUSHARE_TOKEN}
-      - TUSHARE_PROXY_URL=${TUSHARE_PROXY_URL:-}
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
-      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
-      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-v4-flash}
-      - QWEN_API_KEY=${QWEN_API_KEY:-}
-      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY:-}
-      - QWEN_APP_ID=${QWEN_APP_ID:-}
-      - DASHSCOPE_APP_ID=${DASHSCOPE_APP_ID:-}
-      - QWEN_MODEL=${QWEN_MODEL:-qwen-plus}
-      - QWEN_BASE_URL=${QWEN_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
-      - QWEN_TIMEOUT=${QWEN_TIMEOUT:-60}
-      - QWEN_TEMPERATURE=${QWEN_TEMPERATURE:-0.1}
-      - QWEN_MAX_TOKENS=${QWEN_MAX_TOKENS:-2048}
-      - LLM_PROVIDER=${LLM_PROVIDER:-deepseek}
-      - CORS_ORIGINS=${CORS_ORIGINS:-}
-      - FLASK_ENV=production
-      - CELERY_BROKER_URL=redis://redis:6379/1
-      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      <<: *common-env
     env_file:
       - .env
     volumes:
@@ -44,6 +46,8 @@ services:
       - ./app/api:/app/app/api:ro              # API 层热更新
       - ./app/routes:/app/app/routes:ro        # 路由热更新
       - ./app/models:/app/app/models:ro        # 模型热更新
+      - ./app/main:/app/app/main:ro            # 视图层热更新
+      - ./app/__init__.py:/app/app/__init__.py:ro  # 应用配置热更新
       - ./scripts:/app/scripts:ro              # 脚本热更新
     depends_on:
       mysql:
@@ -57,6 +61,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
 
   nginx:
     image: nginx:alpine
@@ -76,12 +81,12 @@ services:
     image: mysql:8.0
     container_name: stock-analysis-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD must be set}
       MYSQL_DATABASE: ${DB_NAME:-stock_cursor}
       # 注意：当 DB_USER=root 时不设置 MYSQL_USER（避免冲突）
       MYSQL_AUTHENTICATION_PLUGIN: mysql_native_password
     ports:
-      - "3307:3306"          # 映射到 3307 避免和本地 MySQL 冲突
+      - "127.0.0.1:3307:3306"          # 映射到 3307 避免和本地 MySQL 冲突
     volumes:
       - mysql_data:/var/lib/mysql           # MySQL 数据持久化
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro   # 初始化 SQL（可选）
@@ -97,7 +102,7 @@ services:
     image: redis:alpine
     container_name: stock-analysis-redis
     ports:
-      - "6380:6379"          # 映射到 6380 避免和本地 Redis 冲突
+      - "127.0.0.1:6380:6379"          # 映射到 6380 避免和本地 Redis 冲突
     volumes:
       - redis_data:/data
     healthcheck:
@@ -114,33 +119,7 @@ services:
     container_name: stock-analysis-celery-worker
     command: celery -A app.celery_app:celery_app worker --loglevel=info --concurrency=4
     environment:
-      # Copy ALL same env vars as web service
-      - DB_HOST=mysql
-      - DB_USER=${DB_USER:-stock_user}
-      - DB_PASSWORD=${DB_PASSWORD:-changeme}
-      - DB_NAME=${DB_NAME:-stock_cursor}
-      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
-      - DEBUG=False
-      - REDIS_HOST=redis
-      - TUSHARE_TOKEN=${TUSHARE_TOKEN}
-      - TUSHARE_PROXY_URL=${TUSHARE_PROXY_URL:-}
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
-      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
-      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-v4-flash}
-      - QWEN_API_KEY=${QWEN_API_KEY:-}
-      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY:-}
-      - QWEN_APP_ID=${QWEN_APP_ID:-}
-      - DASHSCOPE_APP_ID=${DASHSCOPE_APP_ID:-}
-      - QWEN_MODEL=${QWEN_MODEL:-qwen-plus}
-      - QWEN_BASE_URL=${QWEN_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
-      - QWEN_TIMEOUT=${QWEN_TIMEOUT:-60}
-      - QWEN_TEMPERATURE=${QWEN_TEMPERATURE:-0.1}
-      - QWEN_MAX_TOKENS=${QWEN_MAX_TOKENS:-2048}
-      - LLM_PROVIDER=${LLM_PROVIDER:-deepseek}
-      - CORS_ORIGINS=${CORS_ORIGINS:-}
-      - FLASK_ENV=production
-      - CELERY_BROKER_URL=redis://redis:6379/1
-      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      <<: *common-env
     env_file:
       - .env
     volumes:
@@ -169,33 +148,7 @@ services:
     container_name: stock-analysis-celery-beat
     command: celery -A app.celery_app:celery_app beat --loglevel=info
     environment:
-      # Same env vars as celery-worker
-      - DB_HOST=mysql
-      - DB_USER=${DB_USER:-stock_user}
-      - DB_PASSWORD=${DB_PASSWORD:-changeme}
-      - DB_NAME=${DB_NAME:-stock_cursor}
-      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
-      - DEBUG=False
-      - REDIS_HOST=redis
-      - TUSHARE_TOKEN=${TUSHARE_TOKEN}
-      - TUSHARE_PROXY_URL=${TUSHARE_PROXY_URL:-}
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
-      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
-      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-v4-flash}
-      - QWEN_API_KEY=${QWEN_API_KEY:-}
-      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY:-}
-      - QWEN_APP_ID=${QWEN_APP_ID:-}
-      - DASHSCOPE_APP_ID=${DASHSCOPE_APP_ID:-}
-      - QWEN_MODEL=${QWEN_MODEL:-qwen-plus}
-      - QWEN_BASE_URL=${QWEN_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
-      - QWEN_TIMEOUT=${QWEN_TIMEOUT:-60}
-      - QWEN_TEMPERATURE=${QWEN_TEMPERATURE:-0.1}
-      - QWEN_MAX_TOKENS=${QWEN_MAX_TOKENS:-2048}
-      - LLM_PROVIDER=${LLM_PROVIDER:-deepseek}
-      - CORS_ORIGINS=${CORS_ORIGINS:-}
-      - FLASK_ENV=production
-      - CELERY_BROKER_URL=redis://redis:6379/1
-      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      <<: *common-env
     env_file:
       - .env
     volumes:
@@ -208,7 +161,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "celery -A app.celery_app:celery_app status --timeout 10 2>/dev/null | grep -q 'OK' || exit 1"]
+      test: ["CMD-SHELL", "celery -A app.celery_app:celery_app inspect scheduled --timeout 10 2>/dev/null | grep -q 'scheduled' || exit 1"]
       interval: 30s
       timeout: 15s
       start_period: 30s

@@ -32,7 +32,14 @@ def get_monitor_dashboard():
 def get_realtime_ranking():
     """获取实时涨跌排名（优先读缓存，缓存未命中时降级为实时获取）"""
     sort_by = (request.args.get('sort_by') or 'pct_change').strip()
-    limit = parse_int_param(request.args.get('limit'), 20, min_val=1, max_val=50)
+    # Support both legacy limit param and new page/page_size params
+    page = parse_int_param(request.args.get('page'), 1, min_val=1)
+    page_size = parse_int_param(request.args.get('page_size'), 20, min_val=1, max_val=100)
+    limit = parse_int_param(request.args.get('limit'), None, min_val=1, max_val=500)
+    if limit is not None:
+        # Legacy mode: return first N items (no pagination)
+        page = 1
+        page_size = limit
 
     # 与 Celery 任务 refresh_ranking_cache 写入的缓存键一致
     cache_key = f'realtime_ranking_{sort_by}'
@@ -43,17 +50,35 @@ def get_realtime_ranking():
         cached = None
 
     if cached is not None:
-        # 按 limit 裁剪返回条数
-        if 'top_gainers' in cached:
-            cached['top_gainers'] = cached['top_gainers'][:limit]
-        if 'top_losers' in cached:
-            cached['top_losers'] = cached['top_losers'][:limit]
-        return jsonify({'code': 200, 'message': 'success', 'data': cached})
+        result = dict(cached)
+        start = (page - 1) * page_size
+        if 'top_gainers' in result:
+            all_gainers = result['top_gainers']
+            result['top_gainers'] = all_gainers[start:start + page_size]
+            result['total'] = max(result.get('total', 0), len(all_gainers))
+        if 'top_losers' in result:
+            all_losers = result['top_losers']
+            result['top_losers'] = all_losers[start:start + page_size]
+            result['total'] = max(result.get('total', 0), len(all_losers))
+        result['page'] = page
+        result['page_size'] = page_size
+        return jsonify({'code': 200, 'message': 'success', 'data': result})
 
     # 缓存未命中时，尝试实时获取数据（避免 Celery 任务未覆盖的排序字段返回空数据）
     try:
-        result = RealtimeMonitorService.get_realtime_ranking(sort_by=sort_by, limit=limit)
+        result = RealtimeMonitorService.get_realtime_ranking(sort_by=sort_by, limit=50)
         if result.get('success'):
+            start = (page - 1) * page_size
+            if 'top_gainers' in result:
+                all_gainers = result['top_gainers']
+                result['top_gainers'] = all_gainers[start:start + page_size]
+                result['total'] = max(result.get('total', 0), len(all_gainers))
+            if 'top_losers' in result:
+                all_losers = result['top_losers']
+                result['top_losers'] = all_losers[start:start + page_size]
+                result['total'] = max(result.get('total', 0), len(all_losers))
+            result['page'] = page
+            result['page_size'] = page_size
             return jsonify({'code': 200, 'message': 'success', 'data': result})
     except Exception:
         pass
@@ -66,6 +91,7 @@ def get_realtime_ranking():
             'sort_by': sort_by,
             'top_gainers': [],
             'top_losers': [],
+            'total': 0,
         },
     })
 

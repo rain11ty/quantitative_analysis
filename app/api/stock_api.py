@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import re
+
 from flask import jsonify, request
 from loguru import logger
 
@@ -7,6 +9,11 @@ from app.services.akshare_service import AkshareService
 from app.services.market_overview_service import MarketOverviewService
 from app.services.stock_service import StockService
 from app.utils.api_helpers import api_error_handler, parse_int_param
+
+
+def _validate_ts_code(ts_code):
+    """Validate stock code format (e.g. 600519.SH, 000001.SZ, 833171.BJ)"""
+    return bool(re.match(r'^[A-Za-z0-9.]+$', ts_code))
 
 
 @api_bp.route('/stocks', methods=['GET'])
@@ -31,7 +38,7 @@ def get_stocks():
 @api_bp.route('/market/overview', methods=['GET'])
 @api_error_handler(default_message='获取市场概览失败')
 def get_market_overview():
-    """获取市场概览（纯读缓存，数据由 Celery 定时任务刷新）"""
+    """获取市场概览（优先读缓存，缓存未命中时实时获取）"""
     try:
         from app.utils.cache_utils import get_cache
         cached = get_cache().get('market_overview')
@@ -42,18 +49,24 @@ def get_market_overview():
         status_code = 200 if cached.get('success') else 503
         return jsonify({'code': status_code, 'message': cached.get('message'), 'data': cached}), status_code
 
-    return jsonify({
-        'code': 200,
-        'message': '数据暂未就绪，请稍后重试',
-        'data': {
-            'success': True,
-            'source': 'none',
-            'items': [],
-            'advancing': 0,
-            'declining': 0,
-            'flat': 0,
-        },
-    })
+    # 缓存未命中，实时获取
+    try:
+        data = MarketOverviewService.get_market_overview()
+        status_code = 200 if data.get('success') else 503
+        return jsonify({'code': status_code, 'message': data.get('message'), 'data': data}), status_code
+    except Exception:
+        return jsonify({
+            'code': 200,
+            'message': '数据暂未就绪，请稍后重试',
+            'data': {
+                'success': False,
+                'source': 'none',
+                'items': [],
+                'advancing': 0,
+                'declining': 0,
+                'flat': 0,
+            },
+        })
 
 
 @api_bp.route('/market/health', methods=['GET'])
@@ -75,6 +88,8 @@ def ping_akshare_api():
 @api_bp.route('/stocks/<path:ts_code>', methods=['GET'])
 @api_error_handler(default_message='获取股票详情失败')
 def get_stock_detail(ts_code):
+    if not _validate_ts_code(ts_code):
+        return jsonify({'code': 400, 'message': 'Invalid stock code', 'data': None}), 400
     result = StockService.get_stock_info(ts_code)
     if result is None:
         return jsonify({'code': 404, 'message': 'stock not found', 'data': None}), 404
@@ -89,6 +104,8 @@ def get_stock_detail(ts_code):
 @api_error_handler(default_message='获取实时行情失败')
 def get_stock_realtime(ts_code):
     """获取个股实时行情（含K线走势）"""
+    if not _validate_ts_code(ts_code):
+        return jsonify({'code': 400, 'message': 'Invalid stock code', 'data': None}), 400
     from app.services.realtime_monitor_service import RealtimeMonitorService
     from flask import g
 
@@ -104,6 +121,8 @@ def get_stock_realtime(ts_code):
 @api_bp.route('/stocks/<path:ts_code>/history', methods=['GET'])
 @api_error_handler(default_message='获取历史数据失败')
 def get_stock_history(ts_code):
+    if not _validate_ts_code(ts_code):
+        return jsonify({'code': 400, 'message': 'Invalid stock code', 'data': None}), 400
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     limit = parse_int_param(request.args.get('limit'), 60, min_val=1, max_val=5000)
@@ -120,6 +139,8 @@ def get_stock_history(ts_code):
 @api_bp.route('/stocks/<path:ts_code>/factors', methods=['GET'])
 @api_error_handler(default_message='获取技术因子数据失败')
 def get_stock_factors(ts_code):
+    if not _validate_ts_code(ts_code):
+        return jsonify({'code': 400, 'message': 'Invalid stock code', 'data': None}), 400
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     limit = parse_int_param(request.args.get('limit'), 60, min_val=1, max_val=5000)
@@ -136,9 +157,11 @@ def get_stock_factors(ts_code):
 @api_bp.route('/stocks/<path:ts_code>/moneyflow', methods=['GET'])
 @api_error_handler(default_message='获取资金流向数据失败')
 def get_stock_moneyflow(ts_code):
+    if not _validate_ts_code(ts_code):
+        return jsonify({'code': 400, 'message': 'Invalid stock code', 'data': None}), 400
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
-    limit = parse_int_param(request.args.get('limit'), 30, min_val=1, max_val=1000)
+    limit = parse_int_param(request.args.get('limit'), 30, min_val=1, max_val=5000)
 
     result = StockService.get_moneyflow(
         ts_code=ts_code,
@@ -152,9 +175,11 @@ def get_stock_moneyflow(ts_code):
 @api_bp.route('/stocks/<path:ts_code>/cyq', methods=['GET'])
 @api_error_handler(default_message='获取筹码分布数据失败')
 def get_stock_cyq(ts_code):
+    if not _validate_ts_code(ts_code):
+        return jsonify({'code': 400, 'message': 'Invalid stock code', 'data': None}), 400
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
-    limit = parse_int_param(request.args.get('limit'), 30, min_val=1, max_val=1000)
+    limit = parse_int_param(request.args.get('limit'), 30, min_val=1, max_val=5000)
 
     result = StockService.get_cyq_perf(
         ts_code=ts_code,
@@ -169,6 +194,8 @@ def get_stock_cyq(ts_code):
 @api_error_handler(default_message='获取筹码分布详情失败')
 def get_stock_cyq_chips(ts_code):
     """获取股票每日筹码分布详情（各价位占比）"""
+    if not _validate_ts_code(ts_code):
+        return jsonify({'code': 400, 'message': 'Invalid stock code', 'data': None}), 400
     trade_date = request.args.get('trade_date')
     limit_days = parse_int_param(request.args.get('limit_days'), 1, min_val=1, max_val=30)
 
@@ -192,11 +219,18 @@ def get_industries():
 @api_bp.route('/market/boards', methods=['GET'])
 @api_error_handler(default_message='获取热门板块数据失败')
 def get_market_boards():
-    """获取热门板块排行（纯读缓存，数据由 Celery 定时任务刷新）"""
+    """获取热门板块排行（优先读缓存，缓存未命中时实时获取）"""
     board_type = (request.args.get('type') or 'industry').strip()
     if board_type not in ('industry', 'concept'):
         board_type = 'industry'
-    limit = parse_int_param(request.args.get('limit'), 10, min_val=1, max_val=50)
+    # Support both legacy limit param and new page/page_size params
+    page = parse_int_param(request.args.get('page'), 1, min_val=1)
+    page_size = parse_int_param(request.args.get('page_size'), 20, min_val=1, max_val=100)
+    limit = parse_int_param(request.args.get('limit'), None, min_val=1, max_val=500)
+    if limit is not None:
+        # Legacy mode: return first N items (no pagination)
+        page = 1
+        page_size = limit
 
     try:
         from app.utils.cache_utils import get_cache
@@ -206,19 +240,38 @@ def get_market_boards():
 
     if cached is not None:
         result = dict(cached)
-        result['items'] = result.get('items', [])[:limit]
+        all_items = result.get('items', [])
+        total = len(all_items)
+        start = (page - 1) * page_size
+        result['items'] = all_items[start:start + page_size]
+        result['total'] = total
+        result['page'] = page
+        result['page_size'] = page_size
         return jsonify({'code': 200, 'message': 'success', 'data': result})
 
-    return jsonify({
-        'code': 200,
-        'message': '板块数据暂未就绪，请稍后重试',
-        'data': {
-            'success': False,
-            'board_type': board_type,
-            'items': [],
-            'update_time': '',
-        },
-    })
+    # 缓存未命中，实时获取
+    try:
+        result = MarketOverviewService._fetch_board_ranking(board_type=board_type, limit=50)
+        all_items = result.get('items', [])
+        total = len(all_items)
+        start = (page - 1) * page_size
+        result['items'] = all_items[start:start + page_size]
+        result['total'] = total
+        result['page'] = page
+        result['page_size'] = page_size
+        return jsonify({'code': 200, 'message': 'success', 'data': result})
+    except Exception:
+        return jsonify({
+            'code': 200,
+            'message': '板块数据暂未就绪，请稍后重试',
+            'data': {
+                'success': False,
+                'board_type': board_type,
+                'items': [],
+                'total': 0,
+                'update_time': '',
+            },
+        })
 
 
 # ========== 北向资金净流入 ==========
@@ -226,7 +279,7 @@ def get_market_boards():
 @api_bp.route('/market/northbound', methods=['GET'])
 @api_error_handler(default_message='获取北向资金数据失败')
 def get_northbound_fund():
-    """获取北向资金净流入数据（纯读缓存，数据由 Celery 定时任务刷新）"""
+    """获取北向资金净流入数据（优先读缓存，缓存未命中时实时获取）"""
     try:
         from app.utils.cache_utils import get_cache
         cached = get_cache().get('northbound_fund_flow')
@@ -236,15 +289,12 @@ def get_northbound_fund():
     if cached is not None:
         return jsonify({'code': 200, 'message': 'success', 'data': cached})
 
-    return jsonify({
-        'code': 200,
-        'message': '北向资金数据暂未就绪，请稍后重试',
-        'data': {
-            'success': False,
-            'data': {},
-            'update_time': '',
-        },
-    })
+    # 缓存未命中，实时获取
+    try:
+        result = MarketOverviewService.get_northbound_fund_flow()
+        return jsonify({'code': 200, 'message': 'success', 'data': result})
+    except Exception:
+        return jsonify({'code': 200, 'message': '北向资金数据暂未就绪', 'data': {'success': False, 'data': {}, 'update_time': ''}})
 
 
 @api_bp.route('/areas', methods=['GET'])
@@ -259,8 +309,18 @@ def get_areas():
 @api_bp.route('/market/sector-fund-flow', methods=['GET'])
 @api_error_handler(default_message='获取板块资金流向数据失败')
 def get_sector_fund_flow():
-    """获取板块资金流向排名（纯读缓存，数据由 Celery 定时任务刷新）"""
-    limit = parse_int_param(request.args.get('limit'), 20, min_val=1, max_val=100)
+    """获取板块资金流向排名（优先读缓存，缓存未命中时实时获取）"""
+    # Support both legacy limit param and new page/page_size params
+    page = parse_int_param(request.args.get('page'), 1, min_val=1)
+    page_size = parse_int_param(request.args.get('page_size'), 20, min_val=1, max_val=100)
+    limit = parse_int_param(request.args.get('limit'), None, min_val=1, max_val=500)
+    sort_order = (request.args.get('sort') or 'desc').strip()
+    if sort_order not in ('asc', 'desc'):
+        sort_order = 'desc'
+    if limit is not None:
+        # Legacy mode: return first N items (no pagination)
+        page = 1
+        page_size = limit
 
     try:
         from app.utils.cache_utils import get_cache
@@ -270,18 +330,62 @@ def get_sector_fund_flow():
 
     if cached is not None:
         result = dict(cached)
-        result['items'] = result.get('items', [])[:limit]
+        all_items = result.get('items', [])
+        # Sort by main_net_inflow for outflow (asc) or inflow (desc).
+        # Use reverse=True + float('-inf') for None so missing values
+        # always sort to the end regardless of direction.
+        if sort_order == 'asc':
+            all_items = sorted(
+                all_items,
+                key=lambda x: x.get('main_net_inflow') if x.get('main_net_inflow') is not None else float('inf'),
+            )
+        else:
+            all_items = sorted(
+                all_items,
+                key=lambda x: x.get('main_net_inflow') if x.get('main_net_inflow') is not None else float('-inf'),
+                reverse=True,
+            )
+        total = len(all_items)
+        start = (page - 1) * page_size
+        result['items'] = all_items[start:start + page_size]
+        result['total'] = total
+        result['page'] = page
+        result['page_size'] = page_size
         return jsonify({'code': 200, 'message': 'success', 'data': result})
 
-    return jsonify({
-        'code': 200,
-        'message': '板块资金流向数据暂未就绪，请稍后重试',
-        'data': {
-            'success': False,
-            'items': [],
-            'update_time': '',
-        },
-    })
+    # 缓存未命中，实时获取
+    try:
+        result = MarketOverviewService.get_sector_fund_flow_rank()
+        all_items = result.get('items', [])
+        if sort_order == 'asc':
+            all_items = sorted(
+                all_items,
+                key=lambda x: x.get('main_net_inflow') if x.get('main_net_inflow') is not None else float('inf'),
+            )
+        else:
+            all_items = sorted(
+                all_items,
+                key=lambda x: x.get('main_net_inflow') if x.get('main_net_inflow') is not None else float('-inf'),
+                reverse=True,
+            )
+        total = len(all_items)
+        start = (page - 1) * page_size
+        result['items'] = all_items[start:start + page_size]
+        result['total'] = total
+        result['page'] = page
+        result['page_size'] = page_size
+        return jsonify({'code': 200, 'message': 'success', 'data': result})
+    except Exception:
+        return jsonify({
+            'code': 200,
+            'message': '板块资金流向数据暂未就绪，请稍后重试',
+            'data': {
+                'success': False,
+                'items': [],
+                'total': 0,
+                'update_time': '',
+            },
+        })
 
 
 # ========== 自选股相关接口 ==========
@@ -289,7 +393,9 @@ def get_sector_fund_flow():
 @api_bp.route('/market/index/<path:ts_code>/kline', methods=['GET'])
 @api_error_handler(default_message='获取指数K线数据失败')
 def get_index_kline(ts_code):
-    """获取指数历史K线数据（纯读缓存，数据由 Celery 定时任务刷新）"""
+    """获取指数历史K线数据（优先读缓存，缓存未命中时实时获取）"""
+    if not _validate_ts_code(ts_code):
+        return jsonify({'code': 400, 'message': 'Invalid stock code', 'data': None}), 400
     period = request.args.get('period', '1Y')
     if period not in ('1M', '3M', '6M', '1Y', '3Y'):
         period = '1Y'
@@ -304,16 +410,12 @@ def get_index_kline(ts_code):
     if cached is not None:
         return jsonify({'code': 200, 'message': 'success', 'data': cached})
 
-    return jsonify({
-        'code': 200,
-        'message': '数据暂未就绪，请稍后重试',
-        'data': {
-            'success': False,
-            'ts_code': ts_code,
-            'kline': [],
-            'count': 0,
-        },
-    })
+    # 缓存未命中，实时获取
+    try:
+        result = MarketOverviewService.get_index_kline(ts_code, period)
+        return jsonify({'code': 200, 'message': 'success', 'data': result})
+    except Exception:
+        return jsonify({'code': 200, 'message': 'K线数据暂未就绪', 'data': {'success': False, 'kline': [], 'update_time': ''}})
 
 
 @api_bp.route('/watchlist', methods=['GET'])
@@ -338,6 +440,8 @@ def get_watchlist():
 @api_error_handler(default_message='添加自选失败')
 def add_to_watchlist(ts_code):
     """将股票加入自选"""
+    if not _validate_ts_code(ts_code):
+        return jsonify({'code': 400, 'message': 'Invalid stock code', 'data': None}), 400
     from flask import g
     user_id = getattr(getattr(g, 'current_user', None), 'id', None)
     if not user_id:
@@ -376,6 +480,8 @@ def add_to_watchlist(ts_code):
 @api_error_handler(default_message='移除自选失败')
 def remove_from_watchlist(ts_code):
     """从自选中移除股票"""
+    if not _validate_ts_code(ts_code):
+        return jsonify({'code': 400, 'message': 'Invalid stock code', 'data': None}), 400
     from flask import g
     user_id = getattr(getattr(g, 'current_user', None), 'id', None)
     if not user_id:

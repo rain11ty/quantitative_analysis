@@ -103,6 +103,19 @@ def _build_beat_schedule() -> dict:
             'schedule': timedelta(seconds=120),
         }
 
+    # 12. 每周六补算资金流向和因子缺失数据（从2021年起）
+    if os.getenv('WEEKLY_BACKFILL_ENABLED', 'true').lower() == 'true':
+        schedule['weekly-backfill-moneyflow'] = {
+            'task': 'app.tasks.backfill_moneyflow_task',
+            'schedule': crontab(hour=20, minute=0, day_of_week=6),
+            'kwargs': {'start_date': '20210101'},
+        }
+        schedule['weekly-backfill-factors'] = {
+            'task': 'app.tasks.backfill_factors_task',
+            'schedule': crontab(hour=21, minute=0, day_of_week=6),
+            'kwargs': {'start_date': '20210101', 'force': False},
+        }
+
     return schedule
 
 

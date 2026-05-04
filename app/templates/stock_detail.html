@@ -2,9 +2,90 @@
 {% block title %}{{ ts_code }} - 股票详情 - 股票分析系统{% endblock %}
 {% block content %}
 
-<div class="container">
+<style>
+.stock-detail-page .btn-sm {
+    min-height: 26px !important;
+    padding: 0.35rem 0.75rem !important;
+    font-size: 0.82rem !important;
+}
+.stock-detail-page .nav-tabs .nav-link {
+    padding: 0.2rem 0.4rem !important;
+    font-size: 0.75rem !important;
+}
+.stock-detail-page .page-card {
+    padding: 0.3rem !important;
+    margin-bottom: 0.3rem !important;
+    border-radius: 0.35rem !important;
+}
+.stock-detail-page .card-header {
+    padding: 0.25rem 0.3rem !important;
+    font-size: 0.8rem !important;
+}
+.stock-detail-page .card-body {
+    padding: 0.3rem !important;
+}
+.stock-detail-page .row.mb-4 {
+    margin-bottom: 0.3rem !important;
+}
+.stock-detail-page .row.mb-3 {
+    margin-bottom: 0.3rem !important;
+}
+.stock-detail-page h5, .stock-detail-page .h5 {
+    font-size: 0.85rem !important;
+    margin-bottom: 0.2rem !important;
+}
+.stock-detail-page .table {
+    font-size: 0.75rem !important;
+    margin-bottom: 0.2rem !important;
+}
+.stock-detail-page .table th, .stock-detail-page .table td {
+    padding: 0.2rem 0.3rem !important;
+}
+.stock-detail-page .badge {
+    font-size: 0.65rem !important;
+    padding: 0.1rem 0.25rem !important;
+}
+.stock-detail-page .nav-tabs {
+    margin-bottom: 0.3rem !important;
+    border-bottom-width: 1px !important;
+}
+.stock-detail-page .form-control, .stock-detail-page .form-select {
+    font-size: 0.75rem !important;
+    padding: 0.2rem 0.4rem !important;
+    min-height: 26px !important;
+}
+.stock-detail-page.container-fluid {
+    max-width: 100% !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+}
+.stock-detail-page .price-display {
+    font-size: 1.5rem !important;
+    line-height: 1.2 !important;
+}
+.stock-detail-page .metric-tile {
+    padding: 0.2rem !important;
+}
+.stock-detail-page .metric-tile .metric-label {
+    font-size: 0.65rem !important;
+}
+.stock-detail-page .metric-tile .metric-value {
+    font-size: 0.78rem !important;
+}
+.stock-detail-page .info-row {
+    margin-bottom: 0.15rem !important;
+    font-size: 0.78rem !important;
+}
+.stock-detail-page .quick-actions .btn {
+    min-height: 30px !important;
+    font-size: 0.82rem !important;
+    padding: 0.3rem 0.6rem !important;
+}
+</style>
+
+<div class="container-fluid stock-detail-page">
 <!-- 股票基本信息 -->
-<div class="row mb-4">
+<div class="row mb-2">
 <div class="col-12">
 <div class="page-card">
 <div class="card-header border-0 bg-transparent pt-3 pb-0">
@@ -15,7 +96,7 @@
 </div>
 <div class="card-body">
 <div id="stock-info" class="row">
-<div class="col-12 text-center py-3">
+<div class="col-12 text-center py-1">
 <div class="spinner-border text-primary" role="status">
 <span class="visually-hidden">加载中...</span>
 </div>
@@ -28,7 +109,7 @@
 </div>
 
 <!-- 实时行情卡片 -->
-<div class="row mb-4">
+<div class="row mb-2">
 <div class="col-12">
 <div class="page-card">
 <div class="card-header border-0 bg-transparent pt-3 pb-0">
@@ -36,9 +117,9 @@
 <h5 class="mb-0 fw-bold">实时行情</h5>
 <div class="d-flex align-items-center gap-2">
 <div class="btn-group btn-group-sm" id="kline-freq-group">
-<button class="btn btn-outline-primary active" onclick="switchKlineFreq('daily', this)">日K</button>
-<button class="btn btn-outline-primary" onclick="switchKlineFreq('weekly', this)">周K</button>
-<button class="btn btn-outline-primary" onclick="switchKlineFreq('monthly', this)">月K</button>
+<button class="btn btn-sm btn-outline-primary active" onclick="switchKlineFreq('daily', this)">日K</button>
+<button class="btn btn-sm btn-outline-primary" onclick="switchKlineFreq('weekly', this)">周K</button>
+<button class="btn btn-sm btn-outline-primary" onclick="switchKlineFreq('monthly', this)">月K</button>
 </div>
 <span class="badge bg-secondary" id="realtime-source">加载中</span>
 <span class="text-muted small" id="realtime-updated-at">--</span>
@@ -50,12 +131,12 @@
 </div>
 <div class="card-body">
 <div id="realtime-content">
-<div class="text-center py-3">
+<div class="text-center py-1">
 <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
 <span class="ms-2 text-muted">正在加载实时行情...</span>
 </div>
 </div>
-<div id="realtime-chart" style="height:420px; display:none;"></div>
+<div id="realtime-chart" style="height:240px; display:none;"></div>
 </div>
 </div>
 </div>
@@ -64,18 +145,18 @@
 <!-- 功能选项卡 -->
 <div class="row">
 <div class="col-12">
-<ul class="nav nav-tabs border-0 gap-2 mb-3" id="stockTabs" role="tablist">
+<ul class="nav nav-tabs border-0 gap-2 mb-1" id="stockTabs" role="tablist">
 <li class="nav-item" role="presentation">
-<button class="nav-link active rounded-pill px-4" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">历史数据</button>
+<button class="nav-link active rounded-pill px-2" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">历史数据</button>
 </li>
 <li class="nav-item" role="presentation">
-<button class="nav-link rounded-pill px-4" id="tech-analysis-tab" data-bs-toggle="tab" data-bs-target="#tech-analysis" type="button" role="tab">技术分析</button>
+<button class="nav-link rounded-pill px-2" id="tech-analysis-tab" data-bs-toggle="tab" data-bs-target="#tech-analysis" type="button" role="tab">技术分析</button>
 </li>
 <li class="nav-item" role="presentation">
-<button class="nav-link rounded-pill px-4" id="moneyflow-tab" data-bs-toggle="tab" data-bs-target="#moneyflow" type="button" role="tab">资金流向</button>
+<button class="nav-link rounded-pill px-2" id="moneyflow-tab" data-bs-toggle="tab" data-bs-target="#moneyflow" type="button" role="tab">资金流向</button>
 </li>
 <li class="nav-item" role="presentation">
-<button class="nav-link rounded-pill px-4" id="cyq-tab" data-bs-toggle="tab" data-bs-target="#cyq" type="button" role="tab">筹码分布</button>
+<button class="nav-link rounded-pill px-2" id="cyq-tab" data-bs-toggle="tab" data-bs-target="#cyq" type="button" role="tab">筹码分布</button>
 </li>
 </ul>
 <div class="tab-content" id="stockTabsContent">
@@ -104,7 +185,7 @@
 </div>
 <div class="card-body">
 <div id="history-content">
-<div class="text-center py-4">
+<div class="text-center py-2">
 <p class="text-muted">点击上方按钮加载历史数据</p>
 </div>
 </div>
@@ -115,7 +196,7 @@
 <!-- 技术分析（合并自 analysis.html） -->
 <div class="tab-pane fade" id="tech-analysis" role="tabpanel">
 <div id="tech-analysis-content">
-<div class="text-center py-4">
+<div class="text-center py-2">
 <p class="text-muted">切换到此标签页时自动加载</p>
 </div>
 </div>
@@ -129,7 +210,7 @@
 </div>
 <div class="card-body">
 <div id="moneyflow-content">
-<div class="text-center py-4">
+<div class="text-center py-2">
 <p class="text-muted">切换到此标签页时自动加载</p>
 </div>
 </div>
@@ -145,7 +226,7 @@
 </div>
 <div class="card-body">
 <div id="cyq-content">
-<div class="text-center py-4">
+<div class="text-center py-2">
 <p class="text-muted">切换到此标签页时自动加载</p>
 </div>
 </div>
@@ -153,6 +234,7 @@
 </div>
 </div>
 
+</div>
 </div>
 </div>
 </div>
@@ -169,6 +251,9 @@ let _analysisHistoryData = [];
 let _analysisFactorsData = [];
 let _analysisLoaded = false;
 let _currentIndicator = 'macd';
+
+// 全局历史数据日期集合（用于对齐其他标签页数据）
+let _historyDates = new Set();
 
 // ECharts 实例管理（防止内存泄漏）
 const _chartInstances = {};
@@ -258,8 +343,8 @@ function renderStockInfo(stock) {
 
     const html = `
     <div class="col-lg-8">
-        <h3 class="mb-3">${stock.name} <small class="text-muted">(${stock.symbol})</small></h3>
-        <div class="row g-3">
+        <h4 class="mb-1">${stock.name} <small class="text-muted">(${stock.symbol})</small></h4>
+        <div class="row g-1">
             <div class="col-md-6"><div class="d-flex justify-content-between"><span class="text-muted">股票代码:</span><strong>${stock.ts_code}</strong></div></div>
             <div class="col-md-6"><div class="d-flex justify-content-between"><span class="text-muted">股票简称:</span><strong>${stock.symbol}</strong></div></div>
             <div class="col-md-6"><div class="d-flex justify-content-between"><span class="text-muted">所属行业:</span><span class="badge bg-secondary">${stock.industry || '--'}</span></div></div>
@@ -268,28 +353,28 @@ function renderStockInfo(stock) {
             <div class="col-md-6"><div class="d-flex justify-content-between"><span class="text-muted">市场:</span><span class="badge ${stock.ts_code.includes('SH') ? 'bg-danger' : stock.ts_code.includes('BJ') ? 'bg-warning' : 'bg-success'}"> ${stock.ts_code.includes('SH') ? '上海' : stock.ts_code.includes('BJ') ? '北交所' : '深圳'}</span></div></div>
         </div>
         ${db.trade_date ? `
-        <hr class="my-3">
-        <div class="row g-2">
+        <hr class="my-1">
+        <div class="row g-1">
             <div class="col-12"><small class="text-muted">估值指标 <span class="badge bg-light text-dark">${db.trade_date || ''}</span></small></div>
-            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">市盈率(PE-TTM)</div><div class="fw-bold">${fmtVal(db.pe_ttm)}</div></div></div>
-            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">市净率(PB)</div><div class="fw-bold">${fmtVal(db.pb)}</div></div></div>
-            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">市销率(PS-TTM)</div><div class="fw-bold">${fmtVal(db.ps_ttm)}</div></div></div>
-            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">股息率</div><div class="fw-bold">${fmtVal(db.dv_ratio, '%')}</div></div></div>
+            <div class="col-3"><div class="bg-light rounded p-1 text-center"><div class="text-muted small">市盈率(PE-TTM)</div><div class="fw-bold">${fmtVal(db.pe_ttm)}</div></div></div>
+            <div class="col-3"><div class="bg-light rounded p-1 text-center"><div class="text-muted small">市净率(PB)</div><div class="fw-bold">${fmtVal(db.pb)}</div></div></div>
+            <div class="col-3"><div class="bg-light rounded p-1 text-center"><div class="text-muted small">市销率(PS-TTM)</div><div class="fw-bold">${fmtVal(db.ps_ttm)}</div></div></div>
+            <div class="col-3"><div class="bg-light rounded p-1 text-center"><div class="text-muted small">股息率</div><div class="fw-bold">${fmtVal(db.dv_ratio, '%')}</div></div></div>
             <div class="col-12 mt-1"><small class="text-muted">市值与交易</small></div>
-            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">总市值(亿元)</div><div class="fw-bold">${fmtMV(db.total_mv * 1e4)}</div></div></div>
-            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">流通市值(亿元)</div><div class="fw-bold">${fmtMV(db.circ_mv * 1e4)}</div></div></div>
-            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">换手率</div><div class="fw-bold">${fmtVal(db.turnover_rate, '%')}</div></div></div>
-            <div class="col-3"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">量比</div><div class="fw-bold">${fmtVal(db.volume_ratio)}</div></div></div>
+            <div class="col-3"><div class="bg-light rounded p-1 text-center"><div class="text-muted small">总市值(亿元)</div><div class="fw-bold">${fmtMV(db.total_mv * 1e4)}</div></div></div>
+            <div class="col-3"><div class="bg-light rounded p-1 text-center"><div class="text-muted small">流通市值(亿元)</div><div class="fw-bold">${fmtMV(db.circ_mv * 1e4)}</div></div></div>
+            <div class="col-3"><div class="bg-light rounded p-1 text-center"><div class="text-muted small">换手率</div><div class="fw-bold">${fmtVal(db.turnover_rate, '%')}</div></div></div>
+            <div class="col-3"><div class="bg-light rounded p-1 text-center"><div class="text-muted small">量比</div><div class="fw-bold">${fmtVal(db.volume_ratio)}</div></div></div>
         </div>` : ''}
     </div>
-    <div class="col-lg-4">
-        <div class="text-center">
+    <div class="col-lg-2">
+        <div class="text-center quick-actions">
             <div class="card bg-light">
-                <div class="card-body">
-                    <h5 class="card-title">快速操作</h5>
-                    <div class="d-grid gap-2">
-                        <button class="btn btn-primary btn-sm" onclick="addToWatchlist()">加入自选</button>
-                        <button class="btn btn-info btn-sm" onclick="openBacktest()">策略回测</button>
+                <div class="card-body p-1">
+                    <h6 class="card-title mb-1">快速操作</h6>
+                    <div class="d-grid gap-1">
+                        <button class="btn btn-primary" onclick="addToWatchlist()">加入自选</button>
+                        <button class="btn btn-info" onclick="openBacktest()">策略回测</button>
                     </div>
                 </div>
             </div>
@@ -311,17 +396,17 @@ function switchKlineFreq(freq, btn) {
 
 async function loadRealtimeQuote() {
     const container = document.getElementById('realtime-content');
-    container.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary" role="status"></div><span class="ms-2 text-muted">正在加载行情数据...</span></div>';
+    container.innerHTML = '<div class="text-center py-1"><div class="spinner-border spinner-border-sm text-primary" role="status"></div><span class="ms-2 text-muted">正在加载行情数据...</span></div>';
     try {
         const response = await apiRequest(`/stocks/${tsCode}/realtime?freq=${currentKlineFreq}`);
         if (response.code === 200 && response.data) {
             renderRealtimeQuote(response.data);
         } else {
-            container.innerHTML = '<div class="text-center py-3 text-muted">实时行情暂不可用，请稍后刷新重试</div>';
+            container.innerHTML = '<div class="text-center py-1 text-muted">实时行情暂不可用，请稍后刷新重试</div>';
         }
     } catch (error) {
         console.error('加载实时行情失败:', error);
-        container.innerHTML = '<div class="text-center py-3 text-muted">实时行情加载失败</div>';
+        container.innerHTML = '<div class="text-center py-1 text-muted">实时行情加载失败</div>';
     }
 }
 
@@ -343,11 +428,11 @@ function renderRealtimeQuote(data) {
     const arrow = isUp ? '▲' : isDown ? '▼' : '—';
 
     container.innerHTML = `
-    <div class="row g-3">
+    <div class="row g-1">
         <div class="col-md-4">
-            <div class="text-center py-2">
-                <div class="${colorClass}" style="font-size:2.2rem;font-weight:700;line-height:1.2;">${price != null ? Number(price).toFixed(2) : '--'}</div>
-                <div class="${colorClass} mt-1" style="font-size:1rem;">
+            <div class="text-center py-1">
+                <div class="${colorClass}" style="font-size:1.5rem;font-weight:700;line-height:1.2;">${price != null ? Number(price).toFixed(2) : '--'}</div>
+                <div class="${colorClass} mt-1" style="font-size:0.85rem;">
                     <span>${arrow} ${change != null ? Number(change).toFixed(2) : '--'}</span>
                     <span class="ms-2">${pctChg != null ? Number(pctChg).toFixed(2) + '%' : '--'}</span>
                 </div>
@@ -355,15 +440,15 @@ function renderRealtimeQuote(data) {
             </div>
         </div>
         <div class="col-md-8">
-            <div class="row g-2">
-                <div class="col-4"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">今开</div><div class="fw-bold">${quote.open != null ? Number(quote.open).toFixed(2) : '--'}</div></div></div>
-                <div class="col-4"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">昨收</div><div class="fw-bold">${quote.pre_close != null ? Number(quote.pre_close).toFixed(2) : '--'}</div></div></div>
-                <div class="col-4"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">最高</div><div class="fw-bold text-danger">${quote.high != null ? Number(quote.high).toFixed(2) : '--'}</div></div></div>
-                <div class="col-4"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">最低</div><div class="fw-bold text-success">${quote.low != null ? Number(quote.low).toFixed(2) : '--'}</div></div></div>
-                <div class="col-4"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">成交量(股)</div><div class="fw-bold">${quote.volume ? formatCompactNumber(quote.volume) : '--'}</div></div></div>
-                <div class="col-4"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">成交额(元)</div><div class="fw-bold">${quote.amount ? formatCompactNumber(quote.amount) : '--'}</div></div></div>
-                <div class="col-4"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">振幅</div><div class="fw-bold">${quote.amplitude != null ? Number(quote.amplitude).toFixed(2) + '%' : '--'}</div></div></div>
-                <div class="col-4"><div class="bg-light rounded p-2 text-center"><div class="text-muted small">换手率</div><div class="fw-bold">${quote.turnover_rate != null ? Number(quote.turnover_rate).toFixed(2) + '%' : '--'}</div></div></div>
+            <div class="row g-1">
+                <div class="col-4"><div class="bg-light rounded p-1 text-center"><div class="text-muted small">今开</div><div class="fw-bold">${quote.open != null ? Number(quote.open).toFixed(2) : '--'}</div></div></div>
+                <div class="col-4"><div class="bg-light rounded p-1 text-center"><div class="text-muted small">昨收</div><div class="fw-bold">${quote.pre_close != null ? Number(quote.pre_close).toFixed(2) : '--'}</div></div></div>
+                <div class="col-4"><div class="bg-light rounded p-1 text-center"><div class="text-muted small">最高</div><div class="fw-bold text-danger">${quote.high != null ? Number(quote.high).toFixed(2) : '--'}</div></div></div>
+                <div class="col-4"><div class="bg-light rounded p-1 text-center"><div class="text-muted small">最低</div><div class="fw-bold text-success">${quote.low != null ? Number(quote.low).toFixed(2) : '--'}</div></div></div>
+                <div class="col-4"><div class="bg-light rounded p-1 text-center"><div class="text-muted small">成交量(股)</div><div class="fw-bold">${quote.volume ? formatCompactNumber(quote.volume) : '--'}</div></div></div>
+                <div class="col-4"><div class="bg-light rounded p-1 text-center"><div class="text-muted small">成交额(元)</div><div class="fw-bold">${quote.amount ? formatCompactNumber(quote.amount) : '--'}</div></div></div>
+                <div class="col-4"><div class="bg-light rounded p-1 text-center"><div class="text-muted small">振幅</div><div class="fw-bold">${quote.amplitude != null ? Number(quote.amplitude).toFixed(2) + '%' : '--'}</div></div></div>
+                <div class="col-4"><div class="bg-light rounded p-1 text-center"><div class="text-muted small">换手率</div><div class="fw-bold">${quote.turnover_rate != null ? Number(quote.turnover_rate).toFixed(2) + '%' : '--'}</div></div></div>
             </div>
         </div>
     </div>`;
@@ -534,12 +619,14 @@ async function loadHistoryByDate() {
 
 function renderHistoryData(data, days) {
     const container = document.getElementById('history-content');
-    if (!data || data.length === 0) { container.innerHTML = '<div class="text-center py-4"><p class="text-muted">暂无历史数据</p></div>'; return; }
+    if (!data || data.length === 0) { container.innerHTML = '<div class="text-center py-2"><p class="text-muted">暂无历史数据</p></div>'; return; }
+    // 存储历史数据日期集合，用于对齐其他标签页数据
+    _historyDates = new Set(data.map(item => _normalizeTradeDate(item.trade_date)).filter(Boolean));
     const PAGE_SIZE = 30;
     const totalRows = data.length;
     const displayData = data.slice(0, PAGE_SIZE);
     container.innerHTML = `
-    <div class="mb-3 d-flex justify-content-between align-items-center">
+    <div class="mb-1 d-flex justify-content-between align-items-center">
         <small class="text-muted mb-0">最近 ${days} 天的历史数据，共 ${totalRows} 条记录（按时间倒序）</small>
         <span id="history-page-info" class="text-muted small">显示 1-${Math.min(PAGE_SIZE, totalRows)} / ${totalRows}</span>
     </div>
@@ -558,7 +645,7 @@ function renderHistoryData(data, days) {
             </tr>`).join('')}</tbody>
         </table>
     </div>
-    ${totalRows > PAGE_SIZE ? `<div class="d-flex justify-content-center gap-2 mt-3"><button class="btn btn-sm btn-outline-primary" id="history-load-more" onclick="_loadMoreHistory(${PAGE_SIZE})">加载更多 (${PAGE_SIZE}/${totalRows})</button></div>` : ''}`;
+    ${totalRows > PAGE_SIZE ? `<div class="d-flex justify-content-center gap-2 mt-1"><button class="btn btn-sm btn-outline-primary" id="history-load-more" onclick="_loadMoreHistory(${PAGE_SIZE})">加载更多 (${PAGE_SIZE}/${totalRows})</button></div>` : ''}`;
     window._historyAllData = data;
     window._historyCurrentPage = 1;
 }
@@ -585,16 +672,16 @@ function _loadMoreHistory(pageSize) {
 async function loadTechAnalysis() {
     if (_analysisLoaded) return;
     const container = document.getElementById('tech-analysis-content');
-    container.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><span class="ms-2 text-muted">正在加载技术分析数据...</span></div>';
+    container.innerHTML = '<div class="text-center py-2"><div class="spinner-border text-primary" role="status"></div><span class="ms-2 text-muted">正在加载技术分析数据...</span></div>';
 
     try {
         const [historyRes, factorsRes] = await Promise.all([
-            apiRequest(`/stocks/${tsCode}/history?limit=750`),
-            apiRequest(`/stocks/${tsCode}/factors?limit=750`).catch(err => ({ code: err?.response?.status || 500, data: [], message: '技术指标数据暂不可用' }))
+            apiRequest(`/stocks/${tsCode}/history?limit=2000`),
+            apiRequest(`/stocks/${tsCode}/factors?limit=2000`).catch(err => ({ code: err?.response?.status || 500, data: [], message: '技术指标数据暂不可用' }))
         ]);
 
         if (historyRes.code !== 200 || !historyRes.data || historyRes.data.length === 0) {
-            container.innerHTML = '<div class="text-center py-4 text-muted">无法加载历史数据，技术分析不可用</div>';
+            container.innerHTML = '<div class="text-center py-2 text-muted">无法加载历史数据，技术分析不可用</div>';
             return;
         }
 
@@ -607,7 +694,7 @@ async function loadTechAnalysis() {
 
         renderTechAnalysis();
     } catch (error) {
-        container.innerHTML = '<div class="text-center py-4 text-muted">技术分析数据加载失败</div>';
+        container.innerHTML = '<div class="text-center py-2 text-muted">技术分析数据加载失败</div>';
         console.error('加载技术分析失败:', error);
     }
 }
@@ -650,11 +737,11 @@ function renderTechAnalysis() {
 
     container.innerHTML = `
     <!-- 实时分析与监控 -->
-    <div class="row mb-4">
-        <div class="col-lg-6 mb-3 mb-lg-0">
+    <div class="row mb-2">
+        <div class="col-lg-6 mb-1 mb-lg-0">
             <div class="page-card h-100">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
                         <div><h6 class="mb-0 fw-bold">实时分析</h6><small class="text-muted">基于最新交易日价格与技术因子自动生成</small></div>
                         <span class="badge bg-primary bg-opacity-10 text-primary">最新分析</span>
                     </div>
@@ -665,7 +752,7 @@ function renderTechAnalysis() {
         <div class="col-lg-6">
             <div class="page-card h-100">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
                         <div><h6 class="mb-0 fw-bold">实时监控</h6><small class="text-muted">量能、波动与技术信号状态</small></div>
                         <span class="badge bg-warning bg-opacity-10 text-warning">监控中</span>
                     </div>
@@ -676,7 +763,7 @@ function renderTechAnalysis() {
     </div>
 
     <!-- 指标图表 -->
-    <div class="page-card mb-4">
+    <div class="page-card mb-2">
         <div class="card-header border-0 bg-transparent pt-3 pb-0">
             <div class="d-flex justify-content-between align-items-center">
                 <h6 class="mb-0 fw-bold" id="indicator-title">MACD 指标</h6>
@@ -689,7 +776,7 @@ function renderTechAnalysis() {
             </div>
         </div>
         <div class="card-body">
-            <div id="indicator-chart" style="height:380px;"></div>
+            <div id="indicator-chart" style="height:220px;"></div>
         </div>
     </div>
 
@@ -774,19 +861,19 @@ function renderRealtimeInsights(historyData, factorsData) {
     else volatilityText = '暂无布林数据';
 
     analysisContainer.innerHTML = `
-    <div class="p-3 rounded" style="background:linear-gradient(135deg,rgba(37,99,235,0.06),rgba(59,130,246,0.02));border:1px solid rgba(37,99,235,0.1);">
-        <div class="d-flex justify-content-between align-items-start mb-2">
+    <div class="p-2 rounded" style="background:linear-gradient(135deg,rgba(37,99,235,0.06),rgba(59,130,246,0.02));border:1px solid rgba(37,99,235,0.1);">
+        <div class="d-flex justify-content-between align-items-start mb-1">
             <div>
                 <div class="text-muted small text-uppercase" style="letter-spacing:0.06em;">实时分析结论</div>
-                <div class="fw-bold" style="font-size:1.1rem;">${trendTitle}</div>
-                <div class="text-muted" style="font-size:0.88rem;">${trendText}</div>
+                <div class="fw-bold" style="font-size:0.95rem;">${trendTitle}</div>
+                <div class="text-muted" style="font-size:0.82rem;">${trendText}</div>
             </div>
             <span class="text-muted small">${_formatTradeDate(latest.trade_date)}</span>
         </div>
-        <div class="row g-2 mt-2">
-            <div class="col-4"><div class="p-2 rounded" style="background:rgba(248,250,252,0.8);border:1px solid var(--card-border);"><div class="text-muted small">趋势结构</div><div class="fw-semibold" style="font-size:0.88rem;">${trendChip}</div></div></div>
-            <div class="col-4"><div class="p-2 rounded" style="background:rgba(248,250,252,0.8);border:1px solid var(--card-border);"><div class="text-muted small">动能状态</div><div class="fw-semibold" style="font-size:0.88rem;">${momentumText}</div></div></div>
-            <div class="col-4"><div class="p-2 rounded" style="background:rgba(248,250,252,0.8);border:1px solid var(--card-border);"><div class="text-muted small">波动位置</div><div class="fw-semibold" style="font-size:0.88rem;">${volatilityText}</div></div></div>
+        <div class="row g-1 mt-1">
+            <div class="col-4"><div class="p-1 rounded" style="background:rgba(248,250,252,0.8);border:1px solid var(--card-border);"><div class="text-muted small">趋势结构</div><div class="fw-semibold" style="font-size:0.82rem;">${trendChip}</div></div></div>
+            <div class="col-4"><div class="p-1 rounded" style="background:rgba(248,250,252,0.8);border:1px solid var(--card-border);"><div class="text-muted small">动能状态</div><div class="fw-semibold" style="font-size:0.82rem;">${momentumText}</div></div></div>
+            <div class="col-4"><div class="p-1 rounded" style="background:rgba(248,250,252,0.8);border:1px solid var(--card-border);"><div class="text-muted small">波动位置</div><div class="fw-semibold" style="font-size:0.82rem;">${volatilityText}</div></div></div>
         </div>
     </div>`;
 
@@ -799,12 +886,12 @@ function renderRealtimeInsights(historyData, factorsData) {
     ];
     const levelColors = { success: 'text-bg-success', danger: 'text-bg-danger', warning: 'text-bg-warning', secondary: 'text-bg-secondary', primary: 'text-bg-primary' };
     monitorContainer.innerHTML = monitorItems.map(item => `
-    <div class="d-flex justify-content-between align-items-start py-2 ${item !== monitorItems[monitorItems.length-1] ? 'border-bottom' : ''}">
+    <div class="d-flex justify-content-between align-items-start py-1 ${item !== monitorItems[monitorItems.length-1] ? 'border-bottom' : ''}">
         <div style="flex:1;min-width:0;">
-            <div class="fw-semibold" style="font-size:0.9rem;">${item.title}</div>
-            <div class="text-muted" style="font-size:0.82rem;">${item.text}</div>
+            <div class="fw-semibold" style="font-size:0.82rem;">${item.title}</div>
+            <div class="text-muted" style="font-size:0.75rem;">${item.text}</div>
         </div>
-        <span class="badge ${levelColors[item.level] || 'text-bg-secondary'} ms-2" style="font-size:0.75rem;">${item.status}</span>
+        <span class="badge ${levelColors[item.level] || 'text-bg-secondary'} ms-1" style="font-size:0.68rem;">${item.status}</span>
     </div>`).join('');
 }
 
@@ -928,7 +1015,11 @@ function _renderBollChart(chart, reversedHistory, sortedFactors) {
 function renderAnalysisTable(historyData, factorsData) {
     const tbody = document.getElementById('analysis-table-body');
     if (!tbody || !historyData) return;
-    const merged = historyData.slice(0, 20).map(h => {
+    // 如果有全局历史日期集合，过滤数据以对齐K线日期范围
+    const filteredHistory = _historyDates.size > 0
+        ? historyData.filter(h => _historyDates.has(_normalizeTradeDate(h.trade_date)))
+        : historyData;
+    const merged = filteredHistory.slice(0, 20).map(h => {
         const f = factorsData.find(f => _normalizeTradeDate(f.trade_date) === _normalizeTradeDate(h.trade_date)) || {};
         return { ...h, ...f };
     });
@@ -958,7 +1049,7 @@ async function loadMoneyflowData() {
     if (document.getElementById('moneyflow-content').innerHTML.includes('加载中')) return;
     showLoading('moneyflow-content', 'skeleton');
     try {
-        const response = await apiRequest(`/stocks/${tsCode}/moneyflow?limit=250`);
+        const response = await apiRequest(`/stocks/${tsCode}/moneyflow?limit=2000`);
         if (response.code === 200) { renderMoneyflowData(response.data); }
         else { showError('moneyflow-content', '资金流向数据加载失败'); }
     } catch (error) { showError('moneyflow-content', '资金流向数据加载失败'); console.error(error); }
@@ -966,7 +1057,7 @@ async function loadMoneyflowData() {
 
 function renderMoneyflowData(data) {
     const container = document.getElementById('moneyflow-content');
-    if (!data || data.length === 0) { container.innerHTML = '<div class="text-center py-4"><p class="text-muted">暂无资金流向数据</p></div>'; return; }
+    if (!data || data.length === 0) { container.innerHTML = '<div class="text-center py-2"><p class="text-muted">暂无资金流向数据</p></div>'; return; }
 
     // 保存到全局供日期选择使用
     window._moneyflowAllData = data;
@@ -975,24 +1066,24 @@ function renderMoneyflowData(data) {
     const latestDate = allDates[0] || '';
 
     container.innerHTML = `
-    <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div class="mb-1 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <small class="text-muted">资金流向数据，共 ${data.length} 条记录</small>
         <div class="d-flex align-items-center gap-2">
             <small class="text-muted">查询日期:</small>
             <select id="mf-date-select" class="form-select form-select-sm" style="width:auto;" onchange="onMfDateChange(this.value)">
-                ${allDates.slice(0, 60).map(d => `<option value="${d}" ${d===latestDate?'selected':''}>${d}</option>`).join('')}
+                ${allDates.map(d => `<option value="${d}" ${d===latestDate?'selected':''}>${d}</option>`).join('')}
             </select>
             <span class="text-muted small">（共${allDates.length}个交易日）</span>
         </div>
     </div>
-    <div class="row mb-4">
-        <div class="col-md-8"><div class="card"><div class="card-header"><h6 class="mb-0">分单资金买卖对比</h6></div><div class="card-body"><div id="moneyflow-chart" style="height:400px;"></div></div></div></div>
-        <div class="col-md-4"><div class="card"><div class="card-header"><h6 class="mb-0">净流入趋势</h6></div><div class="card-body"><div id="netflow-chart" style="height:400px;"></div></div></div></div>
+    <div class="row mb-2">
+        <div class="col-md-8"><div class="card"><div class="card-header"><h6 class="mb-0">分单资金买卖对比</h6></div><div class="card-body"><div id="moneyflow-chart" style="height:260px;"></div></div></div></div>
+        <div class="col-md-4"><div class="card"><div class="card-header"><h6 class="mb-0">净流入趋势</h6></div><div class="card-body"><div id="netflow-chart" style="height:260px;"></div></div></div></div>
     </div>
-    <div class="row mb-4"><div class="col-12"><div class="card"><div class="card-header"><h6 class="mb-0">资金形态指标</h6></div><div class="card-body"><div class="row" id="money-indicators"></div></div></div></div></div>
+    <div class="row mb-2"><div class="col-12"><div class="card"><div class="card-header"><h6 class="mb-0">资金形态指标</h6></div><div class="card-body"><div class="row" id="money-indicators"></div></div></div></div></div>
     <div class="card"><div class="card-header"><h6 class="mb-0">详细数据</h6></div><div class="card-body"><div class="table-responsive">
         <table class="table table-sm table-hover"><thead><tr><th>日期</th><th>净流入额</th><th>特大单买入</th><th>特大单卖出</th><th>大单买入</th><th>大单卖出</th><th>中单买入</th><th>中单卖出</th><th>小单买入</th><th>小单卖出</th></tr></thead>
-        <tbody>${data.slice(0,30).map(item => `<tr>
+        <tbody>${(_historyDates.size > 0 ? data.filter(item => _historyDates.has(_normalizeTradeDate(item.trade_date))) : data).slice(0,30).map(item => `<tr>
             <td>${item.trade_date||'--'}</td>
             <td class="${(item.net_mf_amount||0)>=0?'text-danger':'text-success'}"><strong>${formatNumber(item.net_mf_amount,0)}</strong></td>
             <td class="text-danger">${formatNumber(item.buy_elg_amount,0)}</td><td class="text-success">${formatNumber(item.sell_elg_amount,0)}</td>
@@ -1054,10 +1145,10 @@ function renderMoneyIndicators(data) {
     const lgBuyRate = totalBuy > 0 ? (data.buy_lg_amount||0)/totalBuy*100 : 0;
     const elgBuyRate = totalBuy > 0 ? (data.buy_elg_amount||0)/totalBuy*100 : 0;
     container.innerHTML = `
-    <div class="col-md-3"><div class="text-center p-3 bg-light rounded"><h5 class="text-primary">${formatNumber(data.net_mf_amount||0,0)}</h5><small class="text-muted">净流入额(万)</small></div></div>
-    <div class="col-md-3"><div class="text-center p-3 bg-light rounded"><h5 class="text-success">${formatNumber(lgBuyRate,1)}%</h5><small class="text-muted">大单买入占比</small></div></div>
-    <div class="col-md-3"><div class="text-center p-3 bg-light rounded"><h5 class="text-warning">${formatNumber(elgBuyRate,1)}%</h5><small class="text-muted">特大单买入占比</small></div></div>
-    <div class="col-md-3"><div class="text-center p-3 bg-light rounded"><h5 class="${mainNetFlow>=0?'text-danger':'text-success'}">${formatNumber(mainNetFlow,0)}</h5><small class="text-muted">主力净流入(万)</small></div></div>`;
+    <div class="col-md-3"><div class="text-center p-1 bg-light rounded"><h6 class="text-primary mb-0">${formatNumber(data.net_mf_amount||0,0)}</h6><small class="text-muted">净流入额(万)</small></div></div>
+    <div class="col-md-3"><div class="text-center p-1 bg-light rounded"><h6 class="text-success mb-0">${formatNumber(lgBuyRate,1)}%</h6><small class="text-muted">大单买入占比</small></div></div>
+    <div class="col-md-3"><div class="text-center p-1 bg-light rounded"><h6 class="text-warning mb-0">${formatNumber(elgBuyRate,1)}%</h6><small class="text-muted">特大单买入占比</small></div></div>
+    <div class="col-md-3"><div class="text-center p-1 bg-light rounded"><h6 class="${mainNetFlow>=0?'text-danger':'text-success'} mb-0">${formatNumber(mainNetFlow,0)}</h6><small class="text-muted">主力净流入(万)</small></div></div>`;
 }
 
 // ========== 筹码分布（基于 cyq_perf 数据） ==========
@@ -1065,7 +1156,7 @@ async function loadCyqData() {
     if (document.getElementById('cyq-content').innerHTML.includes('加载中')) return;
     showLoading('cyq-content', 'skeleton');
     try {
-        const resp = await apiRequest(`/stocks/${tsCode}/cyq?limit=250`);
+        const resp = await apiRequest(`/stocks/${tsCode}/cyq?limit=2000`);
         const perfData = resp.code === 200 ? resp.data : [];
         renderCyqData(perfData);
     } catch (error) { showError('cyq-content', '筹码分布数据加载失败'); console.error(error); }
@@ -1074,29 +1165,29 @@ async function loadCyqData() {
 function renderCyqData(perfData) {
     const container = document.getElementById('cyq-content');
     if (!perfData || perfData.length === 0) {
-        container.innerHTML = '<div class="text-center py-4"><p class="text-muted">暂无筹码分布数据</p></div>'; return;
+        container.innerHTML = '<div class="text-center py-2"><p class="text-muted">暂无筹码分布数据</p></div>'; return;
     }
 
     const latest = perfData[perfData.length - 1];
     const currentPrice = stockInfo?.latest_daily?.close || 0;
 
     container.innerHTML = `
-    <div class="mb-3 d-flex justify-content-between align-items-center">
+    <div class="mb-1 d-flex justify-content-between align-items-center">
         <small class="text-muted">筹码数据（最新: ${latest.trade_date || '--'}）</small>
     </div>
-    <div class="row mb-4">
-        <div class="col-md-8"><div class="card"><div class="card-header"><h6 class="mb-0">成本分位带状图</h6></div><div class="card-body"><div id="cyq-band-chart" style="height:420px;"></div></div></div></div>
+    <div class="row mb-2">
+        <div class="col-md-8"><div class="card"><div class="card-header"><h6 class="mb-0">成本分位带状图</h6></div><div class="card-body"><div id="cyq-band-chart" style="height:280px;"></div></div></div></div>
         <div class="col-md-4">
-            <div class="card mb-3"><div class="card-header"><h6 class="mb-0">筹码分析指标</h6></div><div class="card-body"><div class="row" id="cyq-indicators"></div></div></div>
-            <div class="card"><div class="card-header"><h6 class="mb-0">胜率变化</h6></div><div class="card-body"><div id="winner-rate-chart" style="height:280px;"></div></div></div>
+            <div class="card mb-1"><div class="card-header"><h6 class="mb-0">筹码分析指标</h6></div><div class="card-body"><div class="row" id="cyq-indicators"></div></div></div>
+            <div class="card"><div class="card-header"><h6 class="mb-0">胜率变化</h6></div><div class="card-body"><div id="winner-rate-chart" style="height:220px;"></div></div></div>
         </div>
     </div>
-    <div class="row mb-4">
-        <div class="col-12"><div class="card"><div class="card-header"><h6 class="mb-0">成本分位曲线</h6></div><div class="card-body"><div id="cost-distribution-chart" style="height:350px;"></div></div></div></div>
+    <div class="row mb-2">
+        <div class="col-12"><div class="card"><div class="card-header"><h6 class="mb-0">成本分位曲线</h6></div><div class="card-body"><div id="cost-distribution-chart" style="height:260px;"></div></div></div></div>
     </div>
     <div class="card"><div class="card-header"><h6 class="mb-0">筹码胜率详细数据</h6></div><div class="card-body"><div class="table-responsive">
         <table class="table table-sm table-hover"><thead><tr><th>日期</th><th>历史最低</th><th>历史最高</th><th>5%成本</th><th>15%成本</th><th>50%成本</th><th>85%成本</th><th>95%成本</th><th>加权平均</th><th>胜率</th></tr></thead>
-        <tbody>${perfData.slice(-30).reverse().map(item => `<tr>
+        <tbody>${(_historyDates.size > 0 ? perfData.filter(item => _historyDates.has(_normalizeTradeDate(item.trade_date))) : perfData).slice(-30).reverse().map(item => `<tr>
             <td>${item.trade_date||'--'}</td><td class="text-success">${formatNumber(item.his_low,2)}</td><td class="text-danger">${formatNumber(item.his_high,2)}</td>
             <td>${formatNumber(item.cost_5pct,2)}</td><td>${formatNumber(item.cost_15pct,2)}</td><td><strong>${formatNumber(item.cost_50pct,2)}</strong></td>
             <td>${formatNumber(item.cost_85pct,2)}</td><td>${formatNumber(item.cost_95pct,2)}</td><td class="text-primary"><strong>${formatNumber(item.weight_avg,2)}</strong></td>
@@ -1124,7 +1215,7 @@ function renderCyqBandChart(perfData, currentPrice) {
             }
         },
         legend: { data: ['95%-5%区间', '85%-15%区间', '50%中位', '加权平均', '当前价'], top: 30 },
-        grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
+        grid: { left: '5%', right: '4%', bottom: '15%', containLabel: true },
         xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45 } },
         yAxis: { type: 'value', axisLabel: { formatter: v => formatNumber(v, 2) }, scale: true },
         series: [
@@ -1176,10 +1267,10 @@ function renderCyqIndicators(perfData, currentPrice) {
     const concentration = midCost > 0 ? (costRange / midCost * 100) : 0;
 
     container.innerHTML = `
-    <div class="col-12 mb-2"><div class="text-center p-2 bg-light rounded"><h5 class="text-primary">${formatNumber(latest.weight_avg,2)}</h5><small class="text-muted">加权平均成本</small></div></div>
-    <div class="col-12 mb-2"><div class="text-center p-2 bg-light rounded"><h5 class="${winnerRate>=50?'text-success':'text-danger'}">${formatPercent(winnerRate)}</h5><small class="text-muted">胜率</small></div></div>
-    <div class="col-12 mb-2"><div class="text-center p-2 bg-light rounded"><h5 class="text-warning">${formatNumber(concentration,1)}%</h5><small class="text-muted">筹码集中度（15%-85%）</small></div></div>
-    <div class="col-12"><div class="text-center p-2 bg-light rounded"><h5 class="text-info">${formatNumber(latest.cost_15pct,2)} ~ ${formatNumber(latest.cost_85pct,2)}</h5><small class="text-muted">15%-85%成本区间</small></div></div>`;
+    <div class="col-12 mb-1"><div class="text-center p-1 bg-light rounded"><h6 class="text-primary mb-0">${formatNumber(latest.weight_avg,2)}</h6><small class="text-muted">加权平均成本</small></div></div>
+    <div class="col-12 mb-1"><div class="text-center p-1 bg-light rounded"><h6 class="${winnerRate>=50?'text-success':'text-danger'} mb-0">${formatPercent(winnerRate)}</h6><small class="text-muted">胜率</small></div></div>
+    <div class="col-12 mb-1"><div class="text-center p-1 bg-light rounded"><h6 class="text-warning mb-0">${formatNumber(concentration,1)}%</h6><small class="text-muted">筹码集中度（15%-85%）</small></div></div>
+    <div class="col-12"><div class="text-center p-1 bg-light rounded"><h6 class="text-info mb-0">${formatNumber(latest.cost_15pct,2)} ~ ${formatNumber(latest.cost_85pct,2)}</h6><small class="text-muted">15%-85%成本区间</small></div></div>`;
 }
 
 function renderCyqPerfCharts(perfData) {
@@ -1190,7 +1281,7 @@ function renderCyqPerfCharts(perfData) {
             title: { text: '成本分位曲线', left: 'center', textStyle: { fontSize: 14 } },
             tooltip: { trigger: 'axis', formatter: p => { let r = p[0].name + '<br/>'; p.forEach(i => r += i.marker + i.seriesName + ': ' + formatNumber(i.value,2) + '<br/>'); return r; } },
             legend: { data: ['5%成本','15%成本','50%成本','85%成本','95%成本','加权平均'], top: 30 },
-            grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
+            grid: { left: '5%', right: '4%', bottom: '15%', containLabel: true },
             xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45 } },
             yAxis: { type: 'value', axisLabel: { formatter: v => formatNumber(v,2) } },
             series: [
@@ -1210,7 +1301,7 @@ function renderCyqPerfCharts(perfData) {
         winnerChart.setOption({
             title: { text: '胜率变化', left: 'center', textStyle: { fontSize: 14 } },
             tooltip: { trigger: 'axis', formatter: p => `${p[0].name}<br/>胜率: ${formatPercent(p[0].value)}` },
-            grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
+            grid: { left: '5%', right: '4%', bottom: '15%', containLabel: true },
             xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45 } },
             yAxis: { type: 'value', min: 0, max: 100, axisLabel: { formatter: v => v + '%' } },
             series: [{ name: '胜率', type: 'line', data: perfData.map(i=>i.winner_rate||0).reverse(), itemStyle:{color:'#52c41a'}, areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(82,196,26,0.3)'},{offset:1,color:'rgba(82,196,26,0.1)'}]}}, markLine:{data:[{yAxis:50}],lineStyle:{color:'#ff4d4f',type:'dashed'}} }],

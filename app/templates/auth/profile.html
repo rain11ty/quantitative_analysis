@@ -4,10 +4,123 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/account-admin.css') }}?v={{ v }}">
+<style>
+.profile-page .workspace-panel {
+    padding: 0.5rem 0.75rem !important;
+    margin-bottom: 0.5rem !important;
+}
+.profile-page .workspace-panel-header {
+    padding: 0 !important;
+    margin-bottom: 0.4rem !important;
+}
+.profile-page .workspace-panel-title {
+    font-size: 0.95rem !important;
+}
+.profile-page .workspace-panel-desc {
+    font-size: 0.78rem !important;
+    margin: 0.15rem 0 0 !important;
+}
+.profile-page .table {
+    font-size: 0.8rem !important;
+}
+.profile-page .table th, .profile-page .table td {
+    padding: 0.3rem 0.5rem !important;
+}
+.profile-page .btn {
+    min-height: 30px !important;
+    padding: 0.2rem 0.5rem !important;
+    font-size: 0.8rem !important;
+}
+.profile-page .workspace-hero {
+    padding: 1.2rem 1.5rem !important;
+}
+.profile-page .workspace-summary-grid {
+    margin-top: 0.8rem !important;
+    gap: 0.6rem !important;
+}
+.profile-page .workspace-stat-card {
+    padding: 0.6rem 0.8rem !important;
+}
+.profile-page .workspace-stat-label {
+    font-size: 0.7rem !important;
+    margin-bottom: 0.2rem !important;
+}
+.profile-page .workspace-stat-value {
+    font-size: 1.2rem !important;
+}
+.profile-page .workspace-stat-help {
+    font-size: 0.68rem !important;
+    margin-top: 0.2rem !important;
+}
+.profile-page .workspace-avatar {
+    width: 56px; height: 56px; min-width: 56px;
+    font-size: 1.2rem;
+}
+.profile-page .workspace-meta-grid {
+    gap: 0.5rem !important;
+}
+.profile-page .workspace-meta-item {
+    padding: 0.5rem 0.6rem !important;
+}
+.profile-page .workspace-meta-label {
+    font-size: 0.65rem !important;
+    margin-bottom: 0.15rem !important;
+}
+.profile-page .workspace-meta-value {
+    font-size: 0.82rem !important;
+}
+.profile-page .workspace-list-item {
+    padding: 0.5rem 0 !important;
+}
+.profile-page .workspace-actions {
+    margin-top: 0.8rem !important;
+    gap: 0.3rem !important;
+}
+.profile-page .workspace-actions .btn {
+    padding: 0.25rem 0.6rem !important;
+    font-size: 0.78rem !important;
+}
+.profile-page .workspace-kicker {
+    font-size: 0.7rem !important;
+    padding: 0.2rem 0.6rem !important;
+}
+.profile-page .workspace-title {
+    font-size: 1.3rem !important;
+    margin: 0.4rem 0 0.3rem !important;
+}
+.profile-page .workspace-subtitle {
+    font-size: 0.82rem !important;
+}
+.profile-page .workspace-empty {
+    padding: 1rem !important;
+    font-size: 0.82rem !important;
+}
+.profile-page .form-control {
+    min-height: 36px !important;
+    padding: 0.35rem 0.6rem !important;
+    font-size: 0.82rem !important;
+}
+.profile-page .form-label {
+    font-size: 0.78rem !important;
+    margin-bottom: 0.2rem !important;
+}
+.profile-page .accordion-button {
+    padding: 0.6rem 0.8rem !important;
+    font-size: 0.82rem !important;
+}
+.profile-page .accordion-body {
+    padding: 0.6rem !important;
+    font-size: 0.82rem !important;
+}
+.profile-page .workspace-shell {
+    padding: 0.8rem !important;
+    gap: 0.8rem !important;
+}
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container-fluid py-2 px-3 profile-page">
     <div class="workspace-shell">
         <section class="workspace-hero">
             <span class="workspace-kicker">账户总览</span>

@@ -5,6 +5,113 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/account-admin.css') }}?v={{ v }}">
 <style>
+.admin-page .workspace-panel {
+    padding: 0.5rem 0.75rem !important;
+}
+.admin-page .workspace-panel-header {
+    margin-bottom: 0.4rem !important;
+}
+.admin-page .workspace-panel-title {
+    font-size: 0.95rem !important;
+}
+.admin-page .workspace-panel-desc {
+    font-size: 0.78rem !important;
+    margin: 0.15rem 0 0 !important;
+}
+.admin-page .workspace-table {
+    font-size: 0.8rem !important;
+}
+.admin-page .table th, .admin-page .table td {
+    padding: 0.3rem 0.5rem !important;
+}
+.admin-page .btn {
+    min-height: 30px !important;
+    padding: 0.2rem 0.5rem !important;
+    font-size: 0.8rem !important;
+}
+.admin-page .workspace-hero {
+    padding: 1.2rem 1.5rem !important;
+}
+.admin-page .workspace-kicker {
+    font-size: 0.7rem !important;
+    padding: 0.2rem 0.6rem !important;
+}
+.admin-page .workspace-title {
+    font-size: 1.3rem !important;
+    margin: 0.4rem 0 0.3rem !important;
+}
+.admin-page .workspace-subtitle {
+    font-size: 0.82rem !important;
+}
+.admin-page .workspace-actions {
+    margin-top: 0.8rem !important;
+    gap: 0.3rem !important;
+}
+.admin-page .workspace-actions .btn {
+    padding: 0.25rem 0.6rem !important;
+    font-size: 0.78rem !important;
+}
+.admin-page .workspace-empty {
+    padding: 1rem !important;
+    font-size: 0.82rem !important;
+}
+.admin-page .form-control {
+    min-height: 36px !important;
+    padding: 0.35rem 0.6rem !important;
+    font-size: 0.82rem !important;
+}
+.admin-page .form-select {
+    min-height: 32px !important;
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.82rem !important;
+}
+.admin-page .form-label {
+    font-size: 0.78rem !important;
+    margin-bottom: 0.2rem !important;
+}
+.admin-page .data-card {
+    padding: 0.6rem 0.8rem !important;
+}
+.admin-page .data-card-label {
+    font-size: 0.7rem !important;
+    margin-bottom: 0.3rem !important;
+}
+.admin-page .data-card-value {
+    font-size: 1.2rem !important;
+}
+.admin-page .data-card-meta {
+    font-size: 0.72rem !important;
+    margin-top: 0.3rem !important;
+}
+.admin-page .sync-status-item {
+    padding: 0.5rem 0.7rem !important;
+    gap: 0.5rem !important;
+}
+.admin-page .sync-status-icon {
+    width: 32px; height: 32px;
+    font-size: 0.85rem !important;
+}
+.admin-page .sync-status-title {
+    font-size: 0.82rem !important;
+}
+.admin-page .sync-status-time {
+    font-size: 0.72rem !important;
+}
+.admin-page .action-btn {
+    padding: 0.35rem 0.7rem !important;
+    font-size: 0.78rem !important;
+}
+.admin-page .action-btn-group {
+    gap: 0.4rem !important;
+}
+.admin-page h3.h6 {
+    font-size: 0.85rem !important;
+    margin-bottom: 0.4rem !important;
+}
+.admin-page .workspace-shell {
+    padding: 0.8rem !important;
+    gap: 0.8rem !important;
+}
 /* ===== 数据中心专属样式 ===== */
 .data-center-grid {
     display: grid;
@@ -227,7 +334,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container-fluid py-2 px-3 admin-page">
     <div class="workspace-shell">
         {# ── Hero 区域 ── #}
         <section class="workspace-hero">

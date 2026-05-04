@@ -473,6 +473,15 @@
 .pct-down { color: #166534; font-weight: 700; }
 .pct-flat { color: var(--text-muted); }
 .rank-top3 { color: #dc2626; font-weight: 800; }
+.ranking-table th.col-hl {
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--brand-blue);
+  font-weight: 700;
+}
+.ranking-table td.col-hl {
+  font-weight: 700;
+  color: var(--brand-blue);
+}
 
 /* ===== 6. 北向资金条 ===== */
 .northbound-bar {
@@ -741,7 +750,7 @@
           <option value="amount">成交额</option>
         </select>
         <span class="text-muted" style="font-size:0.72rem;" id="rankingUpdateTime"></span>
-        <a href="/realtime_monitor#ranking" style="font-size:0.72rem;font-weight:600;color:var(--brand-blue);text-decoration:none;">查看更多</a>
+        <a href="{{ url_for('main.monitor') }}" style="font-size:0.72rem;font-weight:600;color:var(--brand-blue);text-decoration:none;">查看更多</a>
       </div>
     </div>
     <div class="ranking-container" id="rankingContainer">
@@ -765,7 +774,7 @@
     <div class="bf-panel-body" id="boardContainer">
       <div style="text-align:center;color:var(--text-muted);padding:1rem;font-size:0.78rem;">加载中...</div>
     </div>
-    <a class="bf-view-more" href="/realtime_monitor#sector-fund-flow">查看更多</a>
+    <a class="bf-view-more" href="{{ url_for('main.monitor') }}">查看更多</a>
   </div>
   <!-- 右：板块资金流向 -->
   <div class="bf-panel">
@@ -776,7 +785,7 @@
     <div class="bf-panel-body" id="sectorFundFlowContainer">
       <div style="text-align:center;color:var(--text-muted);padding:1rem;font-size:0.78rem;">加载中...</div>
     </div>
-    <a class="bf-view-more" href="/realtime_monitor#sector-fund-flow">查看更多</a>
+    <a class="bf-view-more" href="{{ url_for('main.monitor') }}">查看更多</a>
   </div>
 </div>
 
@@ -815,12 +824,14 @@ function getChangeClass(value) {
 }
 
 function formatNum(v, d = 2) {
+  if (v === null || v === undefined) return '--';
   const n = Number(v);
   if (!Number.isFinite(n)) return '--';
   return n.toFixed(d);
 }
 
 function formatCompactValue(value) {
+  if (value === null || value === undefined) return '--';
   const number = Number(value);
   if (!Number.isFinite(number)) return '--';
   if (Math.abs(number) >= 100000000) return `${(number / 100000000).toFixed(2)}亿`;
@@ -858,7 +869,7 @@ function renderTickerBar(items) {
     const sign = Number(item.pct_chg) >= 0 ? '+' : '';
     const isActive = item.ts_code === selectedIndex ? 'active' : '';
     return `
-      <div class="ticker-item ${isActive}" data-code="${item.ts_code}" onclick="selectIndex('${item.ts_code}')">
+      <div class="ticker-item ${isActive}" data-code="${item.ts_code}" onclick="selectIndex('${escapeHtmlText(item.ts_code)}')">
         <div class="ti-name">${INDEX_NAMES[item.ts_code] || item.name || ''}</div>
         <div class="ti-price">${formatNum(item.close)}</div>
         <div class="ti-pct ${cls}">${sign}${formatNum(item.pct_chg)}%</div>
@@ -963,19 +974,22 @@ async function loadNews() {
 }
 
 // ===== 排名渲染 =====
-function renderRankingRow(item, idx) {
+function renderRankingRow(item, idx, sortBy) {
   const pct = Number(item.pct_change);
   const pctClass = !Number.isFinite(pct) || pct === 0 ? 'pct-flat' : pct > 0 ? 'pct-up' : 'pct-down';
   const sign = pct > 0 ? '+' : '';
   const rankClass = idx < 3 ? 'rank-top3' : '';
+  const hlPct = sortBy === 'pct_change' ? ' col-hl' : '';
+  const hlTr = sortBy === 'turnover_rate' ? ' col-hl' : '';
+  const hlAmt = sortBy === 'amount' ? ' col-hl' : '';
   return `
     <tr onclick="rankingGoToStock('${escapeHtmlText(item.ts_code)}')">
       <td class="${rankClass}">${idx + 1}</td>
       <td title="${escapeHtmlText(item.ts_code)}">${escapeHtmlText(item.name || item.ts_code)}</td>
       <td>${formatNum(item.price)}</td>
-      <td class="${pctClass}">${sign}${formatNum(pct)}%</td>
-      <td>${formatNum(item.turnover_rate)}%</td>
-      <td>${formatCompactValue(item.amount)}</td>
+      <td class="${pctClass}${hlPct}">${sign}${formatNum(pct)}%</td>
+      <td class="${hlTr}">${formatNum(item.turnover_rate)}%</td>
+      <td class="${hlAmt}">${formatCompactValue(item.amount)}</td>
     </tr>`;
 }
 
@@ -997,17 +1011,22 @@ async function loadRanking() {
     timeEl.textContent = data.updated_at ? `更新于 ${data.updated_at}` : '';
     const gainers = data.top_gainers || [];
     const losers = data.top_losers || [];
-    const sortByLabel = {'pct_change':'涨跌幅','turnover_rate':'换手率','amount':'成交额','vol_ratio':'量比'}[data.sort_by] || data.sort_by;
+    const actualSortBy = data.sort_by || sortBy;
+    const sortByLabel = {'pct_change':'涨跌幅','turnover_rate':'换手率','amount':'成交额','vol_ratio':'量比'}[actualSortBy] || actualSortBy;
+    const hlPct = actualSortBy === 'pct_change' ? ' class="col-hl"' : '';
+    const hlTr = actualSortBy === 'turnover_rate' ? ' class="col-hl"' : '';
+    const hlAmt = actualSortBy === 'amount' ? ' class="col-hl"' : '';
+    const tableHeadHtml = `<thead><tr><th>#</th><th>名称</th><th>现价</th><th${hlPct}>涨跌幅</th><th${hlTr}>换手率</th><th${hlAmt}>成交额(亿)</th></tr></thead>`;
     container.innerHTML = `
       <div class="ranking-panel">
         <div class="rp-title gainers">涨幅榜（按${escapeHtmlText(sortByLabel)}）</div>
-        <table class="ranking-table"><thead><tr><th>#</th><th>名称</th><th>现价</th><th>涨跌幅</th><th>换手率</th><th>成交额(亿)</th></tr></thead>
-        <tbody>${gainers.map((item, i) => renderRankingRow(item, i)).join('')}</tbody></table>
+        <table class="ranking-table">${tableHeadHtml}
+        <tbody>${gainers.map((item, i) => renderRankingRow(item, i, actualSortBy)).join('')}</tbody></table>
       </div>
       <div class="ranking-panel">
         <div class="rp-title losers">跌幅榜（按${escapeHtmlText(sortByLabel)}）</div>
-        <table class="ranking-table"><thead><tr><th>#</th><th>名称</th><th>现价</th><th>涨跌幅</th><th>换手率</th><th>成交额(亿)</th></tr></thead>
-        <tbody>${losers.map((item, i) => renderRankingRow(item, i)).join('')}</tbody></table>
+        <table class="ranking-table">${tableHeadHtml}
+        <tbody>${losers.map((item, i) => renderRankingRow(item, i, actualSortBy)).join('')}</tbody></table>
       </div>`;
   } catch (error) {
     container.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:1rem;font-size:0.82rem;">排名加载失败</div>`;
@@ -1361,12 +1380,14 @@ async function loadSectorFundFlow() {
 }
 
 // ===== DOM Ready =====
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
   initChart();
 
-  // 所有请求并行发起，不互相等待
-  loadMarketOverview();
-  loadIndexKline('000001.SH', '1Y');  // 直接用默认指数并行加载
+  // await market overview first so overviewData is populated before kline fallback
+  await loadMarketOverview();
+  // now load kline with overviewData available as fallback
+  loadIndexKline(selectedIndex, currentPeriod);
+  // remaining requests can run in parallel
   loadRanking();
   loadNews();
   loadNorthboundFund();

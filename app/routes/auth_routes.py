@@ -81,7 +81,8 @@ def login():
             try:
                 SystemLogService.write('login_failed', f'Login failed: {account}', user=None, status='failed')
             except Exception:
-                db.session.rollback()
+                import logging
+                logging.getLogger(__name__).exception("Failed to write system log")
             return render_template('auth/login.html', next_page=_get_safe_redirect())
 
         if user.status in (User.STATUS_DISABLED, User.STATUS_BANNED):
@@ -90,7 +91,8 @@ def login():
             try:
                 SystemLogService.write('login_blocked', f'Blocked account tried login: {user.username}, status={user.status}', user=user, status='failed')
             except Exception:
-                db.session.rollback()
+                import logging
+                logging.getLogger(__name__).exception("Failed to write system log")
             return render_template('auth/login.html', next_page=_get_safe_redirect())
 
 
@@ -105,7 +107,8 @@ def login():
         try:
             SystemLogService.write('login_success', f'User login: {user.username}', user=user, status='success')
         except Exception:
-            db.session.rollback()
+            import logging
+            logging.getLogger(__name__).exception("Failed to write system log")
 
         flash(MSG_LOGIN_SUCCESS.format(username=user.username), 'success')
         return redirect(_get_safe_redirect())
@@ -178,7 +181,8 @@ def register():
         try:
             SystemLogService.write('register', f'Register: {user.username}, email_verified=True', user=user, status='success')
         except Exception:
-            db.session.rollback()
+            import logging
+            logging.getLogger(__name__).exception("Failed to write system log")
 
         flash(MSG_REGISTER_SUCCESS, 'success')
         return redirect(url_for('auth.login'))
@@ -334,7 +338,8 @@ def forgot_password_reset():
     try:
         SystemLogService.write('password_reset', f'Password reset via email: {user.username}', user=user, status='success')
     except Exception:
-        db.session.rollback()
+        import logging
+        logging.getLogger(__name__).exception("Failed to write system log")
 
     flash('密码已成功重置，请使用新密码登录。', 'success')
     return redirect(url_for('auth.login'))
@@ -342,14 +347,15 @@ def forgot_password_reset():
 
 # ---- 退出登录 ----
 
-@auth_routes.route('/logout')
+@auth_routes.route('/logout', methods=['POST'])
 def logout():
     current_user = getattr(g, 'current_user', None)
     if current_user:
         try:
             SystemLogService.write('logout', f'User logout: {current_user.username}', user=current_user, status='success')
         except Exception:
-            db.session.rollback()
+            import logging
+            logging.getLogger(__name__).exception("Failed to write system log")
 
     session.clear()
     flash(MSG_LOGOUT_SUCCESS, 'info')
@@ -469,7 +475,8 @@ def change_email():
                                f'Email changed: {old_email} -> {new_email}',
                                user=g.current_user, status='success')
     except Exception:
-        db.session.rollback()
+        import logging
+        logging.getLogger(__name__).exception("Failed to write system log")
 
     flash(f'邮箱已成功更改为 {new_email}。', 'success')
     return redirect(url_for('auth.profile'))

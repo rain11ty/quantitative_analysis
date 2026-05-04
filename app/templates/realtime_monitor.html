@@ -491,6 +491,40 @@
 .scrollable-table-wrap .ranking-table { border-collapse: collapse; }
 .scrollable-table-wrap::-webkit-scrollbar { width: 4px; }
 .scrollable-table-wrap::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+/* Pagination */
+.monitor-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.6rem;
+    border-top: 1px solid rgba(226, 232, 240, 0.6);
+    margin-top: 0.5rem;
+}
+.monitor-pagination button {
+    padding: 0.25rem 0.7rem;
+    border-radius: 8px;
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    background: #fff;
+    color: #64748b;
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.monitor-pagination button:hover:not(:disabled) {
+    border-color: rgba(59, 130, 246, 0.4);
+    color: #2563eb;
+}
+.monitor-pagination button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+.monitor-pagination .page-info {
+    font-size: 0.74rem;
+    color: #94a3b8;
+    font-weight: 600;
+}
 .ranking-panel-title {
     font-size: 0.82rem;
     font-weight: 700;
@@ -677,6 +711,11 @@
         <div class="ranking-container" id="rankingContainer">
             <div class="text-muted small">加载中...</div>
         </div>
+        <div class="monitor-pagination" id="ranking-pagination">
+            <button id="ranking-prev" onclick="rankingChangePage(-1)" disabled>上一页</button>
+            <span class="page-info" id="ranking-page-info">第 1 页</span>
+            <button id="ranking-next" onclick="rankingChangePage(1)">下一页</button>
+        </div>
     </section>
 
     <!-- 板块资金流向排名 -->
@@ -692,6 +731,11 @@
         </div>
         <div id="sectorFundFlowContainer">
             <div class="text-muted small">加载中...</div>
+        </div>
+        <div class="monitor-pagination" id="fund-flow-pagination">
+            <button id="fund-flow-prev" onclick="fundFlowChangePage(-1)" disabled>上一页</button>
+            <span class="page-info" id="fund-flow-page-info">第 1 页</span>
+            <button id="fund-flow-next" onclick="fundFlowChangePage(1)">下一页</button>
         </div>
     </section>
 
@@ -712,6 +756,11 @@
         </div>
         <div id="hotBoardsContainer">
             <div class="text-muted small">加载中...</div>
+        </div>
+        <div class="monitor-pagination" id="boards-pagination">
+            <button id="boards-prev" onclick="boardsChangePage(-1)" disabled>上一页</button>
+            <span class="page-info" id="boards-page-info">第 1 页</span>
+            <button id="boards-next" onclick="boardsChangePage(1)">下一页</button>
         </div>
     </section>
 
@@ -746,6 +795,49 @@ let autoRefreshTimer = null;
 let detailChart = null;
 let currentChartMode = 'daily'; // 'daily' | 'intraday'
 let monitoredCodes = []; // 追踪当前监控的股票代码列表
+
+// Pagination state
+const PAGE_SIZE = 20;
+let boardsPage = 1;
+let boardsTotal = 0;
+let fundFlowPage = 1;
+let fundFlowTotal = 0;
+let rankingPage = 1;
+let rankingTotal = 0;
+
+function updatePagination(prefix, page, total, pageSize) {
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const prevBtn = document.getElementById(prefix + '-prev');
+    const nextBtn = document.getElementById(prefix + '-next');
+    const pageInfo = document.getElementById(prefix + '-page-info');
+    if (prevBtn) prevBtn.disabled = page <= 1;
+    if (nextBtn) nextBtn.disabled = page >= totalPages;
+    if (pageInfo) pageInfo.textContent = `第 ${page}/${totalPages} 页`;
+}
+
+function boardsChangePage(delta) {
+    const totalPages = Math.max(1, Math.ceil(boardsTotal / PAGE_SIZE));
+    const newPage = boardsPage + delta;
+    if (newPage < 1 || newPage > totalPages) return;
+    boardsPage = newPage;
+    loadHotBoards(currentBoardType);
+}
+
+function fundFlowChangePage(delta) {
+    const totalPages = Math.max(1, Math.ceil(fundFlowTotal / PAGE_SIZE));
+    const newPage = fundFlowPage + delta;
+    if (newPage < 1 || newPage > totalPages) return;
+    fundFlowPage = newPage;
+    loadSectorFundFlow();
+}
+
+function rankingChangePage(delta) {
+    const totalPages = Math.max(1, Math.ceil(rankingTotal / PAGE_SIZE));
+    const newPage = rankingPage + delta;
+    if (newPage < 1 || newPage > totalPages) return;
+    rankingPage = newPage;
+    loadRanking();
+}
 
 function formatNumber(value, digits = 2) {
     const number = Number(value);
@@ -906,8 +998,8 @@ async function fetchStockDetail(tsCode, freq) {
     return apiRequest(`/monitor/stocks/${encodeURIComponent(tsCode)}?freq=${encodeURIComponent(freq)}`);
 }
 
-async function fetchRanking(sortBy = 'pct_change') {
-    return apiRequest(`/monitor/ranking?sort_by=${encodeURIComponent(sortBy)}&limit=20`);
+async function fetchRanking(sortBy = 'pct_change', page = 1) {
+    return apiRequest(`/monitor/ranking?sort_by=${encodeURIComponent(sortBy)}&page=${page}&page_size=${PAGE_SIZE}`);
 }
 
 function renderMarketIndexStrip(data) {
@@ -1007,6 +1099,9 @@ function renderRanking(data) {
 
     timeEl.textContent = data.updated_at ? `更新于 ${data.updated_at}` : '';
 
+    rankingTotal = data.total || 0;
+    updatePagination('ranking', rankingPage, rankingTotal, PAGE_SIZE);
+
     const gainers = data.top_gainers || [];
     const losers = data.top_losers || [];
 
@@ -1054,7 +1149,7 @@ function renderRankingRow(item, idx) {
 async function loadRanking() {
     const sortBy = document.getElementById('rankingSortBy').value;
     try {
-        const res = await fetchRanking(sortBy);
+        const res = await fetchRanking(sortBy, rankingPage);
         renderRanking(res.data || {});
     } catch (error) {
         document.getElementById('rankingContainer').innerHTML = `<div class="text-muted small">排名加载失败: ${escapeHtml(error.message)}</div>`;
@@ -1792,8 +1887,11 @@ function renderSectorFlowRow(item, idx) {
 async function loadSectorFundFlow() {
     const container = document.getElementById('sectorFundFlowContainer');
     try {
-        const res = await apiRequest('/market/sector-fund-flow?limit=20');
-        renderSectorFundFlow(res.data || {});
+        const res = await apiRequest(`/market/sector-fund-flow?page=${fundFlowPage}&page_size=${PAGE_SIZE}`);
+        const data = res.data || {};
+        fundFlowTotal = data.total || 0;
+        updatePagination('fund-flow', fundFlowPage, fundFlowTotal, PAGE_SIZE);
+        renderSectorFundFlow(data);
     } catch (error) {
         container.innerHTML = `<div class="text-muted small">板块资金流向加载失败: ${escapeHtml(error.message)}</div>`;
     }
@@ -1804,6 +1902,7 @@ let currentBoardType = 'industry';
 
 function switchBoardType(type) {
     currentBoardType = type;
+    boardsPage = 1;
     document.querySelectorAll('#boardTypeTabs .stock-tab').forEach(tab => {
         tab.classList.toggle('active', tab.dataset.boardType === type);
     });
@@ -1860,8 +1959,11 @@ async function loadHotBoards(boardType) {
     boardType = boardType || currentBoardType;
     const container = document.getElementById('hotBoardsContainer');
     try {
-        const res = await apiRequest(`/market/boards?type=${encodeURIComponent(boardType)}&limit=20`);
-        renderHotBoards(res.data || {});
+        const res = await apiRequest(`/market/boards?type=${encodeURIComponent(boardType)}&page=${boardsPage}&page_size=${PAGE_SIZE}`);
+        const data = res.data || {};
+        boardsTotal = data.total || 0;
+        updatePagination('boards', boardsPage, boardsTotal, PAGE_SIZE);
+        renderHotBoards(data);
     } catch (error) {
         container.innerHTML = `<div class="text-muted small">板块数据加载失败: ${escapeHtml(error.message)}</div>`;
     }
@@ -1903,7 +2005,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('freqSelect').addEventListener('change', loadStockDetail);
     document.getElementById('autoRefreshBtn').addEventListener('click', toggleAutoRefresh);
 
-    document.getElementById('rankingSortBy').addEventListener('change', loadRanking);
+    document.getElementById('rankingSortBy').addEventListener('change', () => { rankingPage = 1; loadRanking(); });
 
     // Keyboard navigation: left/right arrow to switch between stocks
     document.addEventListener('keydown', (e) => {

@@ -21,11 +21,16 @@ from app.celery_app import celery_app
 from loguru import logger
 
 
+_app = None
+
+
 def _get_app():
     """获取 Flask app 上下文。"""
-    from app import create_app
-
-    return create_app()
+    global _app
+    if _app is None:
+        from app import create_app
+        _app = create_app()
+    return _app
 
 
 def _get_admin_email() -> Optional[str]:
@@ -134,6 +139,8 @@ def backfill_factors_task(self, start_date=None, force=False):
                 conn.close()
     except Exception as exc:
         logger.error(f'[Celery] 技术指标补算失败: {exc}')
+        if self.request.retries >= self.max_retries:
+            _send_failure_alert('技术指标批量补算', str(exc))
         raise self.retry(exc=exc, countdown=120)
 
 
@@ -212,7 +219,7 @@ def refresh_stock_basic_weekly(self):
         raise self.retry(exc=exc, countdown=600)
 
 
-@celery_app.task(name='app.tasks.run_data_health_check', bind=True)
+@celery_app.task(name='app.tasks.run_data_health_check', bind=True, max_retries=1)
 def run_data_health_check(self):
     """每日盘前数据完整性健康检查，异常时邮件告警，结果写入 system_log。"""
     try:
@@ -294,7 +301,9 @@ def run_data_health_check(self):
 
     except Exception as exc:
         logger.error(f'[Celery] 数据健康检查执行异常: {exc}')
-        return {'status': 'error', 'message': str(exc)}
+        if self.request.retries >= self.max_retries:
+            _send_failure_alert('数据健康检查', str(exc))
+        raise self.retry(exc=exc, countdown=300)
 
 
 @celery_app.task(name='app.tasks.sync_minute_data_daily', bind=True, max_retries=1)
@@ -318,6 +327,60 @@ def sync_minute_data_daily(self):
 
     except Exception as exc:
         logger.error(f'[Celery] 分钟数据归档失败: {exc}')
+        if self.request.retries >= self.max_retries:
+            _send_failure_alert('分钟数据归档', str(exc))
+        raise self.retry(exc=exc, countdown=600)
+
+
+@celery_app.task(name='app.tasks.backfill_moneyflow_task', bind=True, max_retries=1)
+def backfill_moneyflow_task(self, start_date='20210101', end_date=None, limit=None):
+    """批量回填个股资金流向历史数据（默认从2021-01-01开始）。"""
+    try:
+        app = _get_app()
+        with app.app_context():
+            logger.info(f'[Celery] 开始回填资金流向: start={start_date}, end={end_date}, limit={limit}')
+            from scripts.backfill_moneyflow import (
+                get_db_connection, init_tushare, get_trade_dates,
+                get_existing_moneyflow_dates, fetch_moneyflow_for_date, batch_upsert,
+            )
+
+            if not end_date:
+                end_date = datetime.now().strftime('%Y%m%d')
+
+            conn = get_db_connection()
+            pro = init_tushare()
+            try:
+                trade_dates = get_trade_dates(conn, start_date, end_date)
+                existing = get_existing_moneyflow_dates(conn)
+                trade_dates = [d for d in trade_dates if d not in existing]
+
+                if limit:
+                    trade_dates = trade_dates[:limit]
+
+                logger.info(f'[Celery] 资金流向待处理: {len(trade_dates)} 个交易日')
+                total_inserted = 0
+                errors = 0
+
+                for idx, trade_date in enumerate(trade_dates, 1):
+                    try:
+                        records = fetch_moneyflow_for_date(pro, trade_date)
+                        if records:
+                            inserted = batch_upsert(conn, records, 5000)
+                            total_inserted += inserted
+                        if idx % 100 == 0:
+                            logger.info(f'[Celery] 资金流向进度: {idx}/{len(trade_dates)}, +{total_inserted}条')
+                    except Exception as e:
+                        errors += 1
+                        logger.warning(f'[Celery] 资金流向 {trade_date} 失败: {e}')
+
+                logger.info(f'[Celery] 资金流向回填完成: +{total_inserted}条, 错误{errors}')
+                return {'status': 'success', 'inserted': total_inserted, 'errors': errors}
+            finally:
+                conn.close()
+    except Exception as exc:
+        logger.error(f'[Celery] 资金流向回填失败: {exc}')
+        if self.request.retries >= self.max_retries:
+            _send_failure_alert('资金流向批量回填', str(exc))
         raise self.retry(exc=exc, countdown=600)
 
 
@@ -401,8 +464,8 @@ def sync_stock_business_wide(self, days=30, full=False):
         raise self.retry(exc=exc, countdown=600)
 
 
-@celery_app.task(name='app.tasks.refresh_news_cache')
-def refresh_news_cache():
+@celery_app.task(name='app.tasks.refresh_news_cache', bind=True, max_retries=1)
+def refresh_news_cache(self):
     """每 60 秒爬取 4 个新闻源，聚合后写入 Redis（news_aggregate:all，TTL 120s）。"""
     try:
         from app.services.news_service import NewsService
@@ -442,6 +505,9 @@ def refresh_news_cache():
         logger.info(f'[Celery] 新闻缓存已刷新: {len(all_items)} 条')
     except Exception as exc:
         logger.error(f'[Celery] 新闻缓存刷新失败: {exc}')
+        if self.request.retries >= self.max_retries:
+            _send_failure_alert('新闻缓存刷新', str(exc))
+        raise self.retry(exc=exc, countdown=60)
 
 
 @celery_app.task(name='app.tasks.refresh_ranking_cache')
@@ -459,7 +525,7 @@ def refresh_ranking_cache():
             ('amount', ['realtime_ranking_amount', 'realtime_ranking_volume']),
         ]:
             try:
-                result = RealtimeMonitorService.get_realtime_ranking(sort_by=sort_by)
+                result = RealtimeMonitorService.get_realtime_ranking(sort_by=sort_by, limit=50)
                 for key in cache_keys:
                     cache.set(key, result, ttl=90)
             except Exception as exc:
@@ -472,7 +538,7 @@ def refresh_ranking_cache():
 
 @celery_app.task(name='app.tasks.refresh_market_overview_cache')
 def refresh_market_overview_cache():
-    """每 30 秒预热市场概览和指数 K 线，写入 Redis（TTL 90s）。"""
+    """每 30 秒预热市场概览和指数 K 线，写入 Redis（TTL 120s）。"""
     try:
         from app.services.market_overview_service import MarketOverviewService
         from app.utils.cache_utils import get_cache
@@ -481,7 +547,7 @@ def refresh_market_overview_cache():
 
         try:
             overview = MarketOverviewService.get_market_overview()
-            cache.set('market_overview', overview, ttl=90)
+            cache.set('market_overview', overview, ttl=120)
         except Exception as exc:
             logger.warning(f'[Celery] 市场概览缓存刷新失败: {exc}')
 
@@ -492,7 +558,7 @@ def refresh_market_overview_cache():
             for period in all_periods:
                 try:
                     kline = MarketOverviewService.get_index_kline(idx, period)
-                    cache.set(f'index_kline_{idx}_{period}', kline, ttl=90)
+                    cache.set(f'index_kline_{idx}_{period}', kline, ttl=120)
                 except Exception as exc:
                     logger.warning(f'[Celery] K线缓存刷新失败 {idx} {period}: {exc}')
 
@@ -512,7 +578,7 @@ def refresh_board_ranking_cache():
 
         for board_type in ['industry', 'concept']:
             try:
-                result = MarketOverviewService._fetch_board_ranking(board_type=board_type, limit=20)
+                result = MarketOverviewService._fetch_board_ranking(board_type=board_type, limit=50)
                 cache.set(f'hot_boards_{board_type}', result, ttl=180)
                 logger.info(f'[Celery] {board_type}板块缓存已刷新: {len(result.get("items", []))} 条')
             except Exception as exc:
@@ -552,7 +618,7 @@ def refresh_sector_fund_flow_cache():
         cache = get_cache()
 
         try:
-            result = MarketOverviewService._fetch_sector_fund_flow_rank(limit=50)
+            result = MarketOverviewService._fetch_sector_fund_flow_rank()
             cache.set('sector_fund_flow_rank', result, ttl=300)
             logger.info(f'[Celery] 板块资金流向缓存已刷新: {len(result.get("items", []))} 条')
         except Exception as exc:

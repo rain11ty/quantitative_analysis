@@ -22,8 +22,20 @@ class MarketOverviewService:
         {'ts_code': '000688.SH', 'name': '科创50'},
     ]
 
-    CACHE_TTL_OVERVIEW = 30   # 秒
-    CACHE_TTL_KLINE = 60      # 秒
+    CACHE_TTL_OVERVIEW = 120  # 秒（必须 > 任务间隔 30s，否则缓存过期导致 API 无数据）
+    CACHE_TTL_KLINE = 120     # 秒
+    CACHE_TTL_BOARDS = 90     # 秒
+    CACHE_TTL_NORTHBOUND = 90  # 秒
+    CACHE_TTL_SECTOR_FLOW = 180  # 秒
+
+    # 排除的板块名称（AKShare概念板块中的统计类条目，非真实行业/概念板块）
+    EXCLUDE_BOARDS = {
+        '昨日首板', '昨日涨停', '昨日连板',
+        '今日首板', '今日涨停', '今日连板',
+        '首板', '连板', '涨停', '跌停',
+        '昨日跌停', '今日跌停',
+        '首板次日', '连板次日',
+    }
 
     @staticmethod
     def _to_float(value, digits=2):
@@ -112,7 +124,8 @@ class MarketOverviewService:
         logger.error('Both Akshare and Tushare failed, fallback to local database cache')
         local_result = cls._fetch_from_local_cache()
         cls._attach_market_totals(local_result)
-        _cache.set('market_overview', local_result, ttl=cls.CACHE_TTL_OVERVIEW)
+        if local_result.get('success') or local_result.get('items'):
+            _cache.set('market_overview', local_result, ttl=cls.CACHE_TTL_OVERVIEW)
         return local_result
 
     @classmethod
@@ -601,7 +614,7 @@ class MarketOverviewService:
         except Exception as exc:
             logger.error(f'Local database fallback also failed: {exc}')
             return {
-                'success': True,
+                'success': False,
                 'message': f'所有数据源均不可用(Akshare/Tushare/本地数据库)，请检查网络或联系管理员。错误: {exc}',
                 'source': 'none',
                 'trade_date': None,
@@ -644,9 +657,9 @@ class MarketOverviewService:
                 'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             }
 
-        # 缓存时取 20 条，API 层按需裁剪
-        result = cls._fetch_board_ranking(board_type=board_type, limit=20)
-        _cache.set(cache_key, result, ttl=90)
+        # 缓存时取 50 条，API 层按需裁剪（支持分页）
+        result = cls._fetch_board_ranking(board_type=board_type, limit=50)
+        _cache.set(cache_key, result, ttl=cls.CACHE_TTL_BOARDS)
         result['items'] = result.get('items', [])[:limit]
         return result
 
@@ -698,6 +711,10 @@ class MarketOverviewService:
             # 按涨跌幅降序排列
             if 'pct_change' in df.columns:
                 df = df.sort_values('pct_change', ascending=False, na_position='last')
+
+            # 过滤掉统计类条目（昨日首板、昨日涨停等），这些不是真实板块
+            if 'name' in df.columns:
+                df = df[~df['name'].isin(cls.EXCLUDE_BOARDS)]
 
             items = []
             for _, row in df.head(limit).iterrows():
@@ -767,7 +784,7 @@ class MarketOverviewService:
             }
 
         result = cls._fetch_northbound_fund_flow()
-        _cache.set(cache_key, result, ttl=90)
+        _cache.set(cache_key, result, ttl=cls.CACHE_TTL_NORTHBOUND)
         return result
 
     @classmethod
@@ -775,9 +792,10 @@ class MarketOverviewService:
         """通过 AKShare 获取北向资金流向汇总
 
         AKShare stock_hsgt_fund_flow_summary_em 返回 DataFrame:
-          列: 日期, 当日净买入, 买入成交额, 卖出成交额, 历史累计净买入, 持股市值
-          行: 沪股通 / 深股通 / 北向资金
-        数值单位已为亿元。
+          列: 交易日, 类型, 板块, 资金方向, 交易状态, 成交净买额, 资金净流入, 当日资金余额,
+              上涨数, 持平数, 下跌数, 相关指数, 指数涨跌幅
+          需要筛选 资金方向=='北向' 的行，板块列区分 沪股通/深股通。
+          数值单位已为亿元。
         """
         try:
             from app.services.akshare_service import call_with_no_proxy
@@ -800,37 +818,62 @@ class MarketOverviewService:
             sz_net = None
             total_net = None
 
-            # 遍历行，根据第一列（类别名）提取沪股通/深股通/北向资金
-            # 第二列通常是"当日净买入"（单位：亿元）
-            for _, row in df.iterrows():
-                row_name = str(row.iloc[0]) if len(columns) > 0 else ''
-                # 取第二列作为当日净买入值
-                net_val = None
-                if len(columns) > 1:
-                    raw = row.iloc[1]
-                    if raw is not None and not (isinstance(raw, float) and pd.isna(raw)):
-                        try:
-                            net_val = round(float(raw), 2)
-                        except (TypeError, ValueError):
-                            net_val = None
+            # 策略1: 新版格式 — 列含 '板块' 和 '资金方向'
+            if '板块' in columns and '资金方向' in columns:
+                # 筛选北向资金行
+                north_rows = df[df['资金方向'].astype(str).str.contains('北向')]
+                # 优先取 '成交净买额' 列，否则取 '资金净流入'
+                val_col = None
+                for candidate in ['成交净买额', '资金净流入', '当日净买入']:
+                    if candidate in columns:
+                        val_col = candidate
+                        break
 
-                if '沪股通' in row_name:
-                    sh_net = net_val
-                elif '深股通' in row_name:
-                    sz_net = net_val
-                elif '北向' in row_name or '合计' in row_name:
-                    total_net = net_val
+                for _, row in north_rows.iterrows():
+                    board = str(row.get('板块', ''))
+                    net_val = None
+                    if val_col:
+                        raw = row.get(val_col)
+                        if raw is not None and not (isinstance(raw, float) and pd.isna(raw)):
+                            try:
+                                net_val = round(float(raw), 2)
+                            except (TypeError, ValueError):
+                                net_val = None
+
+                    if '沪股通' in board:
+                        sh_net = net_val
+                    elif '深股通' in board:
+                        sz_net = net_val
+
+            # 策略2: 旧版格式 — 第一列是类别名，第二列是当日净买入
+            if sh_net is None and sz_net is None:
+                for _, row in df.iterrows():
+                    row_name = str(row.iloc[0]) if len(columns) > 0 else ''
+                    net_val = None
+                    if len(columns) > 1:
+                        raw = row.iloc[1]
+                        if raw is not None and not (isinstance(raw, float) and pd.isna(raw)):
+                            try:
+                                net_val = round(float(raw), 2)
+                            except (TypeError, ValueError):
+                                net_val = None
+
+                    if '沪股通' in row_name:
+                        sh_net = net_val
+                    elif '深股通' in row_name:
+                        sz_net = net_val
+                    elif '北向' in row_name or '合计' in row_name:
+                        total_net = net_val
 
             # 合计：如果有沪和深但没有合计，自动求和
             if sh_net is not None and sz_net is not None and total_net is None:
                 total_net = round(sh_net + sz_net, 2)
 
-            # 兜底：如果行名匹配不上，尝试从所有数值列中查找含"净"的列
+            # 兜底：如果仍然没有数据，尝试从所有数值列中查找含"净"的列
             if sh_net is None and sz_net is None and total_net is None:
                 for col in columns[1:]:
                     col_str = str(col)
                     if '净' in col_str or 'net' in col_str.lower():
-                        # 取第一行的值作为合计
                         raw = df.iloc[0][col] if len(df) > 0 else None
                         if raw is not None and not (isinstance(raw, float) and pd.isna(raw)):
                             try:
@@ -886,13 +929,13 @@ class MarketOverviewService:
                 'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             }
 
-        result = cls._fetch_sector_fund_flow_rank(limit=50)
-        _cache.set(cache_key, result, ttl=180)
+        result = cls._fetch_sector_fund_flow_rank()
+        _cache.set(cache_key, result, ttl=cls.CACHE_TTL_SECTOR_FLOW)
         result['items'] = result.get('items', [])[:limit]
         return result
 
     @classmethod
-    def _fetch_sector_fund_flow_rank(cls, limit: int = 50) -> dict:
+    def _fetch_sector_fund_flow_rank(cls, limit: int = 0) -> dict:
         """通过 AKShare 获取板块资金流向排名数据
 
         AKShare stock_sector_fund_flow_rank 返回 DataFrame:
@@ -900,6 +943,9 @@ class MarketOverviewService:
               今日超大单净流入-净额, 今日超大单净流入-净占比, 今日大单净流入-净额, 今日大单净流入-净占比,
               今日中单净流入-净额, 今日中单净流入-净占比, 今日小单净流入-净额, 今日小单净流入-净占比,
               今日主力净流入最大股
+
+        Args:
+            limit: 返回条数，0 表示返回全部（默认返回全部，由 API 层按需分页裁剪）
         """
         try:
             from app.services.akshare_service import call_with_no_proxy
@@ -919,17 +965,19 @@ class MarketOverviewService:
                     'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 }
 
-            # 按涨跌幅降序排列
-            pct_chg_col = '今日涨跌幅'
-            if pct_chg_col in df.columns:
-                df[pct_chg_col] = pd.to_numeric(df[pct_chg_col], errors='coerce')
-                df = df.sort_values(pct_chg_col, ascending=False, na_position='last')
-            elif '今日主力净流入-净额' in df.columns:
-                df['今日主力净流入-净额'] = pd.to_numeric(df['今日主力净流入-净额'], errors='coerce')
-                df = df.sort_values('今日主力净流入-净额', ascending=False, na_position='last')
+            # 按主力净流入降序排列（确保缓存数据包含全部板块，
+            # API 层可按 main_net_inflow 正确排序后分页）
+            main_inflow_col = '今日主力净流入-净额'
+            if main_inflow_col in df.columns:
+                df[main_inflow_col] = pd.to_numeric(df[main_inflow_col], errors='coerce')
+                df = df.sort_values(main_inflow_col, ascending=False, na_position='last')
+            elif '今日涨跌幅' in df.columns:
+                df['今日涨跌幅'] = pd.to_numeric(df['今日涨跌幅'], errors='coerce')
+                df = df.sort_values('今日涨跌幅', ascending=False, na_position='last')
 
+            rows_iter = df.head(limit).iterrows() if limit > 0 else df.iterrows()
             items = []
-            for _, row in df.head(limit).iterrows():
+            for _, row in rows_iter:
                 pct_chg = cls._to_float(row.get('今日涨跌幅'))
                 main_net = cls._to_float(row.get('今日主力净流入-净额'), 0)
                 main_pct = cls._to_float(row.get('今日主力净流入-净占比'))

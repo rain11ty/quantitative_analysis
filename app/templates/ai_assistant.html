@@ -12,8 +12,6 @@
 
   display: none;
 
-}
-
   justify-content: flex-end;
 
 }
@@ -1703,6 +1701,7 @@ overscroll-behavior: contain;
               <button id="reset-draft-btn" class="btn-soft" type="button">清空输入</button>
 
               <button id="send-btn" class="btn btn-modern btn-modern-primary btn-send" type="submit">发送</button>
+              <button id="stop-btn" class="btn btn-danger btn-send" type="button" style="display:none;">停止</button>
 
             </div>
 
@@ -1813,9 +1812,20 @@ overscroll-behavior: contain;
 {% block extra_js %}
 
 {% if current_user %}
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js" crossorigin="anonymous"></script>
 
 <script>
+
+/* Fallback helpers when CDN libraries fail to load */
+if (typeof marked === 'undefined' || !marked.parse) {
+  console.warn('marked library not loaded; using plain-text fallback');
+  window.marked = { parse: function(text) { return (text || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }, setOptions: function(){} };
+}
+if (typeof DOMPurify === 'undefined' || !DOMPurify.sanitize) {
+  console.warn('DOMPurify library not loaded; using identity fallback');
+  window.DOMPurify = { sanitize: function(html) { return html; } };
+}
 
 const llmOptions = {{ (llm_options or {}) | tojson }};
 
@@ -1841,6 +1851,8 @@ const state = {
   llmStatusRequestId: 0,
 
   pendingImages: [],
+
+  abortController: null,
 
 };
 
@@ -1881,6 +1893,8 @@ const providerSelect = document.getElementById('provider-select');
 const modelSelect = document.getElementById('model-select');
 
 const pendingImagesBar = document.getElementById('pending-images-bar');
+
+const stopBtn = document.getElementById('stop-btn');
 
 const imageFileInput = document.getElementById('image-file-input');
 
@@ -2384,6 +2398,10 @@ function setComposerDisabled(disabled) {
 
   sendBtn.disabled = disabled;
 
+  sendBtn.style.display = disabled ? 'none' : '';
+
+  stopBtn.style.display = disabled ? '' : 'none';
+
   newConversationBtn.disabled = disabled;
 
   providerSelect.disabled = disabled || getProviderOptions().length <= 1;
@@ -2634,7 +2652,7 @@ function renderMessages() {
 
     const content = isAssistant
 
-      ? (message.status === 'streaming' && !message.content ? createTypingContent() : marked.parse(message.content || ''))
+      ? (message.status === 'streaming' && !message.content ? createTypingContent() : DOMPurify.sanitize(marked.parse(message.content || '')))
 
       : escapeHtml(message.content || '').replace(/\n/g, '<br>');
 
@@ -3114,13 +3132,21 @@ async function sendMessage(event) {
 
 
 
+    const abortController = new AbortController();
+
+    state.abortController = abortController;
+
+
+
     const response = await fetch('/api/ai/chat', {
 
       method: 'POST',
 
       headers: { 'Content-Type': 'application/json' },
 
-      body: JSON.stringify(requestPayload)
+      body: JSON.stringify(requestPayload),
+
+      signal: abortController.signal,
 
     });
 
@@ -3174,7 +3200,19 @@ async function sendMessage(event) {
 
         if (!trimmed || trimmed.startsWith(':') || !trimmed.startsWith('data: ')) continue;
 
-        const payload = JSON.parse(trimmed.slice(6));
+        let payload;
+
+        try {
+
+          payload = JSON.parse(trimmed.slice(6));
+
+        } catch (parseErr) {
+
+          console.warn('Malformed SSE line:', trimmed);
+
+          continue;
+
+        }
 
 
 
@@ -3250,6 +3288,10 @@ async function sendMessage(event) {
 
 
 
+    state.abortController = null;
+
+
+
     if (!fullContent.trim() && !streamInitialized) {
 
       const fallback = await requestNormalAnswer(question, conversationId);
@@ -3294,15 +3336,31 @@ async function sendMessage(event) {
 
     if (lastAssistant) {
 
-      lastAssistant.status = 'failed';
+      if (error.name === 'AbortError') {
 
-      lastAssistant.content = lastAssistant.content || `抱歉，这次回复中断了：${error.message || '未知错误'}`;
+        lastAssistant.status = 'completed';
+
+        if (!lastAssistant.content) {
+
+          lastAssistant.content = '（已停止生成）';
+
+        }
+
+      } else {
+
+        lastAssistant.status = 'failed';
+
+        lastAssistant.content = lastAssistant.content || `抱歉，这次回复中断了：${error.message || '未知错误'}`;
+
+      }
 
     }
 
     renderMessages();
 
   } finally {
+
+    state.abortController = null;
 
     setComposerDisabled(false);
 
@@ -3428,6 +3486,20 @@ resetDraftBtn.addEventListener('click', () => {
 
 
 
+stopBtn.addEventListener('click', () => {
+
+  if (state.abortController) {
+
+    state.abortController.abort();
+
+    state.abortController = null;
+
+  }
+
+});
+
+
+
 providerSelect.addEventListener('change', event => {
 
   syncLlmSelection({
@@ -3487,21 +3559,84 @@ chatForm.addEventListener('submit', sendMessage);
 
 document.addEventListener('DOMContentLoaded', async () => {
 
-  restoreLlmSelection();
+  try {
 
-  autosizeTextarea();
+    restoreLlmSelection();
 
-  renderConversationHeader();
+    autosizeTextarea();
 
-  setComposerDisabled(false);
+    renderConversationHeader();
 
-  refreshLlmStatus();
+    setComposerDisabled(false);
 
-  await loadConversations();
+    refreshLlmStatus();
 
-  userInput.focus();
+    await loadConversations();
+
+    userInput.focus();
+
+  } catch (initError) {
+
+    console.error('AI assistant initialization failed:', initError);
+
+    /* Ensure loading spinners are replaced with an error message */
+
+    try {
+
+      conversationListEl.innerHTML = '<div class="error-inline">页面初始化失败，请刷新页面重试。</div>';
+
+    } catch (_) { /* conversationListEl might not be available */ }
+
+    try {
+
+      renderLlmStatus({ status: 'error', message: '页面初始化失败' });
+
+    } catch (_) { /* renderLlmStatus might not be available */ }
+
+  }
 
 });
+
+/* Safety net: if the page is still stuck in a loading state after 15 seconds,
+   replace the spinners with an error message so the user is not left staring
+   at a perpetual "加载中" screen. */
+setTimeout(function() {
+
+  try {
+
+    var loadingEls = document.querySelectorAll('.loading-inline');
+
+    if (loadingEls.length) {
+
+      loadingEls.forEach(function(el) {
+
+        el.innerHTML = '<div class="error-inline">加载超时，请检查网络后刷新页面。</div>';
+
+      });
+
+    }
+
+    var statusEl = document.getElementById('llm-service-status');
+
+    if (statusEl && statusEl.classList.contains('is-loading')) {
+
+      statusEl.className = 'status-badge is-error';
+
+      statusEl.innerHTML = '<span class="status-dot"></span>状态检测超时，请刷新页面重试';
+
+    }
+
+    var summaryEl = document.getElementById('selected-llm-summary');
+
+    if (summaryEl && summaryEl.textContent.indexOf('加载中') !== -1) {
+
+      summaryEl.textContent = '加载超时，请刷新页面';
+
+    }
+
+  } catch (_) { /* safety net – silently ignore */ }
+
+}, 15000);
 
 </script>
 {% endif %}
