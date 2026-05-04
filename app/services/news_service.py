@@ -24,6 +24,18 @@ class NewsService:
         return str(value).strip()
 
     @staticmethod
+    def _make_title(title, *fallbacks, max_len=60):
+        """生成标题：如果 title 为空则从 fallback 字段截取"""
+        title = NewsService._safe_str(title)
+        if title:
+            return title
+        for fb in fallbacks:
+            text = NewsService._safe_str(fb)
+            if text:
+                return text[:max_len] + ('...' if len(text) > max_len else '')
+        return ''
+
+    @staticmethod
     def get_cjzc(cache_only=False):
         """获取东方财富-财经早餐"""
         cache_key = 'news_cjzc'
@@ -107,9 +119,10 @@ class NewsService:
                 pub_date = NewsService._safe_str(row.get('发布日期'))
                 pub_time = NewsService._safe_str(row.get('发布时间'))
                 time_str = f'{pub_date} {pub_time}'.strip() if pub_date else pub_time
+                content = NewsService._safe_str(row.get('内容'))
                 items.append({
-                    'title': NewsService._safe_str(row.get('标题')),
-                    'summary': NewsService._safe_str(row.get('内容')),
+                    'title': NewsService._make_title(row.get('标题'), content),
+                    'summary': content,
                     'time': time_str,
                     'link': 'https://www.cls.cn/telegraph',
                     'source': '财联社',

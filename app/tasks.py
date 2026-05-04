@@ -446,7 +446,7 @@ def refresh_news_cache():
 
 @celery_app.task(name='app.tasks.refresh_ranking_cache')
 def refresh_ranking_cache():
-    """每 30 秒爬取涨跌排行，写入 Redis（realtime_ranking_pct_change / realtime_ranking_amount，TTL 90s）。"""
+    """每 30 秒爬取涨跌排行，写入 Redis（realtime_ranking_pct_change / realtime_ranking_turnover_rate / realtime_ranking_amount，TTL 90s）。"""
     try:
         from app.services.realtime_monitor_service import RealtimeMonitorService
         from app.utils.cache_utils import get_cache
@@ -455,6 +455,7 @@ def refresh_ranking_cache():
 
         for sort_by, cache_keys in [
             ('pct_change', ['realtime_ranking_pct_change']),
+            ('turnover_rate', ['realtime_ranking_turnover_rate']),
             ('amount', ['realtime_ranking_amount', 'realtime_ranking_volume']),
         ]:
             try:

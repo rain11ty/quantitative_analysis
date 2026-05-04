@@ -142,6 +142,8 @@ services:
     volumes:
       - ./logs:/app/logs
       - ./data:/app/data
+      - ./app/services:/app/app/services:ro    # 服务层热更新
+      - ./app/api:/app/app/api:ro              # API 层热更新
       - ./scripts:/app/scripts:ro              # 脚本热更新
     depends_on:
       mysql:

@@ -71,6 +71,8 @@ class MarketOverviewService:
         """获取市场概览数据（指数行情 + 涨跌家数），带30秒缓存"""
         cached = _cache.get('market_overview')
         if cached is not None:
+            if 'total_amount' not in cached:
+                cls._attach_market_totals(cached)
             return cached
 
         # 纯读缓存模式：缓存未命中时直接返回空数据，不触发外部爬取
@@ -90,6 +92,7 @@ class MarketOverviewService:
         # ① 优先尝试 Akshare
         ak_result = cls._fetch_from_akshare()
         if ak_result.get('success'):
+            cls._attach_market_totals(ak_result)
             _cache.set('market_overview', ak_result, ttl=cls.CACHE_TTL_OVERVIEW)
             return ak_result
 
@@ -97,14 +100,38 @@ class MarketOverviewService:
         logger.warning('Akshare market overview failed, fallback to Tushare')
         ts_result = cls._fetch_from_tushare()
         if ts_result.get('success'):
+            cls._attach_market_totals(ts_result)
             _cache.set('market_overview', ts_result, ttl=cls.CACHE_TTL_OVERVIEW)
             return ts_result
 
         # ③ 最终降级：从本地数据库读取最近缓存数据
         logger.error('Both Akshare and Tushare failed, fallback to local database cache')
         local_result = cls._fetch_from_local_cache()
+        cls._attach_market_totals(local_result)
         _cache.set('market_overview', local_result, ttl=cls.CACHE_TTL_OVERVIEW)
         return local_result
+
+    @classmethod
+    def _attach_market_totals(cls, result: dict):
+        """从数据库查询全市场总成交额(千元)和总成交量(手)，附加到 result 中"""
+        try:
+            conn, cursor = DatabaseUtils.connect_to_mysql()
+            cursor.execute(
+                "SELECT SUM(amount), SUM(vol) FROM stock_daily_history "
+                "WHERE trade_date = (SELECT MAX(trade_date) FROM stock_daily_history)"
+            )
+            row = cursor.fetchone()
+            conn.close()
+            if row and row[0] is not None:
+                result['total_amount'] = cls._to_float(row[0], 0)  # 千元
+                result['total_vol'] = cls._to_float(row[1], 0)     # 手
+            else:
+                result['total_amount'] = 0
+                result['total_vol'] = 0
+        except Exception as exc:
+            logger.warning(f'Failed to query market totals: {exc}')
+            result['total_amount'] = 0
+            result['total_vol'] = 0
 
     # ======================== 指数历史K线 ========================
 

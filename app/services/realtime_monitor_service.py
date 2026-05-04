@@ -816,7 +816,7 @@ class RealtimeMonitorService:
 
             if f in higher_freqs:
                 if f == 'daily':
-                    ddf = pro.daily(ts_code=ts_code)
+                    ddf = pro.daily(ts_code=ts_code, start_date='20210104')
                 elif f == 'weekly':
                     ddf = pro.weekly(ts_code=ts_code)
                 else:

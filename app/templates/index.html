@@ -9,43 +9,7 @@
 /* 页面整体更紧凑 */
 .page-shell { padding-top: 84px !important; padding-bottom: 20px !important; }
 
-/* ===== 1. 顶部 Hero ===== */
-.page-header-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.5rem 1.7rem;
-  margin-bottom: 0.95rem;
-  border-radius: var(--radius-xl);
-  background:
-    radial-gradient(circle at top right, rgba(29, 103, 242, 0.18), transparent 36%),
-    linear-gradient(135deg, rgba(236, 244, 255, 0.98) 0%, rgba(248, 251, 255, 0.98) 52%, rgba(221, 235, 255, 0.94) 100%);
-  color: var(--text-main);
-  border: 1px solid rgba(76, 130, 214, 0.16);
-  box-shadow: var(--shadow-soft);
-}
-.page-header-bar .ph-title {
-  font-family: var(--font-display);
-  font-size: clamp(1.5rem, 3vw, 2.6rem);
-  font-weight: 500;
-  line-height: 1;
-  letter-spacing: -0.06em;
-  color: #0c2f6d;
-  margin: 0;
-}
-.page-header-bar .ph-sub {
-  display: inline-block;
-  margin-top: 0.6rem;
-  font-size: 0.9rem;
-  color: #3d5068;
-  margin-left: 0;
-}
-.ph-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
-.ph-actions .btn-modern {
-  min-height: 46px;
-  padding: 0.72rem 1.15rem;
-  font-size: 0.85rem;
-}
+/* ===== 1. 顶部 Hero (已移除) ===== */
 
 /* ===== 2. 行情快照条（合并原情绪+大盘） ===== */
 .ticker-bar {
@@ -56,13 +20,13 @@
   border: 1px solid var(--card-border);
   border-radius: 18px;
   overflow: hidden;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.4rem;
   box-shadow: var(--shadow-soft);
 }
 .ticker-item {
   flex: 1;
   min-width: 0;
-  padding: 0.55rem 0.7rem;
+  padding: 0.35rem 0.5rem;
   text-align: center;
   cursor: pointer;
   transition: background 0.2s;
@@ -134,8 +98,8 @@
 .main-triple-grid {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 280px);
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
 }
 
 /* 图表卡片 */
@@ -143,16 +107,16 @@
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid var(--card-border);
   border-radius: 20px;
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.8rem;
   box-shadow: var(--shadow-soft);
 }
 .chart-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.3rem;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.3rem;
 }
 .cch-title {
   font-size: 0.88rem;
@@ -196,14 +160,14 @@
   color: #fff;
   border-color: var(--brand-blue);
 }
-.chart-box { height: 240px; width: 100%; }
+.chart-box { height: 170px; width: 100%; }
 
 /* 市场概览中间卡 */
 .summary-card {
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid var(--card-border);
   border-radius: 20px;
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.8rem;
   box-shadow: var(--shadow-soft);
   display: flex;
   flex-direction: column;
@@ -220,7 +184,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.38rem 0;
+  padding: 0.25rem 0;
   border-bottom: 1px dashed rgba(226,232,240,0.5);
 }
 .sc-row:last-child { border-bottom: none; }
@@ -253,6 +217,45 @@
 .ma-tag.ma10 { background: rgba(59,130,246,0.12); color: #2563eb; }
 .ma-tag.ma20 { background: rgba(139,92,246,0.12); color: #7c3aed; }
 
+/* 市场情绪指标 */
+.sentiment-section {
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid rgba(226,232,240,0.5);
+}
+.sentiment-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.sentiment-bar-wrap {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #ef4444 0%, #f59e0b 40%, #22c55e 100%);
+  position: relative;
+  overflow: visible;
+}
+.sentiment-marker {
+  position: absolute;
+  top: -3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2.5px solid var(--brand-blue);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+  transform: translateX(-50%);
+  transition: left 0.5s ease;
+}
+.sentiment-text {
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin-top: 3px;
+  text-align: center;
+}
+
 /* 快讯右侧面板 */
 .news-card {
   background: rgba(255, 255, 255, 0.96);
@@ -261,7 +264,7 @@
   box-shadow: var(--shadow-soft);
   display: flex;
   flex-direction: column;
-  max-height: 340px;
+  max-height: 280px;
   overflow: hidden;
 }
 .news-card-head {
@@ -277,19 +280,6 @@
   font-weight: 700;
   margin: 0;
   color: var(--text-main);
-}
-.news-card-head .badge-live {
-  font-size: 0.65rem;
-  padding: 2px 7px;
-  border-radius: 99px;
-  background: #ef4444;
-  color: #fff;
-  font-weight: 700;
-  animation: pulse-dot 2s infinite;
-}
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
 }
 .news-list {
   overflow-y: auto;
@@ -401,7 +391,7 @@
 .bottom-section {
   display: grid;
   grid-template-columns: 1fr 320px;
-  gap: 0.75rem;
+  gap: 0.4rem;
 }
 .ranking-section {}
 .ranking-header {
@@ -493,36 +483,20 @@
   .main-triple-grid {
     grid-template-columns: 1fr;
   }
-  .chart-box { height: 200px; }
+  .chart-box { height: 170px; }
   .ranking-container { grid-template-columns: 1fr; }
 }
 @media (max-width: 767px) {
   .ticker-bar { overflow-x: auto; flex-wrap: nowrap; }
   .ticker-item { min-width: 90px; }
-  .page-header-bar { flex-direction: column; align-items: flex-start; gap: 0.75rem; padding: 1.15rem; }
-  .quick-actions-bar { overflow-x: auto; flex-wrap: nowrap; }
-  .qa-btn { flex-shrink: 0; }
 }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<!-- ===== 顶部极简标题栏 ===== -->
-<div class="page-header-bar">
-  <div>
-    <span class="ph-title">A股量化分析工作台</span>
-    <span class="ph-sub">实时行情 · 数据监控 · 策略回测</span>
-  </div>
-  <div class="ph-actions">
-    <a href="{{ url_for('main.stocks') }}" class="btn-modern btn-modern-primary">开始分析</a>
-    <a href="{{ url_for('main.screen') }}" class="btn-modern btn-modern-outline">条件选股</a>
-    <a href="{{ url_for('main.backtest') }}" class="btn-modern btn-modern-outline">策略回测</a>
-  </div>
-</div>
-
 <!-- ===== 行情快照条（指数+涨跌家数） ===== -->
-<div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem;">
+<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
   <div class="ticker-bar" id="tickerBar" style="flex:1;">
     <!-- JS动态渲染 -->
   </div>
@@ -563,8 +537,8 @@
   <div class="summary-card">
     <div class="sc-title">今日市场概况</div>
     <div id="summaryContent">
-      <div class="sc-row"><span class="sc-label">总成交额</span><span class="sc-value" id="s-amount">--</span></div>
-      <div class="sc-row"><span class="sc-label">总成交量</span><span class="sc-value" id="s-vol">--</span></div>
+      <div class="sc-row"><span class="sc-label">总成交额(亿元)</span><span class="sc-value" id="s-amount">--</span></div>
+      <div class="sc-row"><span class="sc-label">总成交量(亿手)</span><span class="sc-value" id="s-vol">--</span></div>
       <div class="sc-row"><span class="sc-label">涨停家数</span><span class="sc-value highlight-up" id="s-limitup">--</span></div>
       <div class="sc-row"><span class="sc-label">跌停家数</span><span class="sc-value highlight-down" id="s-limitdown">--</span></div>
       <div class="sc-row"><span class="sc-label">最新交易日</span><span class="sc-value" id="s-trade-date">--</span></div>
@@ -574,28 +548,24 @@
       <span class="ma-tag ma10" id="ma10Tag">MA10 --</span>
       <span class="ma-tag ma20" id="ma20Tag">MA20 --</span>
     </div>
+    <div class="sentiment-section">
+      <div class="sentiment-label">市场情绪</div>
+      <div class="sentiment-bar-wrap">
+        <div class="sentiment-marker" id="sentimentMarker" style="left:50%"></div>
+      </div>
+      <div class="sentiment-text" id="sentimentText">--</div>
+    </div>
   </div>
 
   <!-- 右：快讯列表 -->
   <div class="news-card">
     <div class="news-card-head">
       <h5>快讯</h5>
-      <span class="badge-live">LIVE</span>
     </div>
     <div class="news-list" id="newsList">
       <div class="news-empty">加载中...</div>
     </div>
   </div>
-</div>
-
-<!-- ===== 快捷操作入口 ===== -->
-<div class="quick-actions-bar">
-  <a href="{{ url_for('main.stocks') }}" class="qa-btn"><span class="qa-icon blue">股</span>股票列表</a>
-  <a href="{{ url_for('main.screen') }}" class="qa-btn"><span class="qa-icon green">选</span>条件选股</a>
-  <a href="{{ url_for('main.backtest') }}" class="qa-btn"><span class="qa-icon orange">测</span>策略回测</a>
-  <a href="{{ url_for('main.monitor') }}" class="qa-btn"><span class="qa-icon red">监</span>实时监控</a>
-  <a href="{{ url_for('main.news') }}" class="qa-btn"><span class="qa-icon purple">讯</span>新闻资讯</a>
-  <a href="{{ url_for('main.ai_assistant') }}" class="qa-btn"><span class="qa-icon teal">AI</span>AI助手</a>
 </div>
 
 <!-- ===== 排名 + 状态 底部双栏 ===== -->
@@ -709,16 +679,11 @@ function renderTickerBar(items) {
 
 // ===== 市场概览更新 =====
 function updateSummaryPanel(data) {
-  // 从items计算总量
-  let totalAmount = 0, totalVol = 0;
-  if (data.items) {
-    data.items.forEach(it => {
-      totalAmount += Number(it.amount || 0);
-      totalVol += Number(it.vol || 0);
-    });
-  }
-  document.getElementById('s-amount').textContent = formatCompactValue(totalAmount);
-  document.getElementById('s-vol').textContent = formatCompactValue(totalVol);
+  // 使用后端从数据库 SUM 的全市场总量（单位：千元/手）
+  const totalAmount = Number(data.total_amount || 0);
+  const totalVol = Number(data.total_vol || 0);
+  document.getElementById('s-amount').textContent = formatCompactValue(totalAmount / 1e5);
+  document.getElementById('s-vol').textContent = formatCompactValue(totalVol / 1e8);
   // 涨跌停数量暂无接口，用占位
   document.getElementById('s-limitup').textContent = '--';
   document.getElementById('s-limitdown').textContent = '--';
@@ -729,6 +694,30 @@ function updateSummaryPanel(data) {
     document.getElementById('advancing-count').textContent = data.advancing;
     document.getElementById('declining-count').textContent = data.declining || 0;
     document.getElementById('flat-count').textContent = data.flat || 0;
+
+    // 市场情绪指标
+    const adv = Number(data.advancing) || 0;
+    const dec = Number(data.declining) || 0;
+    const flt = Number(data.flat) || 0;
+    const total = adv + dec + flt;
+    const marker = document.getElementById('sentimentMarker');
+    const textEl = document.getElementById('sentimentText');
+    if (total > 0) {
+      const ratio = adv / total; // 0~1
+      marker.style.left = (ratio * 100).toFixed(1) + '%';
+      let label, color;
+      if (ratio < 0.3)      { label = '极度恐慌'; color = '#dc2626'; }
+      else if (ratio < 0.4) { label = '恐慌';     color = '#ef4444'; }
+      else if (ratio < 0.6) { label = '中性';     color = '#eab308'; }
+      else if (ratio < 0.7) { label = '乐观';     color = '#22c55e'; }
+      else                  { label = '极度乐观'; color = '#16a34a'; }
+      textEl.textContent = `${label}  涨${adv}/跌${dec}/平${flt}`;
+      textEl.style.color = color;
+    } else {
+      marker.style.left = '50%';
+      textEl.textContent = '暂无数据';
+      textEl.style.color = 'var(--text-muted)';
+    }
   }
   if (data.update_time && data.trade_date) {
     document.getElementById('update-time').textContent = `${data.update_time} (${data.trade_date})`;
@@ -760,21 +749,22 @@ function updateMaTags(ma5, ma10, ma20) {
 async function loadNews() {
   const container = document.getElementById('newsList');
   try {
-    const res = await apiRequest('/news?limit=8');
+    const res = await apiRequest('/news?limit=20');
     const data = res.data;
     if (!data || !data.items || !data.items.length) {
       container.innerHTML = '<div class="news-empty">暂无快讯</div>';
       return;
     }
-    container.innerHTML = data.items.slice(0, 8).map(item => {
+    container.innerHTML = data.items.slice(0, 20).map(item => {
       const srcCls = getSourceClass(item.source || '');
       const srcLbl = getSourceLabel(item.source || '');
       const timeStr = item.time ? item.time.slice(5, 10) + ' ' + (item.time.length > 10 ? item.time.slice(11, 16) : '') : '';
-      return `<div class="news-item" title="${escapeHtmlText(item.title || '')}">
+      const displayTitle = item.title || (item.summary ? item.summary.slice(0, 60) : '') || '无标题';
+      return `<div class="news-item" title="${escapeHtmlText(displayTitle)}">
         <span class="ni-time">${escapeHtmlText(timeStr)}</span>
         <div class="ni-body">
           <span class="ni-source-badge ${srcCls}">${escapeHtmlText(srcLbl)}</span>
-          <span class="ni-title">${escapeHtmlText(item.title || '无标题')}</span>
+          <span class="ni-title">${escapeHtmlText(displayTitle)}</span>
         </div>
       </div>`;
     }).join('');
@@ -809,7 +799,7 @@ async function loadRanking() {
   const container = document.getElementById('rankingContainer');
   const timeEl = document.getElementById('rankingUpdateTime');
   try {
-    const res = await apiRequest(`/monitor/ranking?sort_by=${encodeURIComponent(sortBy)}&limit=10`);
+    const res = await apiRequest(`/monitor/ranking?sort_by=${encodeURIComponent(sortBy)}&limit=8`);
     const data = res.data;
     if (!data.success) {
       container.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:1rem;font-size:0.82rem;">${escapeHtmlText(data.message || '排名加载失败')}</div>`;
@@ -822,12 +812,12 @@ async function loadRanking() {
     container.innerHTML = `
       <div class="ranking-panel">
         <div class="rp-title gainers">涨幅榜（按${escapeHtmlText(sortByLabel)}）</div>
-        <table class="ranking-table"><thead><tr><th>#</th><th>名称</th><th>现价</th><th>涨跌幅</th><th>换手率</th><th>成交额</th></tr></thead>
+        <table class="ranking-table"><thead><tr><th>#</th><th>名称</th><th>现价</th><th>涨跌幅</th><th>换手率</th><th>成交额(亿)</th></tr></thead>
         <tbody>${gainers.map((item, i) => renderRankingRow(item, i)).join('')}</tbody></table>
       </div>
       <div class="ranking-panel">
         <div class="rp-title losers">跌幅榜（按${escapeHtmlText(sortByLabel)}）</div>
-        <table class="ranking-table"><thead><tr><th>#</th><th>名称</th><th>现价</th><th>涨跌幅</th><th>换手率</th><th>成交额</th></tr></thead>
+        <table class="ranking-table"><thead><tr><th>#</th><th>名称</th><th>现价</th><th>涨跌幅</th><th>换手率</th><th>成交额(亿)</th></tr></thead>
         <tbody>${losers.map((item, i) => renderRankingRow(item, i)).join('')}</tbody></table>
       </div>`;
   } catch (error) {

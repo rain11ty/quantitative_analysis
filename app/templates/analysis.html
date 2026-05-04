@@ -1044,7 +1044,7 @@
 
 <div class="metric-content">
 
-<div class="metric-label">成交额</div>
+<div class="metric-label">成交额(亿元)</div>
 
 <div class="metric-value" id="turnover">--</div>
 
@@ -2010,9 +2010,9 @@ function renderMetrics(data) {
 
  document.getElementById('price-change').className = `metric-value ${priceChange >= 0 ? 'text-success' : 'text-danger'}`;
 
- document.getElementById('volume').textContent = formatNumber(volume / 10000, 1) + '万';
+ document.getElementById('volume').textContent = formatNumber(volume / 10000, 1) + '万手';
 
- document.getElementById('turnover').textContent = formatNumber(turnover / 100000000, 2) + '亿';
+ document.getElementById('turnover').textContent = formatNumber(turnover / 100000, 2) + '亿';
 
 
 
@@ -2756,7 +2756,7 @@ function renderVolumeChart() {
 
  const data = params[0];
 
- return `${data.name}<br/>成交量: ${formatNumber(data.value / 10000, 1)}万`;
+ return `${data.name}<br/>成交量: ${formatNumber(data.value / 10000, 1)}万手`;
 
  }
 
@@ -3723,7 +3723,7 @@ function renderDataTable(historyData, factorsData) {
 
 <td><strong>${formatNumber(item.close, 2)}</strong></td>
 
-<td>${formatNumber(item.vol/10000, 1)}万</td>
+<td>${formatNumber(item.vol/10000, 1)}万手</td>
 
 <td class="${(item.pct_chg || 0) >= 0 ? 'text-danger' : 'text-success'}"> ${formatPercent(item.pct_chg || 0)}
 

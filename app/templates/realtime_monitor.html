@@ -969,14 +969,14 @@ function renderRanking(data) {
         <div class="ranking-panel">
             <div class="ranking-panel-title is-gainers">涨幅榜（按${escapeHtml(sortByLabel)}）</div>
             <table class="ranking-table">
-                <thead><tr><th>#</th><th>名称</th><th>现价</th><th>涨跌幅</th><th>换手率</th><th>成交额</th></tr></thead>
+                <thead><tr><th>#</th><th>名称</th><th>现价</th><th>涨跌幅</th><th>换手率</th><th>成交额(元)</th></tr></thead>
                 <tbody>${gainers.map((item, idx) => renderRankingRow(item, idx)).join('')}</tbody>
             </table>
         </div>
         <div class="ranking-panel">
             <div class="ranking-panel-title is-losers">跌幅榜（按${escapeHtml(sortByLabel)}）</div>
             <table class="ranking-table">
-                <thead><tr><th>#</th><th>名称</th><th>现价</th><th>涨跌幅</th><th>换手率</th><th>成交额</th></tr></thead>
+                <thead><tr><th>#</th><th>名称</th><th>现价</th><th>涨跌幅</th><th>换手率</th><th>成交额(元)</th></tr></thead>
                 <tbody>${losers.map((item, idx) => renderRankingRow(item, idx)).join('')}</tbody>
             </table>
         </div>
@@ -1058,7 +1058,7 @@ function renderDetail(data) {
                     <div class="detail-stat-value">${formatNumber(quote.high, 2)} / ${formatNumber(quote.low, 2)}</div>
                 </div>
                 <div class="detail-stat">
-                    <div class="detail-stat-label">成交量 / 成交额</div>
+                    <div class="detail-stat-label">成交量(股) / 成交额(元)</div>
                     <div class="detail-stat-value">${formatCompact(quote.volume)} / ${formatCompact(quote.amount)}</div>
                 </div>
                 <div class="detail-stat">
@@ -1186,7 +1186,7 @@ function renderChart(series, mode, title) {
                         const d = p.data;
                         html += `<div style="margin:2px 0;">${p.marker} K线: 开${d[0]} 收${d[1]} 低${d[2]} 高${d[3]}</div>`;
                     } else if (p.seriesName === '成交量') {
-                        html += `<div style="margin:2px 0;">${p.marker} 成交量: ${formatCompact(p.data)}</div>`;
+                        html += `<div style="margin:2px 0;">${p.marker} 成交量: ${formatCompact(p.data)}手</div>`;
                     } else if (p.value !== null && p.value !== undefined) {
                         html += `<div style="margin:2px 0;">${p.marker} ${p.seriesName}: ${p.value}</div>`;
                     }
@@ -1231,7 +1231,8 @@ function renderChart(series, mode, title) {
             },
             {
                 type: 'value',
-                gridIndex: 1,
+                gridIndex: 1, name: '手',
+                nameTextStyle: { color: '#94a3b8', fontSize: 10, padding: [0, 30, 0, 0] },
                 axisLabel: { color: '#64748b', fontSize: 10 },
                 splitLine: { show: false }
             }
@@ -1452,7 +1453,7 @@ function renderIntradayChart(data) {
                     html += `<div>${avgP.marker} 均价: ${Number(avgP.value).toFixed(2)}</div>`;
                 }
                 if (volP) {
-                    html += `<div>${volP.marker} 成交量: ${formatCompact(volP.value)}</div>`;
+                    html += `<div>${volP.marker} 成交量: ${formatCompact(volP.value)}手</div>`;
                 }
                 return html;
             }
@@ -1518,7 +1519,8 @@ function renderIntradayChart(data) {
             },
             {
                 type: 'value',
-                gridIndex: 1,
+                gridIndex: 1, name: '手',
+                nameTextStyle: { color: '#94a3b8', fontSize: 10, padding: [0, 30, 0, 0] },
                 axisLabel: { color: '#64748b', fontSize: 10 },
                 splitLine: { show: false }
             }

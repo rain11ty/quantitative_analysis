@@ -22,12 +22,31 @@ def get_news():
     """获取新闻资讯 - 支持 source 参数筛选（纯读缓存）"""
     source = request.args.get('source', 'all')
 
-    if source == 'all':
-        cached = _get_cached_news('news_aggregate:all')
-    else:
-        cached = _get_cached_news(f'news_aggregate:{source}')
+    # 所有来源的数据都从 news_aggregate:all 读取，再按 source 筛选
+    cached = _get_cached_news('news_aggregate:all')
 
     if cached is not None:
+        if source == 'all':
+            return jsonify({'code': 200, 'message': 'success', 'data': cached})
+
+        # 根据 source 参数筛选对应来源的新闻
+        source_filter_map = {
+            'cjzc': lambda s: s.startswith('东财-财经'),
+            'global_em': lambda s: s.startswith('东财-全球'),
+            'cls': lambda s: s.startswith('财联社'),
+            'ths': lambda s: s.startswith('同花顺'),
+        }
+        filter_fn = source_filter_map.get(source)
+        if filter_fn:
+            items = [item for item in cached.get('items', [])
+                     if filter_fn(item.get('source', ''))]
+            return jsonify({
+                'code': 200,
+                'message': 'success',
+                'data': {'items': items, 'count': len(items), 'source': source},
+            })
+
+        # 未知 source，返回全部
         return jsonify({'code': 200, 'message': 'success', 'data': cached})
 
     return jsonify({
