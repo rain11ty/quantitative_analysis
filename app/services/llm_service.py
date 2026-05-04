@@ -216,6 +216,21 @@ class LLMService:
             base_url = base_url.split('/compatible-mode')[0]
         return f'{base_url}/api/v1/apps/{provider_config["app_id"]}/completion'
 
+    @staticmethod
+    def _extract_bailian_content(result: Dict[str, Any]) -> str:
+        """从百炼 API 响应中提取文本内容，兼容多种响应格式。"""
+        # 格式一：output.choices[].message.content（标准 message 格式）
+        choices = result.get('output', {}).get('choices', [])
+        if choices:
+            content = (choices[0].get('message', {}) or {}).get('content')
+            if content:
+                return content
+        # 格式二：output.text（text 格式 / 部分插件响应）
+        text = result.get('output', {}).get('text')
+        if text:
+            return text
+        return ''
+
     def _bailian_app_chat(self, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
         provider_config = self._get_provider_config('qwen')
         headers = self._bailian_app_headers(provider_config)
@@ -230,8 +245,14 @@ class LLMService:
             if response.status_code != 200:
                 return {'success': False, 'error': f'百炼 API 错误: {response.status_code} - {response.text}', 'content': None}
             result = response.json()
-            choices = result.get('output', {}).get('choices', [])
-            content = (choices[0].get('message', {}) if choices else {}).get('content', '')
+            # 检查百炼 API 错误响应（无 output 字段，顶层含 code/message）
+            if 'code' in result and 'output' not in result:
+                error_msg = result.get('message') or result.get('code', '未知错误')
+                return {'success': False, 'error': f'百炼 API 错误: {error_msg}', 'content': None}
+            content = self._extract_bailian_content(result)
+            if not content:
+                logger.warning('百炼 App API 返回空内容，原始响应: %s', result)
+                return {'success': False, 'error': '百炼 API 返回空内容，请检查百炼智能应用体配置（插件/工具是否正常）', 'content': None}
             return {
                 'success': True,
                 'content': content,
@@ -251,12 +272,13 @@ class LLMService:
             'stream': True,
         }
         url = self._bailian_app_url(provider_config)
+        has_content = False
         try:
             with requests.post(url, headers=headers, json=data,
                                timeout=provider_config.get('timeout', 120), stream=True) as response:
                 if response.status_code != 200:
                     raise RuntimeError(f'百炼 API 错误: {response.status_code} - {response.text}')
-                for raw_line in response.iter_lines(decode_unicode=True, chunk_size=1):
+                for raw_line in response.iter_lines(decode_unicode=True):
                     if not raw_line:
                         continue
                     line = raw_line.strip()
@@ -269,16 +291,32 @@ class LLMService:
                         chunk = json.loads(payload)
                     except json.JSONDecodeError:
                         continue
+                    # 检查百炼 API 在 SSE 流中的错误响应
+                    if 'code' in chunk and 'output' not in chunk:
+                        error_msg = chunk.get('message') or chunk.get('code', '未知错误')
+                        raise RuntimeError(f'百炼 API 错误: {error_msg}')
+                    # 从 output.choices 提取内容
                     choices = chunk.get('output', {}).get('choices', [])
                     if choices:
                         delta = choices[0].get('message', {})
                         content = delta.get('content', '')
                         if content:
+                            has_content = True
                             yield content
+                        continue
+                    # 兼容 output.text 格式
+                    text = chunk.get('output', {}).get('text', '')
+                    if text:
+                        has_content = True
+                        yield text
+            if not has_content:
+                raise RuntimeError('百炼 API 未返回任何内容，请检查百炼智能应用体配置（插件/工具是否正常工作）')
         except requests.exceptions.ConnectionError:
             raise RuntimeError('百炼服务无法连接')
         except requests.exceptions.Timeout:
             raise RuntimeError('百炼请求超时')
+        except RuntimeError:
+            raise
         except Exception as exc:
             raise RuntimeError(f'百炼调用异常: {exc}')
 
