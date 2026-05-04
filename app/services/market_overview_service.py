@@ -658,10 +658,10 @@ class MarketOverviewService:
 
             if board_type == 'concept':
                 import akshare as ak
-                df = call_with_no_proxy(ak.stock_board_concept_spot_em)
+                df = call_with_no_proxy(ak.stock_board_concept_name_em)
             else:
                 import akshare as ak
-                df = call_with_no_proxy(ak.stock_board_industry_spot_em)
+                df = call_with_no_proxy(ak.stock_board_industry_name_em)
 
             if df is None or df.empty:
                 return {
@@ -672,19 +672,16 @@ class MarketOverviewService:
                     'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 }
 
-            # AKShare 东方财富板块数据的列名
+            # AKShare 东方财富板块数据的列名 (stock_board_industry_name_em / stock_board_concept_name_em)
             col_map = {
+                '排名': 'rank',
                 '板块名称': 'name',
                 '板块代码': 'code',
                 '最新价': 'price',
-                '涨跌幅': 'pct_change',
                 '涨跌额': 'change',
-                '成交量': 'volume',
-                '成交额': 'amount',
-                '振幅': 'amplitude',
+                '涨跌幅': 'pct_change',
+                '总市值': 'total_market_cap',
                 '换手率': 'turnover_rate',
-                '市盈率': 'pe',
-                '量比': 'vol_ratio',
                 '上涨家数': 'up_count',
                 '下跌家数': 'down_count',
                 '领涨股票': 'lead_stock',
@@ -693,8 +690,8 @@ class MarketOverviewService:
             df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
 
             # 数值转换
-            for col in ['pct_change', 'change', 'price', 'amount', 'turnover_rate',
-                         'vol_ratio', 'lead_stock_pct', 'up_count', 'down_count']:
+            for col in ['pct_change', 'change', 'price', 'total_market_cap', 'turnover_rate',
+                         'lead_stock_pct', 'up_count', 'down_count']:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce')
 
@@ -710,9 +707,8 @@ class MarketOverviewService:
                     'price': cls._to_float(row.get('price')),
                     'pct_change': cls._to_float(row.get('pct_change')),
                     'change': cls._to_float(row.get('change')),
-                    'amount': cls._to_float(row.get('amount'), 0),
+                    'total_market_cap': cls._to_float(row.get('total_market_cap'), 0),
                     'turnover_rate': cls._to_float(row.get('turnover_rate')),
-                    'vol_ratio': cls._to_float(row.get('vol_ratio')),
                     'up_count': cls._to_int(row.get('up_count')),
                     'down_count': cls._to_int(row.get('down_count')),
                     'lead_stock': cls._to_float_text(row.get('lead_stock', '')),
@@ -923,11 +919,14 @@ class MarketOverviewService:
                     'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 }
 
-            # 按主力净流入降序排列
-            main_flow_col = '今日主力净流入-净额'
-            if main_flow_col in df.columns:
-                df[main_flow_col] = pd.to_numeric(df[main_flow_col], errors='coerce')
-                df = df.sort_values(main_flow_col, ascending=False, na_position='last')
+            # 按涨跌幅降序排列
+            pct_chg_col = '今日涨跌幅'
+            if pct_chg_col in df.columns:
+                df[pct_chg_col] = pd.to_numeric(df[pct_chg_col], errors='coerce')
+                df = df.sort_values(pct_chg_col, ascending=False, na_position='last')
+            elif '今日主力净流入-净额' in df.columns:
+                df['今日主力净流入-净额'] = pd.to_numeric(df['今日主力净流入-净额'], errors='coerce')
+                df = df.sort_values('今日主力净流入-净额', ascending=False, na_position='last')
 
             items = []
             for _, row in df.head(limit).iterrows():

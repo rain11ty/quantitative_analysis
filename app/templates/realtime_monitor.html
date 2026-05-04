@@ -473,6 +473,24 @@
     border-radius: 14px;
     overflow: hidden;
 }
+.ranking-panel-scroll {
+    max-height: 560px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+.ranking-panel-scroll::-webkit-scrollbar { width: 4px; }
+.ranking-panel-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+/* Scrollable single-panel sections */
+.scrollable-table-wrap {
+    max-height: 560px;
+    overflow-y: auto;
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    border-radius: 14px;
+}
+.scrollable-table-wrap .ranking-table { border-collapse: collapse; }
+.scrollable-table-wrap::-webkit-scrollbar { width: 4px; }
+.scrollable-table-wrap::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 .ranking-panel-title {
     font-size: 0.82rem;
     font-weight: 700;
@@ -662,7 +680,7 @@
     </section>
 
     <!-- 板块资金流向排名 -->
-    <section class="page-card p-3">
+    <section class="page-card p-3" id="sector-fund-flow">
         <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-2">
             <div class="d-flex align-items-center gap-2">
                 <span class="panel-title" style="font-size:1rem;">板块资金流向排名</span>
@@ -673,6 +691,26 @@
             </div>
         </div>
         <div id="sectorFundFlowContainer">
+            <div class="text-muted small">加载中...</div>
+        </div>
+    </section>
+
+    <!-- 热门板块排行 -->
+    <section class="page-card p-3" id="hot-boards">
+        <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-2">
+            <div class="d-flex align-items-center gap-2">
+                <span class="panel-title" style="font-size:1rem;">热门板块排行</span>
+                <span class="panel-subtitle" style="margin-top:0;">行业/概念板块涨跌排名</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <div class="stock-tab-strip" id="boardTypeTabs">
+                    <div class="stock-tab active" data-board-type="industry" onclick="switchBoardType('industry')">行业板块</div>
+                    <div class="stock-tab" data-board-type="concept" onclick="switchBoardType('concept')">概念板块</div>
+                </div>
+                <div class="small-badge" id="hotBoardsTime">等待加载</div>
+            </div>
+        </div>
+        <div id="hotBoardsContainer">
             <div class="text-muted small">加载中...</div>
         </div>
     </section>
@@ -977,17 +1015,21 @@ function renderRanking(data) {
     container.innerHTML = `
         <div class="ranking-panel">
             <div class="ranking-panel-title is-gainers">涨幅榜（按${escapeHtml(sortByLabel)}）</div>
+            <div class="ranking-panel-scroll">
             <table class="ranking-table">
                 <thead><tr><th>#</th><th>名称</th><th>现价</th><th>涨跌幅</th><th>换手率</th><th>成交额(元)</th></tr></thead>
                 <tbody>${gainers.map((item, idx) => renderRankingRow(item, idx)).join('')}</tbody>
             </table>
+            </div>
         </div>
         <div class="ranking-panel">
             <div class="ranking-panel-title is-losers">跌幅榜（按${escapeHtml(sortByLabel)}）</div>
+            <div class="ranking-panel-scroll">
             <table class="ranking-table">
                 <thead><tr><th>#</th><th>名称</th><th>现价</th><th>涨跌幅</th><th>换手率</th><th>成交额(元)</th></tr></thead>
                 <tbody>${losers.map((item, idx) => renderRankingRow(item, idx)).join('')}</tbody>
             </table>
+            </div>
         </div>
     `;
 }
@@ -1708,17 +1750,21 @@ function renderSectorFundFlow(data) {
         <div class="ranking-container">
             <div class="ranking-panel">
                 <div class="ranking-panel-title is-gainers">主力资金净流入 TOP</div>
+                <div class="ranking-panel-scroll">
                 <table class="ranking-table">
                     <thead><tr><th>#</th><th>板块</th><th>涨跌幅</th><th>主力净流入</th><th>主力净占比</th><th>领涨股</th></tr></thead>
                     <tbody>${items.slice(0, Math.ceil(items.length / 2)).map((item, idx) => renderSectorFlowRow(item, idx)).join('')}</tbody>
                 </table>
+                </div>
             </div>
             <div class="ranking-panel">
                 <div class="ranking-panel-title is-losers">主力资金净流出 TOP</div>
+                <div class="ranking-panel-scroll">
                 <table class="ranking-table">
                     <thead><tr><th>#</th><th>板块</th><th>涨跌幅</th><th>主力净流入</th><th>主力净占比</th><th>领涨股</th></tr></thead>
                     <tbody>${items.slice(Math.ceil(items.length / 2)).map((item, idx) => renderSectorFlowRow(item, idx)).join('')}</tbody>
                 </table>
+                </div>
             </div>
         </div>`;
 }
@@ -1750,6 +1796,74 @@ async function loadSectorFundFlow() {
         renderSectorFundFlow(res.data || {});
     } catch (error) {
         container.innerHTML = `<div class="text-muted small">板块资金流向加载失败: ${escapeHtml(error.message)}</div>`;
+    }
+}
+
+// ========== 热门板块排行 ==========
+let currentBoardType = 'industry';
+
+function switchBoardType(type) {
+    currentBoardType = type;
+    document.querySelectorAll('#boardTypeTabs .stock-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.boardType === type);
+    });
+    loadHotBoards(type);
+}
+
+function renderHotBoards(data) {
+    const container = document.getElementById('hotBoardsContainer');
+    const timeEl = document.getElementById('hotBoardsTime');
+
+    if (!data?.success || !data?.items?.length) {
+        container.innerHTML = `<div class="text-muted small">${escapeHtml(data?.message || '板块数据暂未就绪')}</div>`;
+        timeEl.textContent = '--';
+        return;
+    }
+
+    timeEl.textContent = data.update_time ? `更新于 ${data.update_time}` : '';
+
+    const items = data.items;
+    const boardLabel = currentBoardType === 'industry' ? '行业' : '概念';
+
+    container.innerHTML = `
+        <div class="scrollable-table-wrap">
+            <table class="ranking-table">
+                <thead><tr><th>#</th><th>${escapeHtml(boardLabel)}板块</th><th>涨跌幅</th><th>上涨</th><th>下跌</th><th>领涨股</th><th>领涨幅</th></tr></thead>
+                <tbody>${items.map((item, idx) => renderHotBoardRow(item, idx)).join('')}</tbody>
+            </table>
+        </div>`;
+}
+
+function renderHotBoardRow(item, idx) {
+    const pct = Number(item.pct_change);
+    const pctClass = !Number.isFinite(pct) || pct === 0 ? 'pct-flat' : pct > 0 ? 'pct-up' : 'pct-down';
+    const sign = pct > 0 ? '+' : '';
+    const rankClass = idx < 3 ? 'rank-top3' : '';
+
+    const leadPct = Number(item.lead_stock_pct);
+    const leadPctClass = !Number.isFinite(leadPct) || leadPct === 0 ? 'pct-flat' : leadPct > 0 ? 'pct-up' : 'pct-down';
+    const leadSign = leadPct > 0 ? '+' : '';
+
+    return `
+        <tr>
+            <td class="${rankClass}">${idx + 1}</td>
+            <td title="${escapeHtml(item.code || '')}">${escapeHtml(item.name || '')}</td>
+            <td class="${pctClass}">${sign}${formatNumber(pct)}%</td>
+            <td>${item.up_count != null ? item.up_count : '--'}</td>
+            <td>${item.down_count != null ? item.down_count : '--'}</td>
+            <td>${escapeHtml(item.lead_stock || '--')}</td>
+            <td class="${leadPctClass}">${Number.isFinite(leadPct) ? leadSign + formatNumber(leadPct) + '%' : '--'}</td>
+        </tr>`;
+}
+
+async function loadHotBoards(boardType) {
+    boardType = boardType || currentBoardType;
+    const container = document.getElementById('hotBoardsContainer');
+    try {
+        const res = await apiRequest(`/market/boards?type=${encodeURIComponent(boardType)}&limit=20`);
+        renderHotBoards(res.data || {});
+    } catch (error) {
+        container.innerHTML = `<div class="text-muted small">板块数据加载失败: ${escapeHtml(error.message)}</div>`;
     }
 }
 
@@ -1819,9 +1933,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await loadDashboard('');
     syncMonitoredCodes();
-    // 并行加载排名、板块资金流向和异常波动数据
+    // 并行加载排名、板块资金流向、热门板块和异常波动数据
     loadRanking();
     loadSectorFundFlow();
+    loadHotBoards('industry');
     loadShockData();
 });
 </script>
