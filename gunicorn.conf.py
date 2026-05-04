@@ -29,7 +29,7 @@ threads = int(os.getenv('GUNICORN_THREADS', 1))
 # ============================================================
 # 超时配置
 # ============================================================
-timeout = int(os.getenv('GUNICORN_TIMEOUT', 180))
+timeout = int(os.getenv('GUNICORN_TIMEOUT', 360))
 keepalive = int(os.getenv('GUNICORN_KEEPALIVE', 5))
 graceful_timeout = int(os.getenv('GUNICORN_GRACEFUL_TIMEOUT', 30))
 worker_silent_timeout = int(os.getenv('GUNICORN_SILENT_TIMEOUT', 60))

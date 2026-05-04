@@ -82,6 +82,27 @@ def _build_beat_schedule() -> dict:
             'schedule': timedelta(seconds=30),
         }
 
+    # 9. 热门板块排行定时爬取（每 60 秒）
+    if os.getenv('BOARD_RANKING_CACHE_REFRESH_ENABLED', 'true').lower() == 'true':
+        schedule['refresh-board-ranking-cache'] = {
+            'task': 'app.tasks.refresh_board_ranking_cache',
+            'schedule': timedelta(seconds=60),
+        }
+
+    # 10. 北向资金净流入定时爬取（每 60 秒）
+    if os.getenv('NORTHBOUND_FUND_CACHE_REFRESH_ENABLED', 'true').lower() == 'true':
+        schedule['refresh-northbound-fund-cache'] = {
+            'task': 'app.tasks.refresh_northbound_fund_cache',
+            'schedule': timedelta(seconds=60),
+        }
+
+    # 11. 板块资金流向排名定时爬取（每 120 秒）
+    if os.getenv('SECTOR_FUND_FLOW_CACHE_REFRESH_ENABLED', 'true').lower() == 'true':
+        schedule['refresh-sector-fund-flow-cache'] = {
+            'task': 'app.tasks.refresh_sector_fund_flow_cache',
+            'schedule': timedelta(seconds=120),
+        }
+
     return schedule
 
 

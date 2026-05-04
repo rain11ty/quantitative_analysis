@@ -52,6 +52,9 @@ PUBLIC_ENDPOINTS = {
     'api.get_news',
     'api.get_news_cjzc',
     'api.get_news_global',
+    'api.get_market_boards',
+    'api.get_northbound_fund',
+    'api.get_sector_fund_flow',
 }
 
 PUBLIC_PATH_PREFIXES = (

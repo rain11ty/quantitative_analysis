@@ -1272,7 +1272,11 @@ class RealtimeMonitorService:
                 'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             }
 
-        _cache.set(cache_key, result, ttl=cls.CACHE_TTL_RANKING)
+        # 仅缓存成功结果；失败结果使用短 TTL 避免长时间返回空数据
+        if result.get('success'):
+            _cache.set(cache_key, result, ttl=cls.CACHE_TTL_RANKING)
+        else:
+            _cache.set(cache_key, result, ttl=5)
         return result
 
     @classmethod
@@ -1456,6 +1460,7 @@ class RealtimeMonitorService:
                 '昨收': 'close',
                 '成交量': 'volume',
                 '成交额': 'amount',
+                '换手率': 'turnover_rate',
                 '时间戳': 'time',
             }
             df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
@@ -1465,7 +1470,7 @@ class RealtimeMonitorService:
                 df['ts_code'] = df['code'].apply(cls.normalize_ts_code)
 
             # 数值转换
-            for col in ['price', 'pct_change', 'change', 'open', 'high', 'low', 'close', 'volume', 'amount']:
+            for col in ['price', 'pct_change', 'change', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turnover_rate']:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce')
 
@@ -1510,7 +1515,7 @@ class RealtimeMonitorService:
                 'close': cls._safe_float(row.get('close')),
                 'volume': cls._safe_float(row.get('volume'), 0),
                 'amount': cls._safe_float(row.get('amount'), 0),
-                'turnover_rate': None,
+                'turnover_rate': cls._safe_float(row.get('turnover_rate')),
             })
         return rows
 

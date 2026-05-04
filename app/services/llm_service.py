@@ -222,9 +222,16 @@ class LLMService:
         # 格式一：output.choices[].message.content（标准 message 格式）
         choices = result.get('output', {}).get('choices', [])
         if choices:
-            content = (choices[0].get('message', {}) or {}).get('content')
+            message = choices[0].get('message') or {}
+            content = message.get('content')
             if content:
                 return content
+            # 如果 content 为空但存在 tool_calls，说明工具正在执行
+            # 非流式模式下百炼 App API 会自动完成工具调用并返回最终结果
+            # 如果仍然为空，记录日志供排查
+            tool_calls = message.get('tool_calls')
+            if tool_calls:
+                logger.info('百炼 App API: 非流式响应包含工具调用，tool_calls=%s', tool_calls)
         # 格式二：output.text（text 格式 / 部分插件响应）
         text = result.get('output', {}).get('text')
         if text:
@@ -240,8 +247,9 @@ class LLMService:
         }
         try:
             url = self._bailian_app_url(provider_config)
-            response = requests.post(url, headers=headers, json=data,
-                                     timeout=provider_config.get('timeout', 120))
+            # 非流式请求使用更长超时，因为工具调用（如 MCP 股票查询）可能耗时较长
+            timeout = max(provider_config.get('timeout', 120), 180)
+            response = requests.post(url, headers=headers, json=data, timeout=timeout)
             if response.status_code != 200:
                 return {'success': False, 'error': f'百炼 API 错误: {response.status_code} - {response.text}', 'content': None}
             result = response.json()
@@ -252,6 +260,16 @@ class LLMService:
             content = self._extract_bailian_content(result)
             if not content:
                 logger.warning('百炼 App API 返回空内容，原始响应: %s', result)
+                # 检查是否包含工具调用信息
+                choices = result.get('output', {}).get('choices', [])
+                if choices:
+                    message = choices[0].get('message') or {}
+                    if message.get('tool_calls'):
+                        return {
+                            'success': False,
+                            'error': '百炼智能体执行了工具调用但未返回最终回复，请检查百炼控制台中 MCP 工具配置。',
+                            'content': None,
+                        }
                 return {'success': False, 'error': '百炼 API 返回空内容，请检查百炼智能应用体配置（插件/工具是否正常）', 'content': None}
             return {
                 'success': True,
@@ -260,6 +278,8 @@ class LLMService:
                 'usage': result.get('usage', {}),
                 'provider': 'qwen',
             }
+        except requests.exceptions.Timeout:
+            return {'success': False, 'error': '百炼请求超时，MCP 工具执行可能耗时较长，请稍后重试。', 'content': None}
         except Exception as exc:
             return {'success': False, 'error': f'百炼调用异常: {exc}', 'content': None}
 
@@ -273,15 +293,24 @@ class LLMService:
         }
         url = self._bailian_app_url(provider_config)
         has_content = False
+        tool_call_detected = False
+        event_count = 0
+        last_event_type = ''
         try:
+            # 流式请求使用更长超时：工具调用（如 MCP 股票查询）期间服务端可能长时间无数据输出
+            stream_timeout = max(provider_config.get('timeout', 120), 180)
             with requests.post(url, headers=headers, json=data,
-                               timeout=provider_config.get('timeout', 120), stream=True) as response:
+                               timeout=stream_timeout, stream=True) as response:
                 if response.status_code != 200:
                     raise RuntimeError(f'百炼 API 错误: {response.status_code} - {response.text}')
                 for raw_line in response.iter_lines(decode_unicode=True):
                     if not raw_line:
                         continue
                     line = raw_line.strip()
+                    # 处理 SSE event: 标记行（如 event:result、event:ping 等）
+                    if line.startswith('event:'):
+                        last_event_type = line[6:].strip()
+                        continue
                     if not line.startswith('data:'):
                         continue
                     payload = line[5:].strip()
@@ -290,30 +319,73 @@ class LLMService:
                     try:
                         chunk = json.loads(payload)
                     except json.JSONDecodeError:
+                        logger.debug('百炼 SSE: 无法解析的 JSON: %s', payload[:200])
                         continue
+
+                    event_count += 1
+
                     # 检查百炼 API 在 SSE 流中的错误响应
                     if 'code' in chunk and 'output' not in chunk:
                         error_msg = chunk.get('message') or chunk.get('code', '未知错误')
                         raise RuntimeError(f'百炼 API 错误: {error_msg}')
+
+                    output = chunk.get('output', {})
+
                     # 从 output.choices 提取内容
-                    choices = chunk.get('output', {}).get('choices', [])
+                    choices = output.get('choices', [])
                     if choices:
-                        delta = choices[0].get('message', {})
-                        content = delta.get('content', '')
+                        delta = choices[0].get('message') or {}
+                        # 处理 content：可能是 string、null 或缺失
+                        content = delta.get('content') or ''
+                        # 检测工具调用事件
+                        tool_calls = delta.get('tool_calls')
+                        if tool_calls:
+                            tool_call_detected = True
+                            tool_names = []
+                            for tc in (tool_calls if isinstance(tool_calls, list) else []):
+                                fn = tc.get('function') or {}
+                                tool_names.append(fn.get('name') or 'unknown')
+                            logger.info('百炼 App API: 检测到工具调用 [%s]，等待执行完成...', ', '.join(tool_names))
+                            # 工具调用事件不包含文本内容，跳过但不视为错误
+                            continue
                         if content:
                             has_content = True
                             yield content
+                            continue
+                        # content 为空且无工具调用，检查 finish_reason
+                        finish_reason = choices[0].get('finish_reason', '')
+                        if finish_reason:
+                            logger.debug('百炼 SSE: finish_reason=%s, content 为空', finish_reason)
                         continue
-                    # 兼容 output.text 格式
-                    text = chunk.get('output', {}).get('text', '')
+
+                    # 兼容 output.text 格式（部分插件/工具使用此格式）
+                    text = output.get('text', '')
                     if text:
                         has_content = True
                         yield text
+                        continue
+
+                    # 某些中间事件（如 ping、keepalive）可能不含 output，
+                    # 仅含 request_id / usage 等元数据，正常跳过
+                    if event_count <= 3 or event_count % 50 == 0:
+                        logger.debug('百炼 SSE 事件 #%d (event=%s): %s', event_count, last_event_type, str(chunk)[:300])
+
             if not has_content:
+                if tool_call_detected:
+                    raise RuntimeError(
+                        '百炼智能体执行了工具调用，但未返回最终回复。'
+                        '请检查百炼控制台中 MCP 工具配置是否正常，'
+                        '或尝试一个不需要工具调用的问题来验证基本功能。'
+                    )
                 raise RuntimeError('百炼 API 未返回任何内容，请检查百炼智能应用体配置（插件/工具是否正常工作）')
         except requests.exceptions.ConnectionError:
             raise RuntimeError('百炼服务无法连接')
         except requests.exceptions.Timeout:
+            if tool_call_detected:
+                raise RuntimeError(
+                    '百炼智能体工具调用执行超时。MCP 工具（如股票数据查询）可能执行时间较长，'
+                    '请稍后重试或尝试更简单的问题。'
+                )
             raise RuntimeError('百炼请求超时')
         except RuntimeError:
             raise

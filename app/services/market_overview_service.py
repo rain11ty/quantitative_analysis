@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime, timedelta
 
+import pandas as pd
 from loguru import logger
 from sqlalchemy import text
 
@@ -29,7 +30,10 @@ class MarketOverviewService:
         if value is None or value == '':
             return None
         try:
-            return round(float(value), digits)
+            f = float(value)
+            if f != f:  # NaN check (NaN != NaN)
+                return None
+            return round(f, digits)
         except (TypeError, ValueError):
             return None
 
@@ -114,6 +118,7 @@ class MarketOverviewService:
     @classmethod
     def _attach_market_totals(cls, result: dict):
         """从数据库查询全市场总成交额(千元)和总成交量(手)，附加到 result 中"""
+        conn = None
         try:
             conn, cursor = DatabaseUtils.connect_to_mysql()
             cursor.execute(
@@ -121,7 +126,6 @@ class MarketOverviewService:
                 "WHERE trade_date = (SELECT MAX(trade_date) FROM stock_daily_history)"
             )
             row = cursor.fetchone()
-            conn.close()
             if row and row[0] is not None:
                 result['total_amount'] = cls._to_float(row[0], 0)  # 千元
                 result['total_vol'] = cls._to_float(row[1], 0)     # 手
@@ -132,6 +136,9 @@ class MarketOverviewService:
             logger.warning(f'Failed to query market totals: {exc}')
             result['total_amount'] = 0
             result['total_vol'] = 0
+        finally:
+            if conn:
+                conn.close()
 
     # ======================== 指数历史K线 ========================
 
@@ -172,6 +179,7 @@ class MarketOverviewService:
     def _fetch_index_kline(cls, ts_code: str, days: int) -> dict:
         """从本地数据库或Tushare获取指数K线"""
         # 先尝试本地数据库
+        conn = None
         try:
             conn, cursor = DatabaseUtils.connect_to_mysql()
             start_date = (datetime.now() - timedelta(days=int(days * 1.5))).strftime('%Y%m%d')
@@ -183,7 +191,6 @@ class MarketOverviewService:
                 (ts_code, start_date),
             )
             rows = cursor.fetchall()
-            conn.close()
 
             if rows and len(rows) >= 10:
                 kline = []
@@ -206,6 +213,9 @@ class MarketOverviewService:
                 }
         except Exception as exc:
             logger.warning(f'Local DB index kline failed for {ts_code}: {exc}')
+        finally:
+            if conn:
+                conn.close()
 
         # 降级到 Tushare index_daily
         try:
@@ -468,6 +478,7 @@ class MarketOverviewService:
     @classmethod
     def _fetch_from_local_cache(cls):
         """第三级降级：从本地 MySQL 读取最近缓存的指数/大盘数据（单次批量查询优化）"""
+        conn = None
         try:
             conn, cursor = DatabaseUtils.connect_to_mysql()
 
@@ -491,7 +502,6 @@ class MarketOverviewService:
             )
             cursor.execute(sql, all_codes)
             all_rows = cursor.fetchall()
-            conn.close()
 
             # 按 ts_code 分组，每个组最多保留最近 60 条
             rows_by_code = {}
@@ -602,4 +612,366 @@ class MarketOverviewService:
                 'declining': 0,
                 'flat': 0,
                 'degraded': True,
+            }
+        finally:
+            if conn:
+                conn.close()
+
+    # ======================== 热门板块排行 ========================
+
+    @classmethod
+    def get_hot_boards(cls, board_type: str = 'industry', limit: int = 10, cache_only: bool = False) -> dict:
+        """获取热门板块排行数据
+
+        Args:
+            board_type: 'industry' 行业板块 / 'concept' 概念板块
+            limit: 返回条数，默认 10
+            cache_only: 是否仅读缓存
+        """
+        cache_key = f'hot_boards_{board_type}'
+        cached = _cache.get(cache_key)
+        if cached is not None:
+            result = dict(cached)
+            result['items'] = result.get('items', [])[:limit]
+            return result
+
+        if cache_only:
+            return {
+                'success': False,
+                'message': '板块数据暂未就绪，请等待后台任务预热缓存。',
+                'board_type': board_type,
+                'items': [],
+                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            }
+
+        # 缓存时取 20 条，API 层按需裁剪
+        result = cls._fetch_board_ranking(board_type=board_type, limit=20)
+        _cache.set(cache_key, result, ttl=90)
+        result['items'] = result.get('items', [])[:limit]
+        return result
+
+    @classmethod
+    def _fetch_board_ranking(cls, board_type: str = 'industry', limit: int = 10) -> dict:
+        """通过 AKShare 获取板块排行数据"""
+        try:
+            from app.services.akshare_service import call_with_no_proxy
+
+            if board_type == 'concept':
+                import akshare as ak
+                df = call_with_no_proxy(ak.stock_board_concept_spot_em)
+            else:
+                import akshare as ak
+                df = call_with_no_proxy(ak.stock_board_industry_spot_em)
+
+            if df is None or df.empty:
+                return {
+                    'success': False,
+                    'message': f'{board_type} 板块数据为空',
+                    'board_type': board_type,
+                    'items': [],
+                    'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                }
+
+            # AKShare 东方财富板块数据的列名
+            col_map = {
+                '板块名称': 'name',
+                '板块代码': 'code',
+                '最新价': 'price',
+                '涨跌幅': 'pct_change',
+                '涨跌额': 'change',
+                '成交量': 'volume',
+                '成交额': 'amount',
+                '振幅': 'amplitude',
+                '换手率': 'turnover_rate',
+                '市盈率': 'pe',
+                '量比': 'vol_ratio',
+                '上涨家数': 'up_count',
+                '下跌家数': 'down_count',
+                '领涨股票': 'lead_stock',
+                '领涨股票-涨跌幅': 'lead_stock_pct',
+            }
+            df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
+
+            # 数值转换
+            for col in ['pct_change', 'change', 'price', 'amount', 'turnover_rate',
+                         'vol_ratio', 'lead_stock_pct', 'up_count', 'down_count']:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+
+            # 按涨跌幅降序排列
+            if 'pct_change' in df.columns:
+                df = df.sort_values('pct_change', ascending=False, na_position='last')
+
+            items = []
+            for _, row in df.head(limit).iterrows():
+                items.append({
+                    'name': cls._to_float_text(row.get('name', '')),
+                    'code': cls._to_float_text(row.get('code', '')),
+                    'price': cls._to_float(row.get('price')),
+                    'pct_change': cls._to_float(row.get('pct_change')),
+                    'change': cls._to_float(row.get('change')),
+                    'amount': cls._to_float(row.get('amount'), 0),
+                    'turnover_rate': cls._to_float(row.get('turnover_rate')),
+                    'vol_ratio': cls._to_float(row.get('vol_ratio')),
+                    'up_count': cls._to_int(row.get('up_count')),
+                    'down_count': cls._to_int(row.get('down_count')),
+                    'lead_stock': cls._to_float_text(row.get('lead_stock', '')),
+                    'lead_stock_pct': cls._to_float(row.get('lead_stock_pct')),
+                })
+
+            return {
+                'success': True,
+                'message': f'热门{("行业" if board_type == "industry" else "概念")}板块已加载。',
+                'board_type': board_type,
+                'items': items,
+                'total': len(df),
+                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            }
+        except Exception as exc:
+            logger.error(f'获取{board_type}板块排行失败: {exc}')
+            return {
+                'success': False,
+                'message': f'板块数据获取失败: {exc}',
+                'board_type': board_type,
+                'items': [],
+                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            }
+
+    @staticmethod
+    def _to_float_text(value) -> str:
+        if value is None or (isinstance(value, float) and pd.isna(value)):
+            return ''
+        return str(value).strip()
+
+    @staticmethod
+    def _to_int(value) -> int:
+        if value is None:
+            return 0
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            return 0
+
+    # ======================== 北向资金净流入 ========================
+
+    @classmethod
+    def get_northbound_fund_flow(cls, cache_only: bool = False) -> dict:
+        """获取当日北向资金净流入数据（沪股通/深股通）"""
+        cache_key = 'northbound_fund_flow'
+        cached = _cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        if cache_only:
+            return {
+                'success': False,
+                'message': '北向资金数据暂未就绪，请等待后台任务预热缓存。',
+                'data': {},
+                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            }
+
+        result = cls._fetch_northbound_fund_flow()
+        _cache.set(cache_key, result, ttl=90)
+        return result
+
+    @classmethod
+    def _fetch_northbound_fund_flow(cls) -> dict:
+        """通过 AKShare 获取北向资金流向汇总
+
+        AKShare stock_hsgt_fund_flow_summary_em 返回 DataFrame:
+          列: 日期, 当日净买入, 买入成交额, 卖出成交额, 历史累计净买入, 持股市值
+          行: 沪股通 / 深股通 / 北向资金
+        数值单位已为亿元。
+        """
+        try:
+            from app.services.akshare_service import call_with_no_proxy
+            import akshare as ak
+
+            df = call_with_no_proxy(ak.stock_hsgt_fund_flow_summary_em)
+
+            if df is None or df.empty:
+                return {
+                    'success': False,
+                    'message': '北向资金数据为空',
+                    'data': {},
+                    'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                }
+
+            logger.debug(f'[Northbound] shape={df.shape}, columns={list(df.columns)}')
+
+            columns = list(df.columns)
+            sh_net = None
+            sz_net = None
+            total_net = None
+
+            # 遍历行，根据第一列（类别名）提取沪股通/深股通/北向资金
+            # 第二列通常是"当日净买入"（单位：亿元）
+            for _, row in df.iterrows():
+                row_name = str(row.iloc[0]) if len(columns) > 0 else ''
+                # 取第二列作为当日净买入值
+                net_val = None
+                if len(columns) > 1:
+                    raw = row.iloc[1]
+                    if raw is not None and not (isinstance(raw, float) and pd.isna(raw)):
+                        try:
+                            net_val = round(float(raw), 2)
+                        except (TypeError, ValueError):
+                            net_val = None
+
+                if '沪股通' in row_name:
+                    sh_net = net_val
+                elif '深股通' in row_name:
+                    sz_net = net_val
+                elif '北向' in row_name or '合计' in row_name:
+                    total_net = net_val
+
+            # 合计：如果有沪和深但没有合计，自动求和
+            if sh_net is not None and sz_net is not None and total_net is None:
+                total_net = round(sh_net + sz_net, 2)
+
+            # 兜底：如果行名匹配不上，尝试从所有数值列中查找含"净"的列
+            if sh_net is None and sz_net is None and total_net is None:
+                for col in columns[1:]:
+                    col_str = str(col)
+                    if '净' in col_str or 'net' in col_str.lower():
+                        # 取第一行的值作为合计
+                        raw = df.iloc[0][col] if len(df) > 0 else None
+                        if raw is not None and not (isinstance(raw, float) and pd.isna(raw)):
+                            try:
+                                total_net = round(float(raw), 2)
+                            except (TypeError, ValueError):
+                                pass
+                        break
+
+            logger.info(f'[Northbound] sh={sh_net}, sz={sz_net}, total={total_net}')
+
+            return {
+                'success': True,
+                'message': '北向资金净流入数据已加载。',
+                'data': {
+                    'sh_net_inflow': sh_net,      # 沪股通净流入（亿元）
+                    'sz_net_inflow': sz_net,       # 深股通净流入（亿元）
+                    'total_net_inflow': total_net,  # 北向资金合计净流入（亿元）
+                    'unit': '亿元',
+                },
+                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            }
+        except Exception as exc:
+            logger.error(f'获取北向资金数据失败: {exc}')
+            return {
+                'success': False,
+                'message': f'北向资金数据获取失败: {exc}',
+                'data': {},
+                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            }
+
+    # ======================== 板块资金流向排名 ========================
+
+    @classmethod
+    def get_sector_fund_flow_rank(cls, limit: int = 20, cache_only: bool = False) -> dict:
+        """获取板块资金流向排名数据
+
+        Args:
+            limit: 返回条数，默认 20
+            cache_only: 是否仅读缓存
+        """
+        cache_key = 'sector_fund_flow_rank'
+        cached = _cache.get(cache_key)
+        if cached is not None:
+            result = dict(cached)
+            result['items'] = result.get('items', [])[:limit]
+            return result
+
+        if cache_only:
+            return {
+                'success': False,
+                'message': '板块资金流向数据暂未就绪，请等待后台任务预热缓存。',
+                'items': [],
+                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            }
+
+        result = cls._fetch_sector_fund_flow_rank(limit=50)
+        _cache.set(cache_key, result, ttl=180)
+        result['items'] = result.get('items', [])[:limit]
+        return result
+
+    @classmethod
+    def _fetch_sector_fund_flow_rank(cls, limit: int = 50) -> dict:
+        """通过 AKShare 获取板块资金流向排名数据
+
+        AKShare stock_sector_fund_flow_rank 返回 DataFrame:
+          列: 序号, 名称, 今日涨跌幅, 今日主力净流入-净额, 今日主力净流入-净占比,
+              今日超大单净流入-净额, 今日超大单净流入-净占比, 今日大单净流入-净额, 今日大单净流入-净占比,
+              今日中单净流入-净额, 今日中单净流入-净占比, 今日小单净流入-净额, 今日小单净流入-净占比,
+              今日主力净流入最大股
+        """
+        try:
+            from app.services.akshare_service import call_with_no_proxy
+            import akshare as ak
+
+            df = call_with_no_proxy(
+                ak.stock_sector_fund_flow_rank,
+                indicator='今日',
+                sector_type='行业资金流',
+            )
+
+            if df is None or df.empty:
+                return {
+                    'success': False,
+                    'message': '板块资金流向数据为空',
+                    'items': [],
+                    'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                }
+
+            # 按主力净流入降序排列
+            main_flow_col = '今日主力净流入-净额'
+            if main_flow_col in df.columns:
+                df[main_flow_col] = pd.to_numeric(df[main_flow_col], errors='coerce')
+                df = df.sort_values(main_flow_col, ascending=False, na_position='last')
+
+            items = []
+            for _, row in df.head(limit).iterrows():
+                pct_chg = cls._to_float(row.get('今日涨跌幅'))
+                main_net = cls._to_float(row.get('今日主力净流入-净额'), 0)
+                main_pct = cls._to_float(row.get('今日主力净流入-净占比'))
+                super_large_net = cls._to_float(row.get('今日超大单净流入-净额'), 0)
+                super_large_pct = cls._to_float(row.get('今日超大单净流入-净占比'))
+                large_net = cls._to_float(row.get('今日大单净流入-净额'), 0)
+                large_pct = cls._to_float(row.get('今日大单净流入-净占比'))
+                mid_net = cls._to_float(row.get('今日中单净流入-净额'), 0)
+                mid_pct = cls._to_float(row.get('今日中单净流入-净占比'))
+                small_net = cls._to_float(row.get('今日小单净流入-净额'), 0)
+                small_pct = cls._to_float(row.get('今日小单净流入-净占比'))
+                lead_stock = cls._to_float_text(row.get('今日主力净流入最大股', ''))
+
+                items.append({
+                    'name': cls._to_float_text(row.get('名称', '')),
+                    'pct_change': pct_chg,
+                    'main_net_inflow': main_net,
+                    'main_net_pct': main_pct,
+                    'super_large_net_inflow': super_large_net,
+                    'super_large_net_pct': super_large_pct,
+                    'large_net_inflow': large_net,
+                    'large_net_pct': large_pct,
+                    'mid_net_inflow': mid_net,
+                    'mid_net_pct': mid_pct,
+                    'small_net_inflow': small_net,
+                    'small_net_pct': small_pct,
+                    'lead_stock': lead_stock,
+                })
+
+            return {
+                'success': True,
+                'message': '板块资金流向排名已加载。',
+                'items': items,
+                'total': len(df),
+                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            }
+        except Exception as exc:
+            logger.error(f'获取板块资金流向排名失败: {exc}')
+            return {
+                'success': False,
+                'message': f'板块资金流向数据获取失败: {exc}',
+                'items': [],
+                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             }

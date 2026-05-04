@@ -187,11 +187,101 @@ def get_industries():
     return jsonify({'code': 200, 'message': 'success', 'data': result})
 
 
+# ========== 热门板块排行 ==========
+
+@api_bp.route('/market/boards', methods=['GET'])
+@api_error_handler(default_message='获取热门板块数据失败')
+def get_market_boards():
+    """获取热门板块排行（纯读缓存，数据由 Celery 定时任务刷新）"""
+    board_type = (request.args.get('type') or 'industry').strip()
+    if board_type not in ('industry', 'concept'):
+        board_type = 'industry'
+    limit = parse_int_param(request.args.get('limit'), 10, min_val=1, max_val=50)
+
+    try:
+        from app.utils.cache_utils import get_cache
+        cached = get_cache().get(f'hot_boards_{board_type}')
+    except Exception:
+        cached = None
+
+    if cached is not None:
+        result = dict(cached)
+        result['items'] = result.get('items', [])[:limit]
+        return jsonify({'code': 200, 'message': 'success', 'data': result})
+
+    return jsonify({
+        'code': 200,
+        'message': '板块数据暂未就绪，请稍后重试',
+        'data': {
+            'success': False,
+            'board_type': board_type,
+            'items': [],
+            'update_time': '',
+        },
+    })
+
+
+# ========== 北向资金净流入 ==========
+
+@api_bp.route('/market/northbound', methods=['GET'])
+@api_error_handler(default_message='获取北向资金数据失败')
+def get_northbound_fund():
+    """获取北向资金净流入数据（纯读缓存，数据由 Celery 定时任务刷新）"""
+    try:
+        from app.utils.cache_utils import get_cache
+        cached = get_cache().get('northbound_fund_flow')
+    except Exception:
+        cached = None
+
+    if cached is not None:
+        return jsonify({'code': 200, 'message': 'success', 'data': cached})
+
+    return jsonify({
+        'code': 200,
+        'message': '北向资金数据暂未就绪，请稍后重试',
+        'data': {
+            'success': False,
+            'data': {},
+            'update_time': '',
+        },
+    })
+
+
 @api_bp.route('/areas', methods=['GET'])
 @api_error_handler(default_message='获取地域列表失败')
 def get_areas():
     result = StockService.get_area_list()
     return jsonify({'code': 200, 'message': 'success', 'data': result})
+
+
+# ========== 板块资金流向排名 ==========
+
+@api_bp.route('/market/sector-fund-flow', methods=['GET'])
+@api_error_handler(default_message='获取板块资金流向数据失败')
+def get_sector_fund_flow():
+    """获取板块资金流向排名（纯读缓存，数据由 Celery 定时任务刷新）"""
+    limit = parse_int_param(request.args.get('limit'), 20, min_val=1, max_val=100)
+
+    try:
+        from app.utils.cache_utils import get_cache
+        cached = get_cache().get('sector_fund_flow_rank')
+    except Exception:
+        cached = None
+
+    if cached is not None:
+        result = dict(cached)
+        result['items'] = result.get('items', [])[:limit]
+        return jsonify({'code': 200, 'message': 'success', 'data': result})
+
+    return jsonify({
+        'code': 200,
+        'message': '板块资金流向数据暂未就绪，请稍后重试',
+        'data': {
+            'success': False,
+            'items': [],
+            'update_time': '',
+        },
+    })
 
 
 # ========== 自选股相关接口 ==========

@@ -222,7 +222,9 @@ def ai_chat():
             def generate():
                 import time as _time
                 _stream_start = _time.time()
-                _stream_timeout = 180  # 流式响应总超时（秒）
+                # 百炼智能体 MCP 工具调用可能耗时较长（如股票数据查询），
+                # 总超时设为 300 秒以覆盖工具执行 + 模型生成的完整流程
+                _stream_timeout = 300
                 full_answer = ''
                 chunk_index = 0
                 try:

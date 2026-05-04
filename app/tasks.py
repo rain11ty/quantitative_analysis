@@ -501,6 +501,67 @@ def refresh_market_overview_cache():
         logger.error(f'[Celery] 市场概览缓存刷新失败: {exc}')
 
 
+@celery_app.task(name='app.tasks.refresh_board_ranking_cache')
+def refresh_board_ranking_cache():
+    """每 60 秒爬取热门板块排行，写入 Redis（hot_boards_industry / hot_boards_concept，TTL 180s）。"""
+    try:
+        from app.services.market_overview_service import MarketOverviewService
+        from app.utils.cache_utils import get_cache
+
+        cache = get_cache()
+
+        for board_type in ['industry', 'concept']:
+            try:
+                result = MarketOverviewService._fetch_board_ranking(board_type=board_type, limit=20)
+                cache.set(f'hot_boards_{board_type}', result, ttl=180)
+                logger.info(f'[Celery] {board_type}板块缓存已刷新: {len(result.get("items", []))} 条')
+            except Exception as exc:
+                logger.warning(f'[Celery] {board_type}板块缓存刷新失败: {exc}')
+
+    except Exception as exc:
+        logger.error(f'[Celery] 板块排行缓存刷新失败: {exc}')
+
+
+@celery_app.task(name='app.tasks.refresh_northbound_fund_cache')
+def refresh_northbound_fund_cache():
+    """每 60 秒爬取北向资金净流入数据，写入 Redis（northbound_fund_flow，TTL 180s）。"""
+    try:
+        from app.services.market_overview_service import MarketOverviewService
+        from app.utils.cache_utils import get_cache
+
+        cache = get_cache()
+
+        try:
+            result = MarketOverviewService._fetch_northbound_fund_flow()
+            cache.set('northbound_fund_flow', result, ttl=180)
+            logger.info(f'[Celery] 北向资金缓存已刷新: {result.get("data", {})}')
+        except Exception as exc:
+            logger.warning(f'[Celery] 北向资金缓存刷新失败: {exc}')
+
+    except Exception as exc:
+        logger.error(f'[Celery] 北向资金缓存刷新失败: {exc}')
+
+
+@celery_app.task(name='app.tasks.refresh_sector_fund_flow_cache')
+def refresh_sector_fund_flow_cache():
+    """每 120 秒爬取板块资金流向排名，写入 Redis（sector_fund_flow_rank，TTL 300s）。"""
+    try:
+        from app.services.market_overview_service import MarketOverviewService
+        from app.utils.cache_utils import get_cache
+
+        cache = get_cache()
+
+        try:
+            result = MarketOverviewService._fetch_sector_fund_flow_rank(limit=50)
+            cache.set('sector_fund_flow_rank', result, ttl=300)
+            logger.info(f'[Celery] 板块资金流向缓存已刷新: {len(result.get("items", []))} 条')
+        except Exception as exc:
+            logger.warning(f'[Celery] 板块资金流向缓存刷新失败: {exc}')
+
+    except Exception as exc:
+        logger.error(f'[Celery] 板块资金流向缓存刷新失败: {exc}')
+
+
 @celery_app.task(name='app.tasks.health_check')
 def health_check():
     """Celery Worker 健康检查。"""

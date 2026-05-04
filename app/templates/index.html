@@ -7,7 +7,10 @@
 /* ========== 紧凑首页样式（参考同花顺布局）========== */
 
 /* 页面整体更紧凑 */
-.page-shell { padding-top: 84px !important; padding-bottom: 20px !important; }
+.page-shell { padding-top: 84px; padding-bottom: 20px; }
+@media (max-width: 1199.98px) {
+  .page-shell { padding-top: 92px; }
+}
 
 /* ===== 1. 顶部 Hero (已移除) ===== */
 
@@ -471,6 +474,119 @@
 .pct-flat { color: var(--text-muted); }
 .rank-top3 { color: #dc2626; font-weight: 800; }
 
+/* ===== 6. 北向资金条 ===== */
+.northbound-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0.8rem;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  font-size: 0.75rem;
+  box-shadow: var(--shadow-soft);
+  margin-bottom: 0.4rem;
+  flex-wrap: wrap;
+}
+.nb-label {
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+.nb-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+.nb-item-label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.nb-value {
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+.nb-value.nb-up { color: #b91c1c; }
+.nb-value.nb-down { color: #166534; }
+.nb-value.nb-flat { color: var(--text-muted); }
+
+/* ===== 7. 热门板块 ===== */
+.board-section {
+  margin-top: 0.4rem;
+}
+.board-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.board-header h5 {
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-main);
+}
+.board-tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+.board-tab {
+  padding: 0.22rem 0.65rem;
+  border-radius: 7px;
+  border: 1px solid var(--card-border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.73rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.board-tab:hover { border-color: rgba(0, 82, 255, 0.28); color: var(--brand-blue); }
+.board-tab.active {
+  background: var(--brand-blue);
+  color: #fff;
+  border-color: var(--brand-blue);
+}
+.board-container {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--card-border);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+}
+.board-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.74rem;
+}
+.board-table th {
+  padding: 0.3rem 0.5rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(248,250,252,0.7);
+  border-bottom: 1px solid rgba(226,232,240,0.5);
+  text-align: right;
+  white-space: nowrap;
+}
+.board-table th:first-child,
+.board-table th:nth-child(2) { text-align: left; }
+.board-table td {
+  padding: 0.28rem 0.5rem;
+  border-bottom: 1px solid rgba(226,232,240,0.3);
+  text-align: right;
+  white-space: nowrap;
+  color: var(--text-main);
+}
+.board-table td:first-child { color: var(--text-muted); width: 24px; text-align: center; }
+.board-table td:nth-child(2) { text-align: left; font-weight: 600; }
+.board-table tbody tr { transition: background 0.12s; }
+.board-table tbody tr:hover { background: rgba(0, 82, 255, 0.04); }
+.board-table .lead-stock { font-size: 0.7rem; color: var(--text-muted); font-weight: 500; }
+.board-table .lead-pct { font-size: 0.7rem; }
+
 /* ===== 响应式 ===== */
 @media (max-width: 1199px) {
   .main-triple-grid {
@@ -485,6 +601,7 @@
   }
   .chart-box { height: 170px; }
   .ranking-container { grid-template-columns: 1fr; }
+  .board-table { font-size: 0.7rem; }
 }
 @media (max-width: 767px) {
   .ticker-bar { overflow-x: auto; flex-wrap: nowrap; }
@@ -508,6 +625,26 @@
     <span>平 <span class="breadth-num breadth-flat" id="flat-count">--</span></span>
   </div>
   <span class="update-time-badge" id="update-time">加载中...</span>
+</div>
+
+<!-- ===== 北向资金净流入 ===== -->
+<div class="northbound-bar" id="northboundBar">
+  <span class="nb-label">北向资金</span>
+  <span class="nb-item">
+    <span class="nb-item-label">沪股通</span>
+    <span class="nb-value" id="nb-sh">--</span>
+  </span>
+  <span style="color:#e2e8f0">|</span>
+  <span class="nb-item">
+    <span class="nb-item-label">深股通</span>
+    <span class="nb-value" id="nb-sz">--</span>
+  </span>
+  <span style="color:#e2e8f0">|</span>
+  <span class="nb-item">
+    <span class="nb-item-label">合计</span>
+    <span class="nb-value" id="nb-total">--</span>
+  </span>
+  <span class="update-time-badge" id="nb-update-time" style="margin-left:auto;">加载中...</span>
 </div>
 
 <!-- ===== 三栏主区域：图表 | 概览 | 快讯 ===== -->
@@ -589,6 +726,33 @@
     </div>
   </div>
 
+</div>
+
+<!-- ===== 热门板块排行 ===== -->
+<div class="board-section">
+  <div class="board-header">
+    <h5>热门板块排行</h5>
+    <div class="board-tabs">
+      <button class="board-tab active" data-board-type="industry">行业板块</button>
+      <button class="board-tab" data-board-type="concept">概念板块</button>
+    </div>
+  </div>
+  <div class="board-container" id="boardContainer">
+    <div style="text-align:center;color:var(--text-muted);padding:1.5rem;font-size:0.82rem;">加载中...</div>
+  </div>
+</div>
+
+<!-- ===== 板块资金流向排名 ===== -->
+<div class="board-section">
+  <div class="board-header">
+    <h5>板块资金流向排名</h5>
+    <div class="d-flex align-items-center gap-2">
+      <span class="text-muted" style="font-size:0.72rem;" id="sectorFundFlowTime">加载中...</span>
+    </div>
+  </div>
+  <div class="board-container" id="sectorFundFlowContainer">
+    <div style="text-align:center;color:var(--text-muted);padding:1.5rem;font-size:0.82rem;">加载中...</div>
+  </div>
 </div>
 
 {% endblock %}
@@ -991,6 +1155,190 @@ function renderLineChart(klineData) {
   indexChart.setOption(option, true);
 }
 
+// ===== 北向资金渲染 =====
+function formatFundFlow(value) {
+  if (value === null || value === undefined) return '--';
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '--';
+  const sign = n > 0 ? '+' : '';
+  return sign + n.toFixed(2) + '亿';
+}
+
+function getFundFlowClass(value) {
+  if (value === null || value === undefined) return 'nb-flat';
+  const n = Number(value);
+  if (!Number.isFinite(n) || n === 0) return 'nb-flat';
+  return n > 0 ? 'nb-up' : 'nb-down';
+}
+
+async function loadNorthboundFund() {
+  try {
+    const res = await apiRequest('/market/northbound');
+    const data = res.data;
+    if (data && data.success && data.data) {
+      const d = data.data;
+      const shEl = document.getElementById('nb-sh');
+      const szEl = document.getElementById('nb-sz');
+      const totalEl = document.getElementById('nb-total');
+
+      shEl.textContent = formatFundFlow(d.sh_net_inflow);
+      shEl.className = 'nb-value ' + getFundFlowClass(d.sh_net_inflow);
+
+      szEl.textContent = formatFundFlow(d.sz_net_inflow);
+      szEl.className = 'nb-value ' + getFundFlowClass(d.sz_net_inflow);
+
+      totalEl.textContent = formatFundFlow(d.total_net_inflow);
+      totalEl.className = 'nb-value ' + getFundFlowClass(d.total_net_inflow);
+
+      if (data.update_time) {
+        document.getElementById('nb-update-time').textContent = data.update_time;
+      }
+    } else {
+      document.getElementById('nb-sh').textContent = '--';
+      document.getElementById('nb-sz').textContent = '--';
+      document.getElementById('nb-total').textContent = '--';
+    }
+  } catch (err) {
+    console.error('Failed to load northbound fund data:', err);
+  }
+}
+
+// ===== 热门板块渲染 =====
+let currentBoardType = 'industry';
+
+function renderBoardTable(data) {
+  const container = document.getElementById('boardContainer');
+  if (!data || !data.success || !data.items || !data.items.length) {
+    container.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:1.5rem;font-size:0.82rem;">${escapeHtmlText(data?.message || '板块数据暂未就绪')}</div>`;
+    return;
+  }
+
+  const items = data.items;
+  const boardLabel = currentBoardType === 'industry' ? '行业' : '概念';
+  let rows = '';
+  items.forEach((item, idx) => {
+    const pct = Number(item.pct_change);
+    const pctClass = !Number.isFinite(pct) || pct === 0 ? 'pct-flat' : pct > 0 ? 'pct-up' : 'pct-down';
+    const sign = pct > 0 ? '+' : '';
+    const rankClass = idx < 3 ? 'rank-top3' : '';
+
+    const leadPct = Number(item.lead_stock_pct);
+    const leadPctClass = !Number.isFinite(leadPct) || leadPct === 0 ? 'pct-flat' : leadPct > 0 ? 'pct-up' : 'pct-down';
+    const leadSign = leadPct > 0 ? '+' : '';
+
+    rows += `<tr>
+      <td class="${rankClass}">${idx + 1}</td>
+      <td>${escapeHtmlText(item.name || '')}</td>
+      <td class="${pctClass}">${sign}${formatNum(pct)}%</td>
+      <td>${formatCompactValue(item.amount)}</td>
+      <td>${item.up_count != null ? item.up_count : '--'}</td>
+      <td>${item.down_count != null ? item.down_count : '--'}</td>
+      <td class="lead-stock">${escapeHtmlText(item.lead_stock || '--')}</td>
+      <td class="lead-pct ${leadPctClass}">${Number.isFinite(leadPct) ? leadSign + formatNum(leadPct) + '%' : '--'}</td>
+    </tr>`;
+  });
+
+  container.innerHTML = `
+    <table class="board-table">
+      <thead><tr>
+        <th>#</th>
+        <th>${boardLabel}板块</th>
+        <th>涨跌幅</th>
+        <th>成交额(亿)</th>
+        <th>上涨</th>
+        <th>下跌</th>
+        <th>领涨股</th>
+        <th>领涨幅</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+async function loadBoardRanking(boardType) {
+  boardType = boardType || currentBoardType;
+  currentBoardType = boardType;
+  const container = document.getElementById('boardContainer');
+  try {
+    const res = await apiRequest(`/market/boards?type=${encodeURIComponent(boardType)}&limit=10`);
+    renderBoardTable(res.data);
+  } catch (err) {
+    container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:1.5rem;font-size:0.82rem;">板块数据加载失败</div>';
+  }
+}
+
+// ===== 板块资金流向渲染 =====
+function formatNetFlow(value) {
+  if (value === null || value === undefined) return '--';
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '--';
+  if (Math.abs(n) >= 100000000) return (n / 100000000).toFixed(2) + '亿';
+  if (Math.abs(n) >= 10000) return (n / 10000).toFixed(2) + '万';
+  return n.toFixed(0);
+}
+
+function getNetFlowClass(value) {
+  if (value === null || value === undefined) return 'pct-flat';
+  const n = Number(value);
+  if (!Number.isFinite(n) || n === 0) return 'pct-flat';
+  return n > 0 ? 'pct-up' : 'pct-down';
+}
+
+function renderSectorFundFlow(data) {
+  const container = document.getElementById('sectorFundFlowContainer');
+  const timeEl = document.getElementById('sectorFundFlowTime');
+
+  if (!data || !data.success || !data.items || !data.items.length) {
+    container.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:1.5rem;font-size:0.82rem;">${escapeHtmlText(data?.message || '板块资金流向数据暂未就绪')}</div>`;
+    return;
+  }
+
+  timeEl.textContent = data.update_time ? `更新于 ${data.update_time}` : '';
+
+  const items = data.items;
+  let rows = '';
+  items.forEach((item, idx) => {
+    const pct = Number(item.pct_change);
+    const pctClass = !Number.isFinite(pct) || pct === 0 ? 'pct-flat' : pct > 0 ? 'pct-up' : 'pct-down';
+    const sign = pct > 0 ? '+' : '';
+    const rankClass = idx < 3 ? 'rank-top3' : '';
+
+    const mainNetClass = getNetFlowClass(item.main_net_inflow);
+    const mainNetSign = Number(item.main_net_inflow) > 0 ? '+' : '';
+
+    rows += `<tr>
+      <td class="${rankClass}">${idx + 1}</td>
+      <td>${escapeHtmlText(item.name || '')}</td>
+      <td class="${pctClass}">${Number.isFinite(pct) ? sign + formatNum(pct) + '%' : '--'}</td>
+      <td class="${mainNetClass}">${Number.isFinite(Number(item.main_net_inflow)) ? mainNetSign + formatNetFlow(item.main_net_inflow) : '--'}</td>
+      <td>${Number.isFinite(Number(item.main_net_pct)) ? (item.main_net_pct > 0 ? '+' : '') + formatNum(item.main_net_pct) + '%' : '--'}</td>
+      <td>${escapeHtmlText(item.lead_stock || '--')}</td>
+    </tr>`;
+  });
+
+  container.innerHTML = `
+    <table class="board-table">
+      <thead><tr>
+        <th>#</th>
+        <th>板块名称</th>
+        <th>涨跌幅</th>
+        <th>主力净流入</th>
+        <th>主力净占比</th>
+        <th>主力净流入最大股</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+async function loadSectorFundFlow() {
+  const container = document.getElementById('sectorFundFlowContainer');
+  try {
+    const res = await cachedApiRequest('/market/sector-fund-flow?limit=15');
+    renderSectorFundFlow(res.data);
+  } catch (err) {
+    container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:1.5rem;font-size:0.82rem;">板块资金流向加载失败</div>';
+  }
+}
+
 // ===== DOM Ready =====
 document.addEventListener('DOMContentLoaded', function() {
   initChart();
@@ -1000,10 +1348,21 @@ document.addEventListener('DOMContentLoaded', function() {
   loadIndexKline('000001.SH', '1Y');  // 直接用默认指数并行加载
   loadRanking();
   loadNews();
+  loadNorthboundFund();
+  loadBoardRanking('industry');
+  loadSectorFundFlow();
 
   // 事件绑定
   document.getElementById('rankingSortBy').addEventListener('change', loadRanking);
 
+  // 板块tab切换
+  document.querySelectorAll('.board-tab').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.board-tab').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      loadBoardRanking(this.dataset.boardType);
+    });
+  });
 
   document.querySelectorAll('.period-btn').forEach(btn => {
     btn.addEventListener('click', function() {

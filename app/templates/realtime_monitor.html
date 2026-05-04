@@ -590,12 +590,8 @@
             实时快照拼接本地日线历史，点击下方指数或自选股标签即可切换查看行情与走势。
         </p>
         <div class="monitor-toolbar" style="flex-wrap:wrap;gap:0.5rem;">
-            <div class="input-group" style="flex:1 1 300px;min-width:200px;">
-                <input id="monitorCodesInput" type="text" class="form-control" placeholder="输入监控代码，例如 000001.SZ,600519.SH,300750.SZ">
-                <button id="applyCodesBtn" class="btn btn-primary" type="button">应用代码</button>
-            </div>
-            <div class="monitor-search-wrap" style="position:relative;flex:1 1 280px;min-width:200px;">
-                <input id="stockSearchInput" type="text" class="form-control" placeholder="搜索股票名称、代码或拼音…" autocomplete="off">
+            <div class="monitor-search-wrap" style="position:relative;flex:1 1 320px;min-width:220px;max-width:520px;">
+                <input id="stockSearchInput" type="text" class="form-control" placeholder="搜索股票名称、代码或拼音，选中后自动加入监控…" autocomplete="off">
                 <div id="stockSearchDropdown" class="stock-search-dropdown" style="display:none;"></div>
             </div>
             <button id="useWatchlistBtn" class="btn btn-outline-primary" type="button">使用我的自选</button>
@@ -665,6 +661,22 @@
         </div>
     </section>
 
+    <!-- 板块资金流向排名 -->
+    <section class="page-card p-3">
+        <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-2">
+            <div class="d-flex align-items-center gap-2">
+                <span class="panel-title" style="font-size:1rem;">板块资金流向排名</span>
+                <span class="panel-subtitle" style="margin-top:0;">主力资金净流入行业排名</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <div class="small-badge" id="sectorFundFlowTime">等待加载</div>
+            </div>
+        </div>
+        <div id="sectorFundFlowContainer">
+            <div class="text-muted small">加载中...</div>
+        </div>
+    </section>
+
     <!-- 异常波动 -->
     <section class="monitor-section" style="margin-top:1rem;">
         <div class="section-header">
@@ -695,6 +707,7 @@ let selectedCode = '';
 let autoRefreshTimer = null;
 let detailChart = null;
 let currentChartMode = 'daily'; // 'daily' | 'intraday'
+let monitoredCodes = []; // 追踪当前监控的股票代码列表
 
 function formatNumber(value, digits = 2) {
     const number = Number(value);
@@ -799,16 +812,12 @@ async function doStockSearch(keyword) {
 }
 
 function addStockToMonitor(tsCode) {
-    const input = document.getElementById('monitorCodesInput');
-    const currentVal = input.value.trim();
-    const codes = currentVal ? currentVal.split(/[,;，；\s]+/).filter(Boolean) : [];
-    if (!codes.includes(tsCode)) {
-        codes.push(tsCode);
+    if (!monitoredCodes.includes(tsCode)) {
+        monitoredCodes.push(tsCode);
     }
-    input.value = codes.join(',');
     // 自动应用
     selectedCode = tsCode;
-    loadDashboard(input.value).then(() => syncInputWithDashboard());
+    loadDashboard(monitoredCodes.join(',')).then(() => syncMonitoredCodes());
 }
 
 function getSignalClass(level) {
@@ -1592,10 +1601,8 @@ async function loadStockDetail() {
     }
 }
 
-function syncInputWithDashboard() {
-    const input = document.getElementById('monitorCodesInput');
-    if (!input) return;
-    input.value = (dashboardState?.codes || []).join(',');
+function syncMonitoredCodes() {
+    monitoredCodes = (dashboardState?.codes || []).slice();
 }
 
 function toggleAutoRefresh() {
@@ -1621,8 +1628,7 @@ function toggleAutoRefresh() {
         clearInterval(autoRefreshTimer);
     }
     autoRefreshTimer = setInterval(() => {
-        const rawCodes = document.getElementById('monitorCodesInput').value.trim();
-        loadDashboard(rawCodes);
+        loadDashboard(monitoredCodes.join(','));
     }, 30000);
 }
 
@@ -1670,6 +1676,83 @@ async function loadShockData() {
     }
 }
 
+// ========== 板块资金流向排名 ==========
+function formatNetFlow(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return '--';
+    if (Math.abs(number) >= 100000000) return `${formatNumber(number / 100000000, 2)}亿`;
+    if (Math.abs(number) >= 10000) return `${formatNumber(number / 10000, 2)}万`;
+    return formatNumber(number, 0);
+}
+
+function getNetFlowClass(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number) || number === 0) return 'pct-flat';
+    return number > 0 ? 'pct-up' : 'pct-down';
+}
+
+function renderSectorFundFlow(data) {
+    const container = document.getElementById('sectorFundFlowContainer');
+    const timeEl = document.getElementById('sectorFundFlowTime');
+
+    if (!data?.success || !data?.items?.length) {
+        container.innerHTML = `<div class="text-muted small">${escapeHtml(data?.message || '板块资金流向数据暂未就绪')}</div>`;
+        timeEl.textContent = '--';
+        return;
+    }
+
+    timeEl.textContent = data.update_time ? `更新于 ${data.update_time}` : '';
+
+    const items = data.items;
+    container.innerHTML = `
+        <div class="ranking-container">
+            <div class="ranking-panel">
+                <div class="ranking-panel-title is-gainers">主力资金净流入 TOP</div>
+                <table class="ranking-table">
+                    <thead><tr><th>#</th><th>板块</th><th>涨跌幅</th><th>主力净流入</th><th>主力净占比</th><th>领涨股</th></tr></thead>
+                    <tbody>${items.slice(0, Math.ceil(items.length / 2)).map((item, idx) => renderSectorFlowRow(item, idx)).join('')}</tbody>
+                </table>
+            </div>
+            <div class="ranking-panel">
+                <div class="ranking-panel-title is-losers">主力资金净流出 TOP</div>
+                <table class="ranking-table">
+                    <thead><tr><th>#</th><th>板块</th><th>涨跌幅</th><th>主力净流入</th><th>主力净占比</th><th>领涨股</th></tr></thead>
+                    <tbody>${items.slice(Math.ceil(items.length / 2)).map((item, idx) => renderSectorFlowRow(item, idx)).join('')}</tbody>
+                </table>
+            </div>
+        </div>`;
+}
+
+function renderSectorFlowRow(item, idx) {
+    const pct = Number(item.pct_change);
+    const pctClass = !Number.isFinite(pct) || pct === 0 ? 'pct-flat' : pct > 0 ? 'pct-up' : 'pct-down';
+    const sign = pct > 0 ? '+' : '';
+    const rankClass = idx < 3 ? 'rank-top3' : '';
+
+    const mainNetClass = getNetFlowClass(item.main_net_inflow);
+    const mainNetSign = Number(item.main_net_inflow) > 0 ? '+' : '';
+
+    return `
+        <tr>
+            <td class="${rankClass}">${idx + 1}</td>
+            <td title="${escapeHtml(item.name || '')}">${escapeHtml(item.name || '')}</td>
+            <td class="${pctClass}">${Number.isFinite(pct) ? sign + formatNumber(pct) + '%' : '--'}</td>
+            <td class="${mainNetClass}">${Number.isFinite(Number(item.main_net_inflow)) ? mainNetSign + formatNetFlow(item.main_net_inflow) : '--'}</td>
+            <td>${Number.isFinite(Number(item.main_net_pct)) ? (item.main_net_pct > 0 ? '+' : '') + formatNumber(item.main_net_pct) + '%' : '--'}</td>
+            <td>${escapeHtml(item.lead_stock || '--')}</td>
+        </tr>`;
+}
+
+async function loadSectorFundFlow() {
+    const container = document.getElementById('sectorFundFlowContainer');
+    try {
+        const res = await apiRequest('/market/sector-fund-flow?limit=20');
+        renderSectorFundFlow(res.data || {});
+    } catch (error) {
+        container.innerHTML = `<div class="text-muted small">板块资金流向加载失败: ${escapeHtml(error.message)}</div>`;
+    }
+}
+
 function updateDebugPanel() {
     const el = document.getElementById('debugContent');
     if (!el || !dashboardState) return;
@@ -1692,21 +1775,15 @@ function updateDebugPanel() {
 document.addEventListener('DOMContentLoaded', async () => {
     initStockSearch();
 
-    document.getElementById('applyCodesBtn').addEventListener('click', async () => {
-        selectedCode = '';
-        await loadDashboard(document.getElementById('monitorCodesInput').value.trim());
-        syncInputWithDashboard();
-    });
-
     document.getElementById('useWatchlistBtn').addEventListener('click', async () => {
-        document.getElementById('monitorCodesInput').value = '';
+        monitoredCodes = [];
         selectedCode = '';
         await loadDashboard('');
-        syncInputWithDashboard();
+        syncMonitoredCodes();
     });
 
     document.getElementById('refreshBtn').addEventListener('click', async () => {
-        await loadDashboard(document.getElementById('monitorCodesInput').value.trim());
+        await loadDashboard(monitoredCodes.join(','));
     });
 
     document.getElementById('freqSelect').addEventListener('change', loadStockDetail);
@@ -1741,9 +1818,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     await loadDashboard('');
-    syncInputWithDashboard();
-    // 并行加载排名和异常波动数据
+    syncMonitoredCodes();
+    // 并行加载排名、板块资金流向和异常波动数据
     loadRanking();
+    loadSectorFundFlow();
     loadShockData();
 });
 </script>
