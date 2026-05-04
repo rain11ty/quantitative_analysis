@@ -83,7 +83,7 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql           # MySQL 数据持久化
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro   # 初始化 SQL（可选）
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --innodb-buffer-pool-size=1G --innodb-log-file-size=256M --max-connections=200
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --innodb-buffer-pool-size=128M --max-connections=50 --tmp-table-size=32M --max-heap-table-size=32M
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
@@ -148,6 +148,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.celery_app:celery_app inspect ping --timeout 10 || exit 1"]
+      interval: 30s
+      timeout: 15s
+      start_period: 30s
+      retries: 3
     restart: unless-stopped
 
   celery-beat:
@@ -193,6 +199,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.celery_app:celery_app status --timeout 10 2>/dev/null | grep -q 'OK' || exit 1"]
+      interval: 30s
+      timeout: 15s
+      start_period: 30s
+      retries: 3
     restart: unless-stopped
 
 volumes:

@@ -178,10 +178,41 @@ def init_cache(app=None):
 
 
 def get_cache():
-    """获取缓存实例"""
+    """获取缓存实例，首次调用时自动尝试连接 Redis"""
     global _cache_instance
-    if _cache_instance is None:
-        _cache_instance = MemoryCache()
+    if _cache_instance is not None:
+        return _cache_instance
+    # 优先尝试通过 Flask extensions 获取 Redis
+    try:
+        from app.extensions import redis_client
+        if redis_client is not None:
+            redis_client.ping()
+            _cache_instance = RedisCache(redis_client)
+            logger.info('[Cache] 使用 Redis 缓存（via extensions）')
+            return _cache_instance
+    except Exception:
+        pass
+    # 降级：直接从环境变量连接 Redis（Celery worker 没有 Flask app context）
+    try:
+        import os
+        import redis as _redis
+        host = os.getenv('REDIS_HOST', 'localhost')
+        port = int(os.getenv('REDIS_PORT', '6379'))
+        db_num = int(os.getenv('REDIS_DB', '0'))
+        password = os.getenv('REDIS_PASSWORD') or None
+        if os.getenv('REDIS_ENABLED', 'true').lower() != 'true':
+            raise RuntimeError('Redis disabled')
+        client = _redis.Redis(host=host, port=port, db=db_num, password=password,
+                              decode_responses=True, socket_connect_timeout=3,
+                              socket_timeout=5, retry_on_timeout=True)
+        client.ping()
+        _cache_instance = RedisCache(client)
+        logger.info(f'[Cache] 使用 Redis 缓存（直连 {host}:{port}/{db_num}）')
+        return _cache_instance
+    except Exception as exc:
+        logger.warning(f'[Cache] Redis 不可用，降级为内存缓存: {exc}')
+    _cache_instance = MemoryCache()
+    logger.info('[Cache] 使用内存缓存')
     return _cache_instance
 
 

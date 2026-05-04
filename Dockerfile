@@ -52,7 +52,7 @@ RUN mkdir -p /app/logs /app/data
 
 EXPOSE 5001
 
-# 健康检查
+# 健康检查（仅 web 容器使用，celery 容器需在 compose 中覆盖）
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5001/healthz')" || exit 1
 

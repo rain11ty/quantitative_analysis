@@ -94,6 +94,7 @@ def make_celery(app=None):
         'stock_analysis',
         broker=broker_url,
         backend=result_backend,
+        include=['app.tasks'],
     )
 
     celery.conf.update(

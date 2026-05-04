@@ -471,7 +471,7 @@ def refresh_ranking_cache():
 
 @celery_app.task(name='app.tasks.refresh_market_overview_cache')
 def refresh_market_overview_cache():
-    """每 30 秒预热市场概览和指数 K 线，写入 Redis（market_overview / index_kline_000001.SH_1Y，TTL 90s）。"""
+    """每 30 秒预热市场概览和指数 K 线，写入 Redis（TTL 90s）。"""
     try:
         from app.services.market_overview_service import MarketOverviewService
         from app.utils.cache_utils import get_cache
@@ -484,11 +484,16 @@ def refresh_market_overview_cache():
         except Exception as exc:
             logger.warning(f'[Celery] 市场概览缓存刷新失败: {exc}')
 
-        try:
-            kline = MarketOverviewService.get_index_kline('000001.SH', '1Y')
-            cache.set('index_kline_000001.SH_1Y', kline, ttl=90)
-        except Exception as exc:
-            logger.warning(f'[Celery] 指数 K 线缓存刷新失败: {exc}')
+        # 预热所有指数的所有周期
+        all_indices = ('000001.SH', '399001.SZ', '399006.SZ', '000016.SH', '000300.SH', '000905.SH', '000688.SH')
+        all_periods = ('1M', '3M', '1Y', '3Y')
+        for idx in all_indices:
+            for period in all_periods:
+                try:
+                    kline = MarketOverviewService.get_index_kline(idx, period)
+                    cache.set(f'index_kline_{idx}_{period}', kline, ttl=90)
+                except Exception as exc:
+                    logger.warning(f'[Celery] K线缓存刷新失败 {idx} {period}: {exc}')
 
         logger.info('[Celery] 市场概览缓存已刷新')
     except Exception as exc:
