@@ -249,9 +249,10 @@ function getSourceBadgeClass(source) {
 
 function renderNewsItem(item) {
  const badgeClass = getSourceBadgeClass(item.source);
+ const displayTitle = item.title || (item.summary ? item.summary.slice(0, 60) : '') || '无标题';
  const linkHtml = item.link
-  ? `<a class="news-title" href="${escapeHtmlText(item.link)}" target="_blank" rel="noopener">${escapeHtmlText(item.title || '无标题')}</a>`
-  : `<span class="news-title">${escapeHtmlText(item.title || '无标题')}</span>`;
+  ? `<a class="news-title" href="${escapeHtmlText(item.link)}" target="_blank" rel="noopener">${escapeHtmlText(displayTitle)}</a>`
+  : `<span class="news-title">${escapeHtmlText(displayTitle)}</span>`;
  const summaryHtml = item.summary
   ? `<div class="news-summary">${escapeHtmlText(item.summary)}</div>`
   : '';
