@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from app.extensions import db
-from datetime import datetime
 from sqlalchemy import Index
 
 class StockBusiness(db.Model):

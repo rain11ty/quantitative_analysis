@@ -5,6 +5,7 @@ from datetime import timedelta
 from flask import Flask, flash, g, jsonify, redirect, render_template, request, session, url_for
 from flask_cors import CORS
 from flask_compress import Compress
+from flask_socketio import SocketIO
 try:
     from flask_limiter import Limiter
     from flask_limiter.util import get_remote_address
@@ -17,6 +18,8 @@ except ImportError:
 from config import config
 from app.extensions import db, init_redis
 from app.utils.logger import setup_logger
+
+socketio = SocketIO()
 
 
 PUBLIC_ENDPOINTS = {
@@ -297,6 +300,10 @@ def create_app(config_name='default'):
 
     from app.routes.admin_routes import admin_routes
     app.register_blueprint(admin_routes)
+
+    # --- Flask-SocketIO 初始化 ---
+    redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+    socketio.init_app(app, message_queue=redis_url, cors_allowed_origins='*')
 
     # --- 健康检查端点 /healthz ---
     @app.route('/healthz')

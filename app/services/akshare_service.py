@@ -1003,11 +1003,3 @@ class AkshareService:
             }
 
 
-def _is_trade_time() -> bool:
-    """简单判断当前是否在交易时间（粗略判断）"""
-    now = datetime.now()
-    weekday = now.weekday()  # 0=Mon, 4=Fri
-    if weekday >= 5:
-        return False
-    t = now.hour * 100 + now.minute
-    return (915 <= t <= 1130) or (1300 <= t <= 1500)

@@ -105,6 +105,9 @@
   margin-bottom: 0.4rem;
 }
 
+/* 快讯面板独立高度，不影响其他列 */
+.news-card { align-self: start; }
+
 /* 图表卡片 */
 .chart-card {
   background: rgba(255, 255, 255, 0.96);
@@ -267,7 +270,7 @@
   box-shadow: var(--shadow-soft);
   display: flex;
   flex-direction: column;
-  max-height: 280px;
+  max-height: 420px;
   overflow: hidden;
 }
 .news-card-head {
@@ -1311,6 +1314,82 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   window.addEventListener('resize', function() {
     if (indexChart) indexChart.resize();
+  });
+
+  // ===== WebSocket 实时推送 =====
+  const socket = io({ transports: ['websocket', 'polling'] });
+
+  socket.on('connect', function() {
+    console.log('WebSocket connected');
+  });
+
+  socket.on('market_overview', function(data) {
+    if (data && data.items) {
+      overviewData = data;
+      renderTickerBar(data.items);
+      updateSummaryPanel(data);
+      // Update price info for selected index
+      const item = data.items.find(i => i.ts_code === selectedIndex);
+      if (item) updatePriceInfo(item);
+    }
+  });
+
+  socket.on('news_update', function(data) {
+    if (data && data.items) {
+      const container = document.getElementById('newsList');
+      container.innerHTML = data.items.slice(0, 20).map(item => {
+        const srcCls = getSourceClass(item.source || '');
+        const srcLbl = getSourceLabel(item.source || '');
+        const timeStr = item.time ? item.time.slice(5, 10) + ' ' + (item.time.length > 10 ? item.time.slice(11, 16) : '') : '';
+        const displayTitle = item.title || (item.summary ? item.summary.slice(0, 60) : '') || '无标题';
+        return `<div class="news-item" title="${escapeHtmlText(displayTitle)}">
+          <span class="ni-time">${escapeHtmlText(timeStr)}</span>
+          <div class="ni-body">
+            <span class="ni-source-badge ${srcCls}">${escapeHtmlText(srcLbl)}</span>
+            <span class="ni-title">${escapeHtmlText(displayTitle)}</span>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  });
+
+  socket.on('ranking_update', function(data) {
+    if (data && data.success) {
+      const container = document.getElementById('rankingContainer');
+      const timeEl = document.getElementById('rankingUpdateTime');
+      timeEl.textContent = data.updated_at ? `更新于 ${data.updated_at}` : '';
+      const gainers = data.top_gainers || [];
+      const losers = data.top_losers || [];
+      const actualSortBy = data.sort_by || 'pct_change';
+      const sortByLabel = {'pct_change':'涨跌幅','turnover_rate':'换手率','amount':'成交额','vol_ratio':'量比'}[actualSortBy] || actualSortBy;
+      const hlPct = actualSortBy === 'pct_change' ? ' class="col-hl"' : '';
+      const hlTr = actualSortBy === 'turnover_rate' ? ' class="col-hl"' : '';
+      const hlAmt = actualSortBy === 'amount' ? ' class="col-hl"' : '';
+      const tableHeadHtml = `<thead><tr><th>#</th><th>名称</th><th>现价</th><th${hlPct}>涨跌幅</th><th${hlTr}>换手率</th><th${hlAmt}>成交额(亿)</th></tr></thead>`;
+      container.innerHTML = `
+        <div class="ranking-panel">
+          <div class="rp-title gainers">涨幅榜（按${escapeHtmlText(sortByLabel)}）</div>
+          <table class="ranking-table">${tableHeadHtml}
+          <tbody>${gainers.map((item, i) => renderRankingRow(item, i, actualSortBy)).join('')}</tbody></table>
+        </div>
+        <div class="ranking-panel">
+          <div class="rp-title losers">跌幅榜（按${escapeHtmlText(sortByLabel)}）</div>
+          <table class="ranking-table">${tableHeadHtml}
+          <tbody>${losers.map((item, i) => renderRankingRow(item, i, actualSortBy)).join('')}</tbody></table>
+        </div>`;
+    }
+  });
+
+  socket.on('board_update', function(data) {
+    renderBoardTable(data);
+  });
+
+  socket.on('sector_fund_flow', function(data) {
+    renderSectorFundFlow(data);
+  });
+
+  socket.on('disconnect', function() {
+    console.log('WebSocket disconnected, will auto-reconnect');
   });
 });
 </script>

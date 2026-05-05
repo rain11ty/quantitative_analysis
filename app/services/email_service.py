@@ -333,10 +333,3 @@ class EmailService:
 
         return True, '验证成功。'
 
-    @classmethod
-    def get_dev_code(cls, code_type, email):
-        """
-        开发辅助：从存储中直接读取验证码（仅用于调试）
-        生产环境不应暴露此接口
-        """
-        return _get_stored_code(code_type, email.lower().strip())

@@ -12,7 +12,6 @@ import logging
 from typing import List, Dict, Optional
 from app.extensions import db
 from app.models.stock_minute_data import StockMinuteData
-from app.utils.db_utils import DatabaseUtils
 from sqlalchemy import text
 import time
 

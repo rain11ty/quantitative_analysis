@@ -77,21 +77,24 @@ def _try_acquire_lock(lock_key: str, ttl: int) -> bool:
 
 
 def _run_with_timeout(func, timeout_seconds: int):
-    """Run func() in a thread with a timeout. Raises TimeoutError if exceeded."""
-    import signal
-
-    def _timeout_handler(signum, frame):
+    """Run func() with a timeout using eventlet. Raises TimeoutError if exceeded."""
+    import eventlet
+    try:
+        with eventlet.Timeout(timeout_seconds):
+            return func()
+    except eventlet.Timeout:
         raise TimeoutError(f'Task exceeded {timeout_seconds}s timeout')
 
-    old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+
+def _emit_socketio(event: str, data):
+    """Emit a SocketIO event via the Redis message queue (cross-process)."""
     try:
-        signal.alarm(timeout_seconds)
-        result = func()
-        signal.alarm(0)
-        return result
-    finally:
-        signal.alarm(0)
-        signal.signal(signal.SIGALRM, old_handler)
+        from flask_socketio import SocketIO
+        redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+        socketio = SocketIO(message_queue=redis_url)
+        socketio.emit(event, data)
+    except Exception as exc:
+        logger.warning(f'[Celery] SocketIO emit failed ({event}): {exc}')
 
 
 def _run_daily_update_job(*, quick: bool = False):
@@ -534,12 +537,19 @@ def refresh_news_cache(self):
                 'count': len(all_items),
                 'source': '全部来源',
                 'errors': source_errors if source_errors else None,
+                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             }
             cache.set('news_aggregate:all', result, ttl=120)
             logger.info(f'[Celery] 新闻缓存已刷新: {len(all_items)} 条')
+            return result
 
         try:
-            _run_with_timeout(_do_refresh, timeout_seconds=50)
+            result = _run_with_timeout(_do_refresh, timeout_seconds=50)
+            if result:
+                _emit_socketio('news_update', {
+                    'items': result.get('items', []),
+                    'update_time': result.get('update_time', ''),
+                })
         except TimeoutError:
             logger.error('[Celery] 新闻缓存刷新超时（50s），跳过本轮')
     except Exception as exc:
@@ -591,6 +601,7 @@ def refresh_market_overview_cache():
         cache = get_cache()
 
         def _do_refresh():
+            overview = None
             try:
                 overview = MarketOverviewService.get_market_overview()
                 cache.set('market_overview', overview, ttl=120)
@@ -609,9 +620,12 @@ def refresh_market_overview_cache():
                         logger.warning(f'[Celery] K线缓存刷新失败 {idx} {period}: {exc}')
 
             logger.info('[Celery] 市场概览缓存已刷新')
+            return overview
 
         try:
-            _run_with_timeout(_do_refresh, timeout_seconds=25)
+            result = _run_with_timeout(_do_refresh, timeout_seconds=25)
+            if result:
+                _emit_socketio('market_overview', result)
         except TimeoutError:
             logger.error('[Celery] 市场概览缓存刷新超时（25s），跳过本轮')
     except Exception as exc:
