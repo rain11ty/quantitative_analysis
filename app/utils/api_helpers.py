@@ -11,7 +11,7 @@ API 统一错误处理工具
 
 使用方式：
     @api_error_handler
-    def my_api_endpoint():
+    def my_endpoint():
         ...  # 不需要 try/except，装饰器自动处理
 """
 

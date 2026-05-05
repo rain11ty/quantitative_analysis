@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-from flask import render_template, request, redirect, url_for
+from flask import render_template, redirect, url_for
 from app.main import main_bp
 from app.services.llm_service import LLMService
-from app.services.stock_service import StockService
 
 @main_bp.route('/')
 def index():
