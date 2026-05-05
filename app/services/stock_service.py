@@ -408,7 +408,8 @@ class StockService:
             from datetime import datetime, timedelta
             
             # 构建基础查询，关联stock_basic表获取行业和地域信息
-            query = db.session.query(StockBusiness, StockBasic).join(
+            # 使用左外连接，确保没有 StockBasic 记录的股票也能显示（回退使用 stock_name）
+            query = db.session.query(StockBusiness, StockBasic).outerjoin(
                 StockBasic, StockBusiness.ts_code == StockBasic.ts_code
             )
             
@@ -598,14 +599,21 @@ class StockService:
             stocks = []
             for stock_business, stock_basic in results:
                 stock_dict = stock_business.to_dict()
-                # 添加基本信息
-                stock_dict.update({
-                    'industry': stock_basic.industry,
-                    'area': stock_basic.area,
-                    'symbol': stock_basic.symbol,
-                    'name': stock_basic.name,
-                    'list_date': stock_basic.list_date.strftime('%Y-%m-%d') if stock_basic.list_date else None
-                })
+                # 添加基本信息（stock_basic 可能为 None，回退使用 stock_business 字段）
+                if stock_basic is not None:
+                    stock_dict.update({
+                        'industry': stock_basic.industry,
+                        'area': stock_basic.area,
+                        'symbol': stock_basic.symbol,
+                        'name': stock_basic.name,
+                        'list_date': stock_basic.list_date.strftime('%Y-%m-%d') if stock_basic.list_date else None
+                    })
+                else:
+                    stock_dict.setdefault('name', stock_business.stock_name)
+                    stock_dict.setdefault('symbol', stock_business.ts_code.split('.')[0] if stock_business.ts_code else None)
+                    stock_dict.setdefault('industry', None)
+                    stock_dict.setdefault('area', None)
+                    stock_dict.setdefault('list_date', None)
                 stocks.append(stock_dict)
             
             logger.info(f"股票筛选完成，共找到 {total_count} 只股票（第{page}页，每页{page_size}条）")

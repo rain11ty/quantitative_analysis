@@ -58,6 +58,7 @@ PUBLIC_ENDPOINTS = {
     'api.get_news_global',
     'api.get_market_boards',
     'api.get_sector_fund_flow',
+    'api.screen_stocks',
 }
 
 PUBLIC_PATH_PREFIXES = (

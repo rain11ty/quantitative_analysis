@@ -245,6 +245,8 @@ def edit_watchlist(ts_code):
 def screen_stocks():
     """股票筛选"""
     data = request.get_json()
+    if data is None:
+        data = {}
     logger.info(f"收到筛选请求: {data}")
 
     # 使用StockService进行筛选
