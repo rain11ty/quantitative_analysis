@@ -2,7 +2,6 @@
 import re
 
 from flask import jsonify, request
-from loguru import logger
 
 from app.api import api_bp
 from app.services.akshare_service import AkshareService
@@ -272,29 +271,6 @@ def get_market_boards():
                 'update_time': '',
             },
         })
-
-
-# ========== 北向资金净流入 ==========
-
-@api_bp.route('/market/northbound', methods=['GET'])
-@api_error_handler(default_message='获取北向资金数据失败')
-def get_northbound_fund():
-    """获取北向资金净流入数据（优先读缓存，缓存未命中时实时获取）"""
-    try:
-        from app.utils.cache_utils import get_cache
-        cached = get_cache().get('northbound_fund_flow')
-    except Exception:
-        cached = None
-
-    if cached is not None:
-        return jsonify({'code': 200, 'message': 'success', 'data': cached})
-
-    # 缓存未命中，实时获取
-    try:
-        result = MarketOverviewService.get_northbound_fund_flow()
-        return jsonify({'code': 200, 'message': 'success', 'data': result})
-    except Exception:
-        return jsonify({'code': 200, 'message': '北向资金数据暂未就绪', 'data': {'success': False, 'data': {}, 'update_time': ''}})
 
 
 @api_bp.route('/areas', methods=['GET'])

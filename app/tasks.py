@@ -65,6 +65,35 @@ def _send_failure_alert(task_name: str, error_msg: str):
         logger.error(f'[Alert] 发送告警邮件失败: {exc}')
 
 
+def _try_acquire_lock(lock_key: str, ttl: int) -> bool:
+    """Try to acquire a distributed lock via Redis. Returns True if acquired."""
+    try:
+        from app.extensions import redis_client
+        if redis_client is None:
+            return True
+        return bool(redis_client.set(lock_key, '1', nx=True, ex=ttl))
+    except Exception:
+        return True
+
+
+def _run_with_timeout(func, timeout_seconds: int):
+    """Run func() in a thread with a timeout. Raises TimeoutError if exceeded."""
+    import signal
+
+    def _timeout_handler(signum, frame):
+        raise TimeoutError(f'Task exceeded {timeout_seconds}s timeout')
+
+    old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+    try:
+        signal.alarm(timeout_seconds)
+        result = func()
+        signal.alarm(0)
+        return result
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old_handler)
+
+
 def _run_daily_update_job(*, quick: bool = False):
     """执行每日增量更新脚本并返回结果。"""
     from scripts.daily_auto_update import DailyAutoUpdater
@@ -467,42 +496,52 @@ def sync_stock_business_wide(self, days=30, full=False):
 @celery_app.task(name='app.tasks.refresh_news_cache', bind=True, max_retries=1)
 def refresh_news_cache(self):
     """每 60 秒爬取 4 个新闻源，聚合后写入 Redis（news_aggregate:all，TTL 120s）。"""
+    if not _try_acquire_lock('lock:refresh_news_cache', ttl=60):
+        logger.info('[Celery] 新闻缓存刷新跳过（另一个实例正在运行）')
+        return {'status': 'skipped', 'reason': 'locked'}
+
     try:
         from app.services.news_service import NewsService
         from app.utils.cache_utils import get_cache
 
         cache = get_cache()
 
-        all_items: list = []
-        source_errors: list = []
-        sources = [
-            ('cjzc', NewsService.get_cjzc),
-            ('global_em', NewsService.get_global_em),
-            ('cls', NewsService.get_global_cls),
-            ('ths', NewsService.get_global_ths),
-        ]
+        def _do_refresh():
+            all_items: list = []
+            source_errors: list = []
+            sources = [
+                ('cjzc', NewsService.get_cjzc),
+                ('global_em', NewsService.get_global_em),
+                ('cls', NewsService.get_global_cls),
+                ('ths', NewsService.get_global_ths),
+            ]
 
-        for name, func in sources:
-            try:
-                data = func()
-                if data.get('items'):
-                    all_items.extend(data['items'])
-                elif data.get('error'):
-                    source_errors.append(f"{data.get('source', name)}: {data['error']}")
-            except Exception as exc:
-                source_errors.append(f'{name}: {exc}')
-                logger.warning(f'[Celery] 新闻源 {name} 爬取失败: {exc}')
+            for name, func in sources:
+                try:
+                    data = func()
+                    if data.get('items'):
+                        all_items.extend(data['items'])
+                    elif data.get('error'):
+                        source_errors.append(f"{data.get('source', name)}: {data['error']}")
+                except Exception as exc:
+                    source_errors.append(f'{name}: {exc}')
+                    logger.warning(f'[Celery] 新闻源 {name} 爬取失败: {exc}')
 
-        all_items.sort(key=lambda x: x.get('time', ''), reverse=True)
+            all_items.sort(key=lambda x: x.get('time', ''), reverse=True)
 
-        result = {
-            'items': all_items,
-            'count': len(all_items),
-            'source': '全部来源',
-            'errors': source_errors if source_errors else None,
-        }
-        cache.set('news_aggregate:all', result, ttl=120)
-        logger.info(f'[Celery] 新闻缓存已刷新: {len(all_items)} 条')
+            result = {
+                'items': all_items,
+                'count': len(all_items),
+                'source': '全部来源',
+                'errors': source_errors if source_errors else None,
+            }
+            cache.set('news_aggregate:all', result, ttl=120)
+            logger.info(f'[Celery] 新闻缓存已刷新: {len(all_items)} 条')
+
+        try:
+            _run_with_timeout(_do_refresh, timeout_seconds=50)
+        except TimeoutError:
+            logger.error('[Celery] 新闻缓存刷新超时（50s），跳过本轮')
     except Exception as exc:
         logger.error(f'[Celery] 新闻缓存刷新失败: {exc}')
         if self.request.retries >= self.max_retries:
@@ -519,19 +558,25 @@ def refresh_ranking_cache():
 
         cache = get_cache()
 
-        for sort_by, cache_keys in [
-            ('pct_change', ['realtime_ranking_pct_change']),
-            ('turnover_rate', ['realtime_ranking_turnover_rate']),
-            ('amount', ['realtime_ranking_amount', 'realtime_ranking_volume']),
-        ]:
-            try:
-                result = RealtimeMonitorService.get_realtime_ranking(sort_by=sort_by, limit=50)
-                for key in cache_keys:
-                    cache.set(key, result, ttl=90)
-            except Exception as exc:
-                logger.warning(f'[Celery] 排行缓存刷新失败 (sort_by={sort_by}): {exc}')
+        def _do_refresh():
+            for sort_by, cache_keys in [
+                ('pct_change', ['realtime_ranking_pct_change']),
+                ('turnover_rate', ['realtime_ranking_turnover_rate']),
+                ('amount', ['realtime_ranking_amount', 'realtime_ranking_volume']),
+            ]:
+                try:
+                    result = RealtimeMonitorService.get_realtime_ranking(sort_by=sort_by, limit=50)
+                    for key in cache_keys:
+                        cache.set(key, result, ttl=90)
+                except Exception as exc:
+                    logger.warning(f'[Celery] 排行缓存刷新失败 (sort_by={sort_by}): {exc}')
 
-        logger.info('[Celery] 涨跌排行缓存已刷新')
+            logger.info('[Celery] 涨跌排行缓存已刷新')
+
+        try:
+            _run_with_timeout(_do_refresh, timeout_seconds=25)
+        except TimeoutError:
+            logger.error('[Celery] 涨跌排行缓存刷新超时（25s），跳过本轮')
     except Exception as exc:
         logger.error(f'[Celery] 涨跌排行缓存刷新失败: {exc}')
 
@@ -545,24 +590,30 @@ def refresh_market_overview_cache():
 
         cache = get_cache()
 
+        def _do_refresh():
+            try:
+                overview = MarketOverviewService.get_market_overview()
+                cache.set('market_overview', overview, ttl=120)
+            except Exception as exc:
+                logger.warning(f'[Celery] 市场概览缓存刷新失败: {exc}')
+
+            # 预热所有指数的所有周期
+            all_indices = ('000001.SH', '399001.SZ', '399006.SZ', '000016.SH', '000300.SH', '000905.SH', '000688.SH')
+            all_periods = ('1M', '3M', '1Y', '3Y')
+            for idx in all_indices:
+                for period in all_periods:
+                    try:
+                        kline = MarketOverviewService.get_index_kline(idx, period)
+                        cache.set(f'index_kline_{idx}_{period}', kline, ttl=120)
+                    except Exception as exc:
+                        logger.warning(f'[Celery] K线缓存刷新失败 {idx} {period}: {exc}')
+
+            logger.info('[Celery] 市场概览缓存已刷新')
+
         try:
-            overview = MarketOverviewService.get_market_overview()
-            cache.set('market_overview', overview, ttl=120)
-        except Exception as exc:
-            logger.warning(f'[Celery] 市场概览缓存刷新失败: {exc}')
-
-        # 预热所有指数的所有周期
-        all_indices = ('000001.SH', '399001.SZ', '399006.SZ', '000016.SH', '000300.SH', '000905.SH', '000688.SH')
-        all_periods = ('1M', '3M', '1Y', '3Y')
-        for idx in all_indices:
-            for period in all_periods:
-                try:
-                    kline = MarketOverviewService.get_index_kline(idx, period)
-                    cache.set(f'index_kline_{idx}_{period}', kline, ttl=120)
-                except Exception as exc:
-                    logger.warning(f'[Celery] K线缓存刷新失败 {idx} {period}: {exc}')
-
-        logger.info('[Celery] 市场概览缓存已刷新')
+            _run_with_timeout(_do_refresh, timeout_seconds=25)
+        except TimeoutError:
+            logger.error('[Celery] 市场概览缓存刷新超时（25s），跳过本轮')
     except Exception as exc:
         logger.error(f'[Celery] 市场概览缓存刷新失败: {exc}')
 
@@ -570,59 +621,59 @@ def refresh_market_overview_cache():
 @celery_app.task(name='app.tasks.refresh_board_ranking_cache')
 def refresh_board_ranking_cache():
     """每 60 秒爬取热门板块排行，写入 Redis（hot_boards_industry / hot_boards_concept，TTL 180s）。"""
+    if not _try_acquire_lock('lock:refresh_board_ranking_cache', ttl=60):
+        logger.info('[Celery] 板块排行缓存刷新跳过（另一个实例正在运行）')
+        return {'status': 'skipped', 'reason': 'locked'}
+
     try:
         from app.services.market_overview_service import MarketOverviewService
         from app.utils.cache_utils import get_cache
 
         cache = get_cache()
 
-        for board_type in ['industry', 'concept']:
-            try:
-                result = MarketOverviewService._fetch_board_ranking(board_type=board_type, limit=50)
-                cache.set(f'hot_boards_{board_type}', result, ttl=180)
-                logger.info(f'[Celery] {board_type}板块缓存已刷新: {len(result.get("items", []))} 条')
-            except Exception as exc:
-                logger.warning(f'[Celery] {board_type}板块缓存刷新失败: {exc}')
+        def _do_refresh():
+            for board_type in ['industry', 'concept']:
+                try:
+                    result = MarketOverviewService._fetch_board_ranking(board_type=board_type, limit=50)
+                    cache.set(f'hot_boards_{board_type}', result, ttl=180)
+                    logger.info(f'[Celery] {board_type}板块缓存已刷新: {len(result.get("items", []))} 条')
+                except Exception as exc:
+                    logger.warning(f'[Celery] {board_type}板块缓存刷新失败: {exc}')
+
+        try:
+            _run_with_timeout(_do_refresh, timeout_seconds=50)
+        except TimeoutError:
+            logger.error('[Celery] 板块排行缓存刷新超时（50s），跳过本轮')
 
     except Exception as exc:
         logger.error(f'[Celery] 板块排行缓存刷新失败: {exc}')
 
 
-@celery_app.task(name='app.tasks.refresh_northbound_fund_cache')
-def refresh_northbound_fund_cache():
-    """每 60 秒爬取北向资金净流入数据，写入 Redis（northbound_fund_flow，TTL 180s）。"""
-    try:
-        from app.services.market_overview_service import MarketOverviewService
-        from app.utils.cache_utils import get_cache
-
-        cache = get_cache()
-
-        try:
-            result = MarketOverviewService._fetch_northbound_fund_flow()
-            cache.set('northbound_fund_flow', result, ttl=180)
-            logger.info(f'[Celery] 北向资金缓存已刷新: {result.get("data", {})}')
-        except Exception as exc:
-            logger.warning(f'[Celery] 北向资金缓存刷新失败: {exc}')
-
-    except Exception as exc:
-        logger.error(f'[Celery] 北向资金缓存刷新失败: {exc}')
-
-
 @celery_app.task(name='app.tasks.refresh_sector_fund_flow_cache')
 def refresh_sector_fund_flow_cache():
     """每 120 秒爬取板块资金流向排名，写入 Redis（sector_fund_flow_rank，TTL 300s）。"""
+    if not _try_acquire_lock('lock:refresh_sector_fund_flow_cache', ttl=120):
+        logger.info('[Celery] 板块资金流向缓存刷新跳过（另一个实例正在运行）')
+        return {'status': 'skipped', 'reason': 'locked'}
+
     try:
         from app.services.market_overview_service import MarketOverviewService
         from app.utils.cache_utils import get_cache
 
         cache = get_cache()
 
+        def _do_refresh():
+            try:
+                result = MarketOverviewService._fetch_sector_fund_flow_rank()
+                cache.set('sector_fund_flow_rank', result, ttl=300)
+                logger.info(f'[Celery] 板块资金流向缓存已刷新: {len(result.get("items", []))} 条')
+            except Exception as exc:
+                logger.warning(f'[Celery] 板块资金流向缓存刷新失败: {exc}')
+
         try:
-            result = MarketOverviewService._fetch_sector_fund_flow_rank()
-            cache.set('sector_fund_flow_rank', result, ttl=300)
-            logger.info(f'[Celery] 板块资金流向缓存已刷新: {len(result.get("items", []))} 条')
-        except Exception as exc:
-            logger.warning(f'[Celery] 板块资金流向缓存刷新失败: {exc}')
+            _run_with_timeout(_do_refresh, timeout_seconds=100)
+        except TimeoutError:
+            logger.error('[Celery] 板块资金流向缓存刷新超时（100s），跳过本轮')
 
     except Exception as exc:
         logger.error(f'[Celery] 板块资金流向缓存刷新失败: {exc}')

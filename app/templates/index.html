@@ -483,44 +483,7 @@
   color: var(--brand-blue);
 }
 
-/* ===== 6. 北向资金条 ===== */
-.northbound-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.3rem 0.8rem;
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
-  font-size: 0.75rem;
-  box-shadow: var(--shadow-soft);
-  margin-bottom: 0.4rem;
-  flex-wrap: wrap;
-}
-.nb-label {
-  font-weight: 700;
-  color: var(--text-main);
-  white-space: nowrap;
-}
-.nb-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  white-space: nowrap;
-}
-.nb-item-label {
-  color: var(--text-muted);
-  font-weight: 500;
-}
-.nb-value {
-  font-weight: 700;
-  font-size: 0.78rem;
-}
-.nb-value.nb-up { color: #b91c1c; }
-.nb-value.nb-down { color: #166534; }
-.nb-value.nb-flat { color: var(--text-muted); }
-
-/* ===== 7. 热门板块 + 资金流向（合并区域） ===== */
+/* ===== 6. 热门板块 + 资金流向（合并区域） ===== */
 .board-fund-combined {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -656,26 +619,6 @@
     <span>平 <span class="breadth-num breadth-flat" id="flat-count">--</span></span>
   </div>
   <span class="update-time-badge" id="update-time">加载中...</span>
-</div>
-
-<!-- ===== 北向资金净流入 ===== -->
-<div class="northbound-bar" id="northboundBar">
-  <span class="nb-label">北向资金</span>
-  <span class="nb-item">
-    <span class="nb-item-label">沪股通</span>
-    <span class="nb-value" id="nb-sh">--</span>
-  </span>
-  <span style="color:#e2e8f0">|</span>
-  <span class="nb-item">
-    <span class="nb-item-label">深股通</span>
-    <span class="nb-value" id="nb-sz">--</span>
-  </span>
-  <span style="color:#e2e8f0">|</span>
-  <span class="nb-item">
-    <span class="nb-item-label">合计</span>
-    <span class="nb-value" id="nb-total">--</span>
-  </span>
-  <span class="update-time-badge" id="nb-update-time" style="margin-left:auto;">加载中...</span>
 </div>
 
 <!-- ===== 三栏主区域：图表 | 概览 | 快讯 ===== -->
@@ -1199,54 +1142,6 @@ function renderLineChart(klineData) {
   indexChart.setOption(option, true);
 }
 
-// ===== 北向资金渲染 =====
-function formatFundFlow(value) {
-  if (value === null || value === undefined) return '--';
-  const n = Number(value);
-  if (!Number.isFinite(n)) return '--';
-  const sign = n > 0 ? '+' : '';
-  return sign + n.toFixed(2) + '亿';
-}
-
-function getFundFlowClass(value) {
-  if (value === null || value === undefined) return 'nb-flat';
-  const n = Number(value);
-  if (!Number.isFinite(n) || n === 0) return 'nb-flat';
-  return n > 0 ? 'nb-up' : 'nb-down';
-}
-
-async function loadNorthboundFund() {
-  try {
-    const res = await apiRequest('/market/northbound');
-    const data = res.data;
-    if (data && data.success && data.data) {
-      const d = data.data;
-      const shEl = document.getElementById('nb-sh');
-      const szEl = document.getElementById('nb-sz');
-      const totalEl = document.getElementById('nb-total');
-
-      shEl.textContent = formatFundFlow(d.sh_net_inflow);
-      shEl.className = 'nb-value ' + getFundFlowClass(d.sh_net_inflow);
-
-      szEl.textContent = formatFundFlow(d.sz_net_inflow);
-      szEl.className = 'nb-value ' + getFundFlowClass(d.sz_net_inflow);
-
-      totalEl.textContent = formatFundFlow(d.total_net_inflow);
-      totalEl.className = 'nb-value ' + getFundFlowClass(d.total_net_inflow);
-
-      if (data.update_time) {
-        document.getElementById('nb-update-time').textContent = data.update_time;
-      }
-    } else {
-      document.getElementById('nb-sh').textContent = '--';
-      document.getElementById('nb-sz').textContent = '--';
-      document.getElementById('nb-total').textContent = '--';
-    }
-  } catch (err) {
-    console.error('Failed to load northbound fund data:', err);
-  }
-}
-
 // ===== 热门板块渲染 =====
 let currentBoardType = 'industry';
 
@@ -1390,7 +1285,6 @@ document.addEventListener('DOMContentLoaded', async function() {
   // remaining requests can run in parallel
   loadRanking();
   loadNews();
-  loadNorthboundFund();
   loadBoardRanking('industry');
   loadSectorFundFlow();
 
