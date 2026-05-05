@@ -202,7 +202,7 @@
                     <div class="workspace-panel-header">
                         <div>
                             <h3 class="workspace-panel-title">编辑个人资料</h3>
-                            <p class="workspace-panel-desc">支持维护昵称、手机号和头像地址，信息会同步到个人资料卡片中。</p>
+                            <p class="workspace-panel-desc">支持维护昵称和手机号，信息会同步到个人资料卡片中。</p>
                         </div>
                     </div>
                     <form method="post" action="{{ url_for('auth.update_profile') }}">
@@ -213,10 +213,6 @@
                         <div class="mb-3">
                             <label class="form-label">手机号</label>
                             <input class="form-control" name="phone" value="{{ current_user.phone or '' }}" placeholder="请输入手机号">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">头像 URL</label>
-                            <input class="form-control" name="avatar" value="{{ current_user.avatar or '' }}" placeholder="https://...">
                         </div>
                         <button class="btn btn-primary w-100" type="submit">保存资料</button>
                     </form>
@@ -257,7 +253,7 @@
                     <div class="workspace-panel-header">
                         <div>
                             <h3 class="workspace-panel-title">修改密码</h3>
-                            <p class="workspace-panel-desc">建议定期更新密码，确保账户安全。</p>
+                            <p class="workspace-panel-desc">建议定期更新密码，确保账户安全。需要邮箱验证码确认身份。</p>
                         </div>
                     </div>
                     <form method="post" action="{{ url_for('auth.update_password') }}">
@@ -272,6 +268,16 @@
                         <div class="mb-3">
                             <label class="form-label">确认新密码</label>
                             <input type="password" class="form-control" name="confirm_password" placeholder="再次输入新密码" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">邮箱验证码</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" name="verify_code"
+                                       placeholder="请输入6位验证码" maxlength="6" autocomplete="one-time-code" required>
+                                <button class="btn btn-outline-secondary" type="button" id="sendPwdCodeBtn"
+                                        onclick="sendPasswordChangeCode()">发送验证码</button>
+                            </div>
+                            <div class="form-text" id="pwdCodeHint">验证码将发送到 {{ current_user.email }}</div>
                         </div>
                         <button class="btn btn-outline-warning w-100" type="submit">更新密码</button>
                     </form>
@@ -330,13 +336,18 @@
                 <div class="workspace-panel mb-4">
                     <div class="workspace-panel-header">
                         <div>
-                            <h2 class="workspace-panel-title">最近分析历史</h2>
+                            <h2 class="workspace-panel-title">最近分析历史 <span class="text-muted" style="font-size:0.8rem;">({{ analysis_records|length }}条记录)</span></h2>
                             <p class="workspace-panel-desc">自动记录你最近查看与分析过的内容，方便快速复盘。</p>
                         </div>
-                        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('main.stocks') }}">继续分析</a>
+                        <div class="d-flex align-items-center gap-2">
+                            {% if analysis_records %}
+                            <button class="btn btn-outline-secondary btn-sm" type="button" id="analysisToggleBtn" onclick="toggleSection('analysis')">展开</button>
+                            {% endif %}
+                            <a class="btn btn-outline-primary btn-sm" href="{{ url_for('main.stocks') }}">继续分析</a>
+                        </div>
                     </div>
                     {% if analysis_records %}
-                    <div>
+                    <div id="analysisSection" style="display:none; overflow:hidden; transition: opacity 0.25s ease;">
                         {% for record in analysis_records %}
                         <div class="workspace-list-item">
                             <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
@@ -367,31 +378,38 @@
                 <div class="workspace-panel">
                     <div class="workspace-panel-header">
                         <div>
-                            <h2 class="workspace-panel-title">最近 AI 问答</h2>
+                            <h2 class="workspace-panel-title">最近 AI 问答 <span class="text-muted" style="font-size:0.8rem;">({{ chat_records|length }}条记录)</span></h2>
                             <p class="workspace-panel-desc">登录状态下的金融知识提问会自动沉淀到这里，方便后续对照与回看。</p>
                         </div>
-                        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('main.ai_assistant') }}">继续提问</a>
+                        <div class="d-flex align-items-center gap-2">
+                            {% if chat_records %}
+                            <button class="btn btn-outline-secondary btn-sm" type="button" id="chatToggleBtn" onclick="toggleSection('chat')">展开</button>
+                            {% endif %}
+                            <a class="btn btn-outline-primary btn-sm" href="{{ url_for('main.ai_assistant') }}">继续提问</a>
+                        </div>
                     </div>
                     {% if chat_records %}
-                    <div class="accordion" id="chatHistoryAccordion">
-                        {% for item in chat_records %}
-                        <div class="accordion-item border-0 mb-3 rounded-4 overflow-hidden shadow-sm">
-                            <h2 class="accordion-header" id="chat-heading-{{ item.id }}">
-                                <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#chat-collapse-{{ item.id }}" aria-expanded="{{ 'true' if loop.first else 'false' }}" aria-controls="chat-collapse-{{ item.id }}">
-                                    <span class="me-3 text-muted small">{{ item.created_at.strftime('%m-%d %H:%M') if item.created_at else '-' }}</span>
-                                    <span>{{ item.question[:90] }}{% if item.question|length > 90 %}...{% endif %}</span>
-                                </button>
-                            </h2>
-                            <div id="chat-collapse-{{ item.id }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" aria-labelledby="chat-heading-{{ item.id }}" data-bs-parent="#chatHistoryAccordion">
-                                <div class="accordion-body">
-                                    <div class="small text-muted mb-2">问题</div>
-                                    <div class="mb-3">{{ item.question }}</div>
-                                    <div class="small text-muted mb-2">回答</div>
-                                    <div class="text-muted">{{ item.answer }}</div>
+                    <div id="chatSection" style="display:none; overflow:hidden; transition: opacity 0.25s ease;">
+                        <div class="accordion" id="chatHistoryAccordion">
+                            {% for item in chat_records %}
+                            <div class="accordion-item border-0 mb-3 rounded-4 overflow-hidden shadow-sm">
+                                <h2 class="accordion-header" id="chat-heading-{{ item.id }}">
+                                    <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#chat-collapse-{{ item.id }}" aria-expanded="{{ 'true' if loop.first else 'false' }}" aria-controls="chat-collapse-{{ item.id }}">
+                                        <span class="me-3 text-muted small">{{ item.created_at.strftime('%m-%d %H:%M') if item.created_at else '-' }}</span>
+                                        <span>{{ item.question[:90] }}{% if item.question|length > 90 %}...{% endif %}</span>
+                                    </button>
+                                </h2>
+                                <div id="chat-collapse-{{ item.id }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" aria-labelledby="chat-heading-{{ item.id }}" data-bs-parent="#chatHistoryAccordion">
+                                    <div class="accordion-body">
+                                        <div class="small text-muted mb-2">问题</div>
+                                        <div class="mb-3">{{ item.question }}</div>
+                                        <div class="small text-muted mb-2">回答</div>
+                                        <div class="text-muted">{{ item.answer }}</div>
+                                    </div>
                                 </div>
                             </div>
+                            {% endfor %}
                         </div>
-                        {% endfor %}
                     </div>
                     {% else %}
                     <div class="workspace-empty">暂无 AI 问答记录。去金融助手页面提一个问题试试。</div>
@@ -403,6 +421,30 @@
 </div>
 
 <script>
+// ---- 展开/收起 ----
+function toggleSection(section) {
+    var sectionEl = document.getElementById(section + 'Section');
+    var btnEl = document.getElementById(section + 'ToggleBtn');
+    if (!sectionEl || !btnEl) return;
+
+    if (sectionEl.style.display === 'none') {
+        sectionEl.style.display = 'block';
+        sectionEl.style.opacity = '0';
+        requestAnimationFrame(function() {
+            sectionEl.style.transition = 'opacity 0.25s ease';
+            sectionEl.style.opacity = '1';
+        });
+        btnEl.textContent = '收起';
+    } else {
+        sectionEl.style.transition = 'opacity 0.2s ease';
+        sectionEl.style.opacity = '0';
+        setTimeout(function() {
+            sectionEl.style.display = 'none';
+        }, 200);
+        btnEl.textContent = '展开';
+    }
+}
+
 // ---- 修改邮箱验证码 ----
 let emailChangeTimer = null;
 let emailChangeSeconds = 0;
@@ -465,6 +507,58 @@ function startEmailChangeCountdown(btn, seconds) {
             btn.textContent = '重新发送';
         } else {
             btn.textContent = emailChangeSeconds + 's 后重发';
+        }
+    }, 1000);
+}
+
+// ---- 修改密码验证码 ----
+let pwdCodeTimer = null;
+let pwdCodeSeconds = 0;
+
+function sendPasswordChangeCode() {
+    const hintEl = document.getElementById('pwdCodeHint');
+    const btn = document.getElementById('sendPwdCodeBtn');
+
+    if (pwdCodeSeconds > 0) return;
+
+    btn.disabled = true;
+    btn.textContent = '发送中...';
+    hintEl.innerHTML = '<span class="text-muted">正在发送...</span>';
+
+    fetch('{{ url_for("auth.send_password_change_code") }}', {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.code === 200) {
+            hintEl.innerHTML = '<span class="text-success">' + data.message + '</span>';
+            startPwdCodeCountdown(btn, 60);
+        } else {
+            hintEl.innerHTML = '<span class="text-danger">' + data.message + '</span>';
+            btn.disabled = false;
+            btn.textContent = '重新发送';
+        }
+    })
+    .catch(err => {
+        hintEl.innerHTML = '<span class="text-danger">网络错误，请重试。</span>';
+        btn.disabled = false;
+        btn.textContent = '发送验证码';
+    });
+}
+
+function startPwdCodeCountdown(btn, seconds) {
+    pwdCodeSeconds = seconds;
+    btn.disabled = true;
+    pwdCodeTimer = setInterval(function() {
+        pwdCodeSeconds--;
+        if (pwdCodeSeconds <= 0) {
+            clearInterval(pwdCodeTimer);
+            pwdCodeTimer = null;
+            btn.disabled = false;
+            btn.textContent = '重新发送';
+        } else {
+            btn.textContent = pwdCodeSeconds + 's 后重发';
         }
     }, 1000);
 }

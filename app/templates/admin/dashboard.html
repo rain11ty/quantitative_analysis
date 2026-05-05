@@ -90,6 +90,24 @@
     padding: 0.8rem !important;
     gap: 0.8rem !important;
 }
+.log-collapse-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease;
+}
+.log-collapse-content.expanded {
+    max-height: 2000px;
+}
+.log-summary-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.3rem 0.75rem;
+}
+.log-summary-text {
+    font-size: 0.82rem;
+    color: #6c757d;
+}
 </style>
 {% endblock %}
 
@@ -213,52 +231,69 @@
 
             <div class="col-12">
                 <div class="workspace-panel">
-                    <div class="workspace-panel-header">
-                        <div>
-                            <h2 class="workspace-panel-title">最新系统日志</h2>
-                            <p class="workspace-panel-desc">默认展示最近 12 条记录，帮助你快速判断服务状态和最近的后台动作。</p>
-                        </div>
-                        <span class="workspace-chip">最近 12 条</span>
+                    <div class="log-summary-line" id="logSummaryLine">
+                        <span class="log-summary-text">最新系统日志 (共{{ latest_logs|length }}条)</span>
+                        <button class="btn btn-light btn-sm" type="button" id="logToggleBtn" onclick="toggleLogPanel()">展开</button>
                     </div>
-                    <div class="table-responsive">
-                        <table class="table workspace-table align-middle mb-0">
-                            <thead>
-                                <tr>
-                                    <th>时间</th>
-                                    <th>动作</th>
-                                    <th>用户</th>
-                                    <th>状态</th>
-                                    <th>描述</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in latest_logs %}
-                                <tr>
-                                    <td>{{ item.created_at.strftime('%Y-%m-%d %H:%M:%S') if item.created_at else '-' }}</td>
-                                    <td><span class="workspace-chip">{{ item.action_type }}</span></td>
-                                    <td>{{ item.username or '-' }}</td>
-                                    <td>
-                                        {% if item.status == 'success' %}
-                                        <span class="status-pill success">成功</span>
-                                        {% else %}
-                                        <span class="status-pill danger">失败</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-muted">{{ item.message }}</td>
-                                </tr>
-                                {% else %}
-                                <tr>
-                                    <td colspan="5">
-                                        <div class="workspace-empty">当前还没有日志记录。</div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                    <div class="log-collapse-content" id="logCollapseContent">
+                        <div class="workspace-panel-header">
+                            <div>
+                                <h2 class="workspace-panel-title">最新系统日志</h2>
+                                <p class="workspace-panel-desc">默认展示最近 12 条记录，帮助你快速判断服务状态和最近的后台动作。</p>
+                            </div>
+                            <span class="workspace-chip">最近 12 条</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table workspace-table align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>时间</th>
+                                        <th>动作</th>
+                                        <th>用户</th>
+                                        <th>状态</th>
+                                        <th>描述</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in latest_logs %}
+                                    <tr>
+                                        <td>{{ item.created_at.strftime('%Y-%m-%d %H:%M:%S') if item.created_at else '-' }}</td>
+                                        <td><span class="workspace-chip">{{ item.action_type }}</span></td>
+                                        <td>{{ item.username or '-' }}</td>
+                                        <td>
+                                            {% if item.status == 'success' %}
+                                            <span class="status-pill success">成功</span>
+                                            {% else %}
+                                            <span class="status-pill danger">失败</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-muted">{{ item.message }}</td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="5">
+                                            <div class="workspace-empty">当前还没有日志记录。</div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleLogPanel() {
+    var content = document.getElementById('logCollapseContent');
+    var btn = document.getElementById('logToggleBtn');
+    content.classList.toggle('expanded');
+    btn.textContent = content.classList.contains('expanded') ? '收起' : '展开';
+}
+</script>
 {% endblock %}

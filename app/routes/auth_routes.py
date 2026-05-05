@@ -392,15 +392,46 @@ def profile():
 def update_profile():
     nickname = request.form.get('nickname', '').strip()
     phone = request.form.get('phone', '').strip()
-    avatar = request.form.get('avatar', '').strip()
 
     g.current_user.nickname = nickname or None
     g.current_user.phone = phone or None
-    g.current_user.avatar = avatar or None
     db.session.commit()
 
     flash('个人资料已更新。', 'success')
     return redirect(url_for('auth.profile'))
+
+
+@auth_routes.route('/profile/password/send-code', methods=['POST'])
+@login_required
+def send_password_change_code():
+    """发送修改密码验证码到当前用户绑定的邮箱"""
+    # 防滥用：检查是否在 60 秒内已发送过验证码
+    last_sent_key = f'_pwd_code_sent_at:{g.current_user.id}'
+    last_sent = session.get(last_sent_key)
+    if last_sent:
+        from datetime import datetime, timedelta
+        elapsed = (datetime.utcnow() - datetime.fromisoformat(last_sent)).total_seconds()
+        if elapsed < 60:
+            remaining = int(60 - elapsed)
+            return jsonify({
+                'code': 429,
+                'message': f'验证码发送过于频繁，请 {remaining} 秒后重试。',
+                'data': None,
+            }), 429
+
+    success, message = EmailService.send_verify_code(
+        EmailService.TYPE_CHANGE_PASSWORD, g.current_user.email
+    )
+
+    if success:
+        from datetime import datetime
+        session[last_sent_key] = datetime.utcnow().isoformat()
+
+    return jsonify({
+        'code': 200 if success else 500,
+        'message': message,
+        'data': None,
+    }), 200 if success else 500
 
 
 @auth_routes.route('/profile/password', methods=['POST'])
@@ -409,6 +440,7 @@ def update_password():
     current_password = request.form.get('current_password', '')
     new_password = request.form.get('new_password', '')
     confirm_password = request.form.get('confirm_password', '')
+    verify_code = request.form.get('verify_code', '').strip()
 
     if not g.current_user.check_password(current_password):
         flash('当前密码不正确。', 'danger')
@@ -422,6 +454,15 @@ def update_password():
         flash('两次输入的新密码不一致。', 'warning')
         return redirect(url_for('auth.profile'))
 
+    # 校验邮箱验证码
+    if not verify_code:
+        flash('请输入邮箱验证码。', 'warning')
+        return redirect(url_for('auth.profile'))
+
+    ok, msg = EmailService.verify_code(EmailService.TYPE_CHANGE_PASSWORD, g.current_user.email, verify_code)
+    if not ok:
+        flash(msg, 'danger')
+        return redirect(url_for('auth.profile'))
 
     g.current_user.set_password(new_password)
     db.session.commit()

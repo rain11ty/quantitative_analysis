@@ -25,6 +25,7 @@ x-common-env: &common-env
   FLASK_ENV: production
   CELERY_BROKER_URL: redis://redis:6379/1
   CELERY_RESULT_BACKEND: redis://redis:6379/2
+  REDIS_URL: redis://redis:6379/0
 
 services:
   web:
@@ -54,7 +55,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: gunicorn -c gunicorn.conf.py run:app
+    command: gunicorn -c gunicorn.conf.py --worker-class eventlet run:app
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/healthz')"]
@@ -117,7 +118,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: stock-analysis-celery-worker
-    command: celery -A app.celery_app:celery_app worker --loglevel=info --concurrency=4
+    command: celery -A app.celery_app:celery_app worker --loglevel=info --concurrency=4 -P eventlet
     environment:
       <<: *common-env
     env_file:

@@ -21,7 +21,7 @@ bind = os.getenv('GUNICORN_BIND', '0.0.0.0:5001')
 # ============================================================
 # Worker 进程配置
 # ============================================================
-worker_class = os.getenv('GUNICORN_WORKER_CLASS', 'sync')  # 生产环境推荐 gevent
+worker_class = os.getenv('GUNICORN_WORKER_CLASS', 'eventlet')
 workers = int(os.getenv('GUNICORN_WORKERS', min(multiprocessing.cpu_count() * 2 + 1, 8)))
 worker_connections = int(os.getenv('GUNICORN_CONNECTIONS', 1000))
 threads = int(os.getenv('GUNICORN_THREADS', 1))

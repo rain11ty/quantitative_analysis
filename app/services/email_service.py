@@ -92,6 +92,7 @@ class EmailService:
     TYPE_REGISTER = 'register'          # 注册验证
     TYPE_RESET_PASSWORD = 'reset_password'   # 密码重置
     TYPE_CHANGE_EMAIL = 'change_email'       # 修改邮箱
+    TYPE_CHANGE_PASSWORD = 'change_password'  # 修改密码
 
     # 模板映射：type -> (subject, body_template)
     _EMAIL_TEMPLATES = {
@@ -124,6 +125,17 @@ class EmailService:
                 '您正在将绑定邮箱变更为此邮箱，验证码为：\n\n'
                 '      {code}\n\n'
                 '验证码有效期为 {expire_minutes} 分钟，请尽快完成验证。\n\n'
+                '如果这不是您的操作，请忽略此邮件，您的账户安全未受影响。\n\n'
+                '—— 股票量化分析系统'
+            ),
+        },
+        TYPE_CHANGE_PASSWORD: {
+            'subject': '[股票量化分析系统] 修改密码验证码',
+            'body': (
+                '您好！\n\n'
+                '您正在修改账户密码，验证码为：\n\n'
+                '      {code}\n\n'
+                '验证码有效期为 {expire_minutes} 分钟，请尽快完成操作。\n\n'
                 '如果这不是您的操作，请忽略此邮件，您的账户安全未受影响。\n\n'
                 '—— 股票量化分析系统'
             ),
