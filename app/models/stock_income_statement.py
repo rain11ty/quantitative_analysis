@@ -102,14 +102,14 @@ class StockIncomeStatement(db.Model):
             'report_type': self.report_type,
             'comp_type': self.comp_type,
             'end_type': self.end_type,
-            'basic_eps': float(self.basic_eps) if self.basic_eps else None,
-            'diluted_eps': float(self.diluted_eps) if self.diluted_eps else None,
-            'total_revenue': float(self.total_revenue) if self.total_revenue else None,
-            'revenue': float(self.revenue) if self.revenue else None,
-            'n_income_attr_p': float(self.n_income_attr_p) if self.n_income_attr_p else None,
-            'operate_profit': float(self.operate_profit) if self.operate_profit else None,
-            'total_profit': float(self.total_profit) if self.total_profit else None,
-            'n_income': float(self.n_income) if self.n_income else None,
+            'basic_eps': float(self.basic_eps) if self.basic_eps is not None else None,
+            'diluted_eps': float(self.diluted_eps) if self.diluted_eps is not None else None,
+            'total_revenue': float(self.total_revenue) if self.total_revenue is not None else None,
+            'revenue': float(self.revenue) if self.revenue is not None else None,
+            'n_income_attr_p': float(self.n_income_attr_p) if self.n_income_attr_p is not None else None,
+            'operate_profit': float(self.operate_profit) if self.operate_profit is not None else None,
+            'total_profit': float(self.total_profit) if self.total_profit is not None else None,
+            'n_income': float(self.n_income) if self.n_income is not None else None,
         }
     
     def __repr__(self):

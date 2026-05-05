@@ -169,10 +169,10 @@ class StockBalanceSheet(db.Model):
             'report_type': self.report_type,
             'comp_type': self.comp_type,
             'end_type': self.end_type,
-            'total_assets': float(self.total_assets) if self.total_assets else None,
-            'total_hldr_eqy_exc_min_int': float(self.total_hldr_eqy_exc_min_int) if self.total_hldr_eqy_exc_min_int else None,
-            'total_liab': float(self.total_liab) if self.total_liab else None,
-            'money_cap': float(self.money_cap) if self.money_cap else None,
+            'total_assets': float(self.total_assets) if self.total_assets is not None else None,
+            'total_hldr_eqy_exc_min_int': float(self.total_hldr_eqy_exc_min_int) if self.total_hldr_eqy_exc_min_int is not None else None,
+            'total_liab': float(self.total_liab) if self.total_liab is not None else None,
+            'money_cap': float(self.money_cap) if self.money_cap is not None else None,
         }
     
     def __repr__(self):

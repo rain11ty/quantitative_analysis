@@ -22,16 +22,16 @@ class StockCyqPerf(db.Model):
         """转换为字典"""
         return {
             'ts_code': self.ts_code,
-            'trade_date': self.trade_date.isoformat() if self.trade_date else None,
-            'his_low': float(self.his_low) if self.his_low else None,
-            'his_high': float(self.his_high) if self.his_high else None,
-            'cost_5pct': float(self.cost_5pct) if self.cost_5pct else None,
-            'cost_15pct': float(self.cost_15pct) if self.cost_15pct else None,
-            'cost_50pct': float(self.cost_50pct) if self.cost_50pct else None,
-            'cost_85pct': float(self.cost_85pct) if self.cost_85pct else None,
-            'cost_95pct': float(self.cost_95pct) if self.cost_95pct else None,
-            'weight_avg': float(self.weight_avg) if self.weight_avg else None,
-            'winner_rate': float(self.winner_rate) if self.winner_rate else None
+            'trade_date': self.trade_date.isoformat() if self.trade_date is not None else None,
+            'his_low': float(self.his_low) if self.his_low is not None else None,
+            'his_high': float(self.his_high) if self.his_high is not None else None,
+            'cost_5pct': float(self.cost_5pct) if self.cost_5pct is not None else None,
+            'cost_15pct': float(self.cost_15pct) if self.cost_15pct is not None else None,
+            'cost_50pct': float(self.cost_50pct) if self.cost_50pct is not None else None,
+            'cost_85pct': float(self.cost_85pct) if self.cost_85pct is not None else None,
+            'cost_95pct': float(self.cost_95pct) if self.cost_95pct is not None else None,
+            'weight_avg': float(self.weight_avg) if self.weight_avg is not None else None,
+            'winner_rate': float(self.winner_rate) if self.winner_rate is not None else None
         }
     
     def __repr__(self):

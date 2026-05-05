@@ -264,6 +264,8 @@ def backtest_strategy():
     """策略回测（保留手动异常处理，因为有400级别的业务校验）"""
     try:
         data = request.get_json()
+        if data is None:
+            data = {}
         logger.info(f"收到回测请求: {data}")
 
         # 验证必要参数

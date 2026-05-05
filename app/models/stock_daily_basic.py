@@ -29,23 +29,23 @@ class StockDailyBasic(db.Model):
         """转换为字典"""
         return {
             'ts_code': self.ts_code,
-            'trade_date': self.trade_date.isoformat() if self.trade_date else None,
-            'close': float(self.close) if self.close else None,
-            'turnover_rate': float(self.turnover_rate) if self.turnover_rate else None,
-            'turnover_rate_f': float(self.turnover_rate_f) if self.turnover_rate_f else None,
-            'volume_ratio': float(self.volume_ratio) if self.volume_ratio else None,
-            'pe': float(self.pe) if self.pe else None,
-            'pe_ttm': float(self.pe_ttm) if self.pe_ttm else None,
-            'pb': float(self.pb) if self.pb else None,
-            'ps': float(self.ps) if self.ps else None,
-            'ps_ttm': float(self.ps_ttm) if self.ps_ttm else None,
-            'dv_ratio': float(self.dv_ratio) if self.dv_ratio else None,
-            'dv_ttm': float(self.dv_ttm) if self.dv_ttm else None,
-            'total_share': float(self.total_share) if self.total_share else None,
-            'float_share': float(self.float_share) if self.float_share else None,
-            'free_share': float(self.free_share) if self.free_share else None,
-            'total_mv': float(self.total_mv) if self.total_mv else None,
-            'circ_mv': float(self.circ_mv) if self.circ_mv else None
+            'trade_date': self.trade_date.isoformat() if self.trade_date is not None else None,
+            'close': float(self.close) if self.close is not None else None,
+            'turnover_rate': float(self.turnover_rate) if self.turnover_rate is not None else None,
+            'turnover_rate_f': float(self.turnover_rate_f) if self.turnover_rate_f is not None else None,
+            'volume_ratio': float(self.volume_ratio) if self.volume_ratio is not None else None,
+            'pe': float(self.pe) if self.pe is not None else None,
+            'pe_ttm': float(self.pe_ttm) if self.pe_ttm is not None else None,
+            'pb': float(self.pb) if self.pb is not None else None,
+            'ps': float(self.ps) if self.ps is not None else None,
+            'ps_ttm': float(self.ps_ttm) if self.ps_ttm is not None else None,
+            'dv_ratio': float(self.dv_ratio) if self.dv_ratio is not None else None,
+            'dv_ttm': float(self.dv_ttm) if self.dv_ttm is not None else None,
+            'total_share': float(self.total_share) if self.total_share is not None else None,
+            'float_share': float(self.float_share) if self.float_share is not None else None,
+            'free_share': float(self.free_share) if self.free_share is not None else None,
+            'total_mv': float(self.total_mv) if self.total_mv is not None else None,
+            'circ_mv': float(self.circ_mv) if self.circ_mv is not None else None
         }
     
     def __repr__(self):
