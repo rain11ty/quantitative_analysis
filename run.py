@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+# eventlet monkey_patch MUST be called before any other imports to avoid:
+#   - "An exception was thrown while monkey_patching for eventlet"
+#   - "3 RLock(s) were not greened"
+#   - RuntimeError: Working outside of request context
+import eventlet
+eventlet.monkey_patch()
+
 import os
 import socket
 
@@ -8,7 +15,7 @@ from runtime_encoding import configure_utf8_environment
 
 configure_utf8_environment()
 
-from app import create_app
+from app import create_app, socketio
 
 
 app = create_app(os.getenv('FLASK_ENV', 'default'))
@@ -34,7 +41,8 @@ if __name__ == '__main__':
     port = int(os.getenv('PORT', '5001'))
     debug = os.getenv('DEBUG', 'False').strip().lower() == 'true'
     print_access_urls(host, port)
-    app.run(
+    socketio.run(
+        app,
         host=host,
         port=port,
         debug=debug,
