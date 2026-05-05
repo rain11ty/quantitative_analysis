@@ -1,4 +1,5 @@
 x-common-env: &common-env
+  PYTHONPATH: /app
   DB_HOST: mysql
   DB_USER: ${DB_USER:-stock_user}
   DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
