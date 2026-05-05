@@ -1389,7 +1389,20 @@ document.addEventListener('DOMContentLoaded', async function() {
   });
 
   socket.on('disconnect', function() {
-    console.log('WebSocket disconnected, will auto-reconnect');
+    let badge = document.getElementById('ws-status-badge');
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.id = 'ws-status-badge';
+      badge.style.cssText = 'position:fixed;bottom:12px;right:12px;padding:4px 10px;border-radius:8px;font-size:0.72rem;font-weight:600;z-index:9999;background:#fbbf24;color:#78350f;box-shadow:0 2px 6px rgba(0,0,0,0.15);';
+      badge.textContent = '连接断开，重连中...';
+      document.body.appendChild(badge);
+    }
+    badge.style.display = 'block';
+  });
+
+  socket.on('connect', function() {
+    const badge = document.getElementById('ws-status-badge');
+    if (badge) badge.style.display = 'none';
   });
 });
 </script>

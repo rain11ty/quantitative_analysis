@@ -569,6 +569,7 @@ def refresh_ranking_cache():
         cache = get_cache()
 
         def _do_refresh():
+            pct_result = None
             for sort_by, cache_keys in [
                 ('pct_change', ['realtime_ranking_pct_change']),
                 ('turnover_rate', ['realtime_ranking_turnover_rate']),
@@ -578,13 +579,18 @@ def refresh_ranking_cache():
                     result = RealtimeMonitorService.get_realtime_ranking(sort_by=sort_by, limit=50)
                     for key in cache_keys:
                         cache.set(key, result, ttl=90)
+                    if sort_by == 'pct_change':
+                        pct_result = result
                 except Exception as exc:
                     logger.warning(f'[Celery] 排行缓存刷新失败 (sort_by={sort_by}): {exc}')
 
             logger.info('[Celery] 涨跌排行缓存已刷新')
+            return pct_result
 
         try:
-            _run_with_timeout(_do_refresh, timeout_seconds=25)
+            result = _run_with_timeout(_do_refresh, timeout_seconds=25)
+            if result:
+                _emit_socketio('ranking_update', result)
         except TimeoutError:
             logger.error('[Celery] 涨跌排行缓存刷新超时（25s），跳过本轮')
     except Exception as exc:
@@ -646,16 +652,21 @@ def refresh_board_ranking_cache():
         cache = get_cache()
 
         def _do_refresh():
+            last_result = None
             for board_type in ['industry', 'concept']:
                 try:
                     result = MarketOverviewService._fetch_board_ranking(board_type=board_type, limit=50)
                     cache.set(f'hot_boards_{board_type}', result, ttl=180)
+                    last_result = result
                     logger.info(f'[Celery] {board_type}板块缓存已刷新: {len(result.get("items", []))} 条')
                 except Exception as exc:
                     logger.warning(f'[Celery] {board_type}板块缓存刷新失败: {exc}')
+            return last_result
 
         try:
-            _run_with_timeout(_do_refresh, timeout_seconds=50)
+            result = _run_with_timeout(_do_refresh, timeout_seconds=50)
+            if result:
+                _emit_socketio('board_update', result)
         except TimeoutError:
             logger.error('[Celery] 板块排行缓存刷新超时（50s），跳过本轮')
 
@@ -681,11 +692,15 @@ def refresh_sector_fund_flow_cache():
                 result = MarketOverviewService._fetch_sector_fund_flow_rank()
                 cache.set('sector_fund_flow_rank', result, ttl=300)
                 logger.info(f'[Celery] 板块资金流向缓存已刷新: {len(result.get("items", []))} 条')
+                return result
             except Exception as exc:
                 logger.warning(f'[Celery] 板块资金流向缓存刷新失败: {exc}')
+                return None
 
         try:
-            _run_with_timeout(_do_refresh, timeout_seconds=100)
+            result = _run_with_timeout(_do_refresh, timeout_seconds=100)
+            if result:
+                _emit_socketio('sector_fund_flow', result)
         except TimeoutError:
             logger.error('[Celery] 板块资金流向缓存刷新超时（100s），跳过本轮')
 

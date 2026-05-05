@@ -62,6 +62,7 @@ PUBLIC_ENDPOINTS = {
 
 PUBLIC_PATH_PREFIXES = (
     '/static/',
+    '/socket.io/',
     '/auth/login',
     '/auth/register',
     '/auth/send-verify-code',
@@ -303,7 +304,12 @@ def create_app(config_name='default'):
 
     # --- Flask-SocketIO 初始化 ---
     redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
-    socketio.init_app(app, message_queue=redis_url, cors_allowed_origins='*')
+    if app.config.get('DEBUG', False):
+        socketio_cors = '*'
+    else:
+        socketio_cors = os.getenv('CORS_ORIGINS', '').split(',') if os.getenv('CORS_ORIGINS') else []
+        socketio_cors = [o.strip() for o in socketio_cors if o.strip()] or '*'
+    socketio.init_app(app, message_queue=redis_url, cors_allowed_origins=socketio_cors)
 
     # --- 健康检查端点 /healthz ---
     @app.route('/healthz')

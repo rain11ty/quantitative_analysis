@@ -17,10 +17,10 @@ WORKDIR /app
 # 复制依赖文件
 COPY requirements.txt requirements-prod.txt ./
 
-# 安装所有依赖
+# 安装所有依赖（先装 requirements 含 eventlet，再装 gunicorn 以注册 eventlet worker）
 RUN pip install --no-cache-dir --upgrade -r requirements.txt
 RUN pip install --no-cache-dir -r requirements-prod.txt
-RUN pip install --no-cache-dir gunicorn>=21.0.0 redis>=5.0.0 flask-session
+RUN pip install --no-cache-dir "gunicorn[eventlet]>=21.0.0,<22.0.0" redis>=5.0.0 flask-session
 
 # 清理缓存
 RUN rm -rf /root/.cache/pip
