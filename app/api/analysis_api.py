@@ -249,8 +249,13 @@ def screen_stocks():
         data = {}
     logger.info(f"收到筛选请求: {data}")
 
-    # 使用StockService进行筛选
-    result = StockService.screen_stocks(data)
+    # 兼容前端嵌套格式 {"conditions": {...}, "page": 1, "per_page": 20}
+    conditions = data.pop('conditions', {})
+    screen_criteria = {**conditions, **data}
+    if 'per_page' in screen_criteria:
+        screen_criteria['page_size'] = screen_criteria.pop('per_page')
+
+    result = StockService.screen_stocks(screen_criteria)
 
     return jsonify({
         'code': 200,

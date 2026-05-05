@@ -1,5 +1,5 @@
 {% extends "base.html" %}
- {% block title %}股票列表 - 股票量化分析系统{% endblock %}
+{% block title %}股票列表 - 股票量化分析系统{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -116,9 +116,152 @@
  font-size: 0.84rem;
 }
 
+/* === Advanced filters toggle === */
+.advanced-toggle {
+ display: inline-flex;
+ align-items: center;
+ gap: 0.5rem;
+ cursor: pointer;
+ font-weight: 600;
+ font-size: 0.92rem;
+ color: var(--brand-blue);
+ background: none;
+ border: none;
+ padding: 0.3rem 0;
+ user-select: none;
+ transition: color 0.2s;
+}
+.advanced-toggle:hover {
+ color: var(--brand-blue-hover);
+}
+.advanced-toggle .toggle-icon {
+ display: inline-block;
+ transition: transform 0.25s ease;
+ font-size: 0.8rem;
+}
+.advanced-toggle .toggle-icon.open {
+ transform: rotate(180deg);
+}
+
+/* === Advanced filter panel === */
+#advanced-filters {
+ margin-top: 0.8rem;
+ border-top: 1px solid rgba(91, 97, 110, 0.12);
+ padding-top: 0.8rem;
+}
+
+#advanced-filters .filter-grid {
+ display: grid;
+ grid-template-columns: repeat(3, minmax(0, 1fr));
+ gap: 0.6rem;
+ align-items: start;
+}
+
+#advanced-filters .filter-group {
+ background: rgba(255, 255, 255, 0.98);
+ border: 1px solid var(--card-border);
+ border-radius: 12px;
+ padding: 0.7rem;
+ margin-bottom: 0;
+ height: 100%;
+}
+
+#advanced-filters .filter-group-wide {
+ grid-column: 1 / -1;
+}
+
+#advanced-filters .filter-group .mb-2:last-child {
+ margin-bottom: 0 !important;
+}
+
+#advanced-filters .filter-title {
+ font-weight: 600;
+ margin-bottom: 0.9rem;
+ color: var(--text-main);
+ display: flex;
+ align-items: center;
+ gap: 0.5rem;
+ font-size: 0.95rem;
+}
+
+#advanced-filters .range-grid {
+ display: grid;
+ grid-template-columns: repeat(2, minmax(0, 1fr));
+ gap: 0.625rem;
+}
+
+#advanced-filters .range-grid .form-label {
+ grid-column: 1 / -1;
+ margin-bottom: 0;
+}
+
+#advanced-filters .form-control,
+#advanced-filters .form-select {
+ font-size: 0.82rem;
+ padding: 0.3rem 0.6rem;
+ min-height: 34px;
+ border-radius: 10px;
+}
+
+#advanced-filters .form-label {
+ font-size: 0.82rem;
+ margin-bottom: 0.25rem;
+}
+
+/* === Dynamic condition rows === */
+.dynamic-condition-row {
+ border: 1px dashed var(--card-border);
+ border-radius: 18px;
+ padding: 1rem;
+ background: rgba(0, 82, 255, 0.025);
+ margin-bottom: 0.875rem;
+}
+
+.dynamic-condition-grid {
+ display: grid;
+ grid-template-columns: 1.4fr 0.8fr 1fr 1.4fr auto;
+ gap: 0.75rem;
+ align-items: end;
+}
+
+.dynamic-condition-row .form-label {
+ margin-bottom: 0.4rem;
+ font-size: 0.82rem;
+ color: #64748b;
+}
+
+.dynamic-empty {
+ border: 1px dashed var(--card-border);
+ border-radius: 18px;
+ padding: 1rem;
+ color: #64748b;
+ background: rgba(238, 240, 243, 0.35);
+ font-size: 0.88rem;
+}
+
+/* === Result table overrides for advanced mode === */
+.result-table th {
+ background-color: #f8fafc;
+ color: #475569;
+ font-weight: 500;
+ white-space: nowrap;
+}
+
+@media (max-width: 1200px) {
+ #advanced-filters .filter-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+ }
+}
+
 @media (max-width: 991px) {
  .stocks-hero-grid {
   grid-template-columns: 1fr;
+ }
+ .dynamic-condition-grid {
+  grid-template-columns: 1fr 1fr;
+ }
+ .dynamic-condition-grid .dynamic-remove-wrap {
+  grid-column: 1 / -1;
  }
 }
 
@@ -140,11 +283,20 @@
  .stocks-filter-actions .btn {
   flex: 1 1 180px;
  }
+
+ #advanced-filters .filter-grid,
+ #advanced-filters .range-grid,
+ .dynamic-condition-grid {
+  grid-template-columns: 1fr;
+ }
+ .dynamic-condition-grid .dynamic-remove-wrap {
+  grid-column: auto;
+ }
 }
 </style>
 {% endblock %}
 
- {% block content %}
+{% block content %}
 
 <div class="container py-2 py-lg-3">
 <div class="stocks-shell">
@@ -153,12 +305,12 @@
 <div class="stocks-hero-copy">
 <span class="hero-eyebrow">market browser</span>
 <h1 class="hero-title">股票列表</h1>
-<p class="hero-text">浏览全市场股票，支持按代码、简称、拼音、行业与地域进行筛选，快速定位值得继续跟踪的标的。</p>
+<p class="hero-text">浏览全市场股票，支持按代码、简称、拼音、行业与地域进行筛选；展开高级条件可使用估值、技术指标和资金流向等维度精确定位标的。</p>
 </div>
 <div class="stocks-hero-stats">
 <div class="stocks-stat">
 <span class="stocks-stat-label">view mode</span>
-<span class="stocks-stat-value">list</span>
+<span class="stocks-stat-value" id="hero-view-mode">basic</span>
 </div>
 <div class="stocks-stat">
 <span class="stocks-stat-label">当前结果</span>
@@ -167,39 +319,181 @@
 </div>
 </div>
 </section>
+
 <section class="page-card stocks-filter-card">
 <div class="stocks-filter-head">
 <div>
 <h2 class="stocks-filter-title">筛选条件</h2>
-<div class="stocks-filter-meta">使用行业、地域和关键词组合查找。</div>
+<div class="stocks-filter-meta">使用行业、地域和关键词组合查找；展开高级筛选可添加估值、技术指标等条件。</div>
 </div>
 <div class="stocks-filter-actions">
 <button type="submit" form="filter-form" class="btn btn-modern btn-modern-primary">开始筛选</button>
 <button type="button" class="btn btn-light" id="reset-btn">重置条件</button>
 </div>
 </div>
+
 <form id="filter-form" class="row g-3">
 <div class="col-md-4">
 <label for="industry-select" class="form-label">行业</label>
-<select class="form-select" id="industry-select">
+<select class="form-select" id="industry-select" name="industry">
 <option value="">全部行业</option>
 </select>
 </div>
 <div class="col-md-4">
 <label for="area-select" class="form-label">地域</label>
-<select class="form-select" id="area-select">
+<select class="form-select" id="area-select" name="area">
 <option value="">全部地域</option>
 </select>
 </div>
 <div class="col-md-4">
 <label for="search-input" class="form-label">搜索</label>
-<input type="text" class="form-control" id="search-input" placeholder="股票代码、简称或拼音">
+<input type="text" class="form-control" id="search-input" name="search" placeholder="股票代码、简称或拼音">
 </div>
 </form>
- </section>
+
+<!-- Advanced filter toggle -->
+<div style="margin-top:0.8rem;">
+<button type="button" class="advanced-toggle" id="advanced-toggle-btn">
+<span class="toggle-icon" id="advanced-toggle-icon">&#9660;</span>
+<span>高级筛选条件</span>
+</button>
+</div>
+
+<!-- Advanced filters (hidden by default) -->
+<div id="advanced-filters" style="display:none;">
+<div class="filter-grid">
+<!-- Row 1: Market + Trade Date -->
+<div class="filter-group shadow-sm">
+<h5 class="filter-title">基础条件</h5>
+<div class="mb-2">
+<label class="form-label text-muted small">市场</label>
+<select class="form-select" id="market" name="market">
+<option value="">全部</option>
+<option value="SH">上交所 (SH)</option>
+<option value="SZ">深交所 (SZ)</option>
+<option value="BJ">北交所 (BJ)</option>
+</select>
+</div>
+<div>
+<label class="form-label text-muted small">数据日期</label>
+<input type="date" class="form-control" id="trade_date" name="trade_date">
+<div class="form-text" style="font-size:0.75rem;">留空则使用最新交易日</div>
+</div>
+</div>
+
+<!-- Row 2-3: Valuation -->
+<div class="filter-group shadow-sm">
+<h5 class="filter-title">估值指标</h5>
+<div class="range-grid mb-2">
+<label class="form-label text-muted small">市盈率 (PE)</label>
+<input type="number" step="0.1" class="form-control" id="pe_min" name="pe_min" placeholder="最小值">
+<input type="number" step="0.1" class="form-control" id="pe_max" name="pe_max" placeholder="最大值">
+</div>
+<div class="range-grid mb-2">
+<label class="form-label text-muted small">市净率 (PB)</label>
+<input type="number" step="0.1" class="form-control" id="pb_min" name="pb_min" placeholder="最小值">
+<input type="number" step="0.1" class="form-control" id="pb_max" name="pb_max" placeholder="最大值">
+</div>
+<div class="range-grid mb-2">
+<label class="form-label text-muted small">市销率 (PS)</label>
+<input type="number" step="0.1" class="form-control" id="ps_min" name="ps_min" placeholder="最小值">
+<input type="number" step="0.1" class="form-control" id="ps_max" name="ps_max" placeholder="最大值">
+</div>
+<div class="range-grid">
+<label class="form-label text-muted small">股息率 (%)</label>
+<input type="number" step="0.1" class="form-control" id="dv_min" name="dv_min" placeholder="最小值">
+<input type="number" step="0.1" class="form-control" id="dv_max" name="dv_max" placeholder="最大值">
+</div>
+</div>
+
+<!-- Market cap & trading -->
+<div class="filter-group shadow-sm">
+<h5 class="filter-title">市值与交易</h5>
+<div class="range-grid mb-2">
+<label class="form-label text-muted small">总市值 (万元)</label>
+<input type="number" step="100" class="form-control" id="mv_min" name="mv_min" placeholder="最小值">
+<input type="number" step="100" class="form-control" id="mv_max" name="mv_max" placeholder="最大值">
+</div>
+<div class="range-grid mb-2">
+<label class="form-label text-muted small">流通市值 (万元)</label>
+<input type="number" step="100" class="form-control" id="circ_mv_min" name="circ_mv_min" placeholder="最小值">
+<input type="number" step="100" class="form-control" id="circ_mv_max" name="circ_mv_max" placeholder="最大值">
+</div>
+<div class="range-grid mb-2">
+<label class="form-label text-muted small">换手率 (%)</label>
+<input type="number" step="0.1" class="form-control" id="turnover_min" name="turnover_min" placeholder="最小值">
+<input type="number" step="0.1" class="form-control" id="turnover_max" name="turnover_max" placeholder="最大值">
+</div>
+<div class="range-grid">
+<label class="form-label text-muted small">量比</label>
+<input type="number" step="0.1" class="form-control" id="volume_ratio_min" name="volume_ratio_min" placeholder="最小值">
+<input type="number" step="0.1" class="form-control" id="volume_ratio_max" name="volume_ratio_max" placeholder="最大值">
+</div>
+</div>
+
+<!-- Technical indicators -->
+<div class="filter-group shadow-sm">
+<h5 class="filter-title">技术指标</h5>
+<div class="range-grid mb-2">
+<label class="form-label text-muted small">RSI (6日)</label>
+<input type="number" step="0.1" class="form-control" id="rsi6_min" name="rsi6_min" placeholder="最小值">
+<input type="number" step="0.1" class="form-control" id="rsi6_max" name="rsi6_max" placeholder="最大值">
+</div>
+<div class="range-grid mb-2">
+<label class="form-label text-muted small">KDJ-K值</label>
+<input type="number" step="0.1" class="form-control" id="kdj_k_min" name="kdj_k_min" placeholder="最小值">
+<input type="number" step="0.1" class="form-control" id="kdj_k_max" name="kdj_k_max" placeholder="最大值">
+</div>
+<div class="range-grid mb-2">
+<label class="form-label text-muted small">MACD</label>
+<input type="number" step="0.01" class="form-control" id="macd_min" name="macd_min" placeholder="最小值">
+<input type="number" step="0.01" class="form-control" id="macd_max" name="macd_max" placeholder="最大值">
+</div>
+<div class="range-grid">
+<label class="form-label text-muted small">CCI指标</label>
+<input type="number" step="0.1" class="form-control" id="cci_min" name="cci_min" placeholder="最小值">
+<input type="number" step="0.1" class="form-control" id="cci_max" name="cci_max" placeholder="最大值">
+</div>
+</div>
+
+<!-- Money flow -->
+<div class="filter-group shadow-sm">
+<h5 class="filter-title">资金流向</h5>
+<div class="range-grid mb-2">
+<label class="form-label text-muted small">净流入额 (万元)</label>
+<input type="number" step="1" class="form-control" id="net_amount_min" name="net_amount_min" placeholder="最小值">
+<input type="number" step="1" class="form-control" id="net_amount_max" name="net_amount_max" placeholder="最大值">
+</div>
+<div class="range-grid mb-2">
+<label class="form-label text-muted small">大单买入占比 (%)</label>
+<input type="number" step="0.1" class="form-control" id="lg_buy_rate_min" name="lg_buy_rate_min" placeholder="最小值">
+<input type="number" step="0.1" class="form-control" id="lg_buy_rate_max" name="lg_buy_rate_max" placeholder="最大值">
+</div>
+<div class="range-grid">
+<label class="form-label text-muted small">5日净流入额 (万元)</label>
+<input type="number" step="1" class="form-control" id="net_d5_amount_min" name="net_d5_amount_min" placeholder="最小值">
+<input type="number" step="1" class="form-control" id="net_d5_amount_max" name="net_d5_amount_max" placeholder="最大值">
+</div>
+</div>
+
+<!-- Dynamic conditions (full width) -->
+<div class="filter-group filter-group-wide shadow-sm">
+<div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+<h5 class="filter-title mb-0">动态查询条件</h5>
+<button type="button" class="btn btn-sm btn-outline-primary" id="add-dynamic-condition">添加条件</button>
+</div>
+<p class="text-muted small mb-2">支持字段与字段比较或字段与固定值比较，例如 <code>MA5 &gt; MA10</code>、<code>PE &lt; PB</code>。</p>
+<div id="dynamic-conditions-container">
+<div class="dynamic-empty" id="dynamic-empty-state">暂未添加动态条件，点击右上角"添加条件"开始配置。</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+
 <section class="card page-card stocks-results-card">
 <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-<h5 class="mb-0">股票列表</h5>
+<h5 class="mb-0">筛选结果</h5>
 <span class="badge stocks-count-badge" id="total-count">0</span>
 </div>
 <div class="card-body">
@@ -210,84 +504,252 @@
 </div>
 </section>
 </div>
-</div> {% endblock %}
- {% block extra_js %}
+</div>
+{% endblock %}
 
-<script>let currentPage = 1;
-
+{% block extra_js %}
+<script>
+/* ================================================================
+   State
+   ================================================================ */
+let currentPage = 1;
 let currentFilters = {};
- document.addEventListener('DOMContentLoaded', function() {
+let advancedMode = false;  // true when advanced panel is open with values
+
+/* ================================================================
+   Dynamic condition field / operator definitions
+   ================================================================ */
+const DYNAMIC_FIELD_OPTIONS = [
+ { value: 'pe', label: 'PE' },
+ { value: 'pb', label: 'PB' },
+ { value: 'ps', label: 'PS' },
+ { value: 'dv_ratio', label: '股息率' },
+ { value: 'total_mv', label: '总市值' },
+ { value: 'circ_mv', label: '流通市值' },
+ { value: 'turnover_rate', label: '换手率' },
+ { value: 'volume_ratio', label: '量比' },
+ { value: 'factor_rsi_6', label: 'RSI(6日)' },
+ { value: 'factor_kdj_k', label: 'KDJ-K' },
+ { value: 'factor_macd', label: 'MACD' },
+ { value: 'factor_cci', label: 'CCI' },
+ { value: 'moneyflow_net_amount', label: '净流入额' },
+ { value: 'moneyflow_buy_lg_amount_rate', label: '大单买入占比' },
+ { value: 'moneyflow_net_d5_amount', label: '5日净流入额' },
+ { value: 'daily_close', label: '收盘价' },
+ { value: 'factor_pct_change', label: '涨跌幅' },
+ { value: 'ma5', label: 'MA5' },
+ { value: 'ma10', label: 'MA10' },
+ { value: 'ma20', label: 'MA20' },
+ { value: 'ma30', label: 'MA30' },
+ { value: 'ma60', label: 'MA60' },
+ { value: 'ma120', label: 'MA120' }
+];
+
+const OPERATOR_OPTIONS = ['>', '>=', '<', '<=', '=', '!='];
+
+/* ================================================================
+   Init
+   ================================================================ */
+document.addEventListener('DOMContentLoaded', function() {
  loadIndustries();
  loadAreas();
+ preloadLatestTradeDate();
  loadStocks();
+
  document.getElementById('filter-form').addEventListener('submit', handleFilter);
  document.getElementById('reset-btn').addEventListener('click', resetFilters);
-
+ document.getElementById('advanced-toggle-btn').addEventListener('click', toggleAdvanced);
+ document.getElementById('add-dynamic-condition').addEventListener('click', addDynamicConditionRow);
 });
- async function loadIndustries() {
- try {
- const response = await apiRequest('/industries');
- if (response.code === 200) {
- const select = document.getElementById('industry-select');
- response.data.forEach(industry => {
- const option = document.createElement('option');
- option.value = industry;
- option.textContent = industry;
- select.appendChild(option);
- });
- }
- } catch (error) {
- console.error('加载行业列表失败:', error);
- }
 
-}
- async function loadAreas() {
+/* ================================================================
+   Basic data loaders
+   ================================================================ */
+async function loadIndustries() {
  try {
- const response = await apiRequest('/areas');
- if (response.code === 200) {
- const select = document.getElementById('area-select');
- response.data.forEach(area => {
- const option = document.createElement('option');
- option.value = area;
- option.textContent = area;
- select.appendChild(option);
- });
- }
+  const response = await apiRequest('/industries');
+  if (response.code === 200) {
+   const select = document.getElementById('industry-select');
+   response.data.forEach(industry => {
+    const option = document.createElement('option');
+    option.value = industry;
+    option.textContent = industry;
+    select.appendChild(option);
+   });
+  }
  } catch (error) {
- console.error('加载地域列表失败:', error);
+  console.error('加载行业列表失败:', error);
  }
-
 }
- async function loadStocks(page = 1) {
- showLoading('stocks-container');
+
+async function loadAreas() {
  try {
- const params = new URLSearchParams({
- page: page,
- page_size: 20,
- ...currentFilters
- });
- const response = await apiRequest(`/stocks?${params}`);
- if (response.code === 200) {
- renderStocks(response.data.stocks || []);
- renderPagination(response.data);
- document.getElementById('total-count').textContent = response.data.total || 0;
- const heroTotal = document.getElementById('hero-total-count');
- if (heroTotal) heroTotal.textContent = response.data.total || 0;
- currentPage = page;
+  const response = await apiRequest('/areas');
+  if (response.code === 200) {
+   const select = document.getElementById('area-select');
+   response.data.forEach(area => {
+    const option = document.createElement('option');
+    option.value = area;
+    option.textContent = area;
+    select.appendChild(option);
+   });
+  }
+ } catch (error) {
+  console.error('加载地域列表失败:', error);
+ }
+}
+
+async function preloadLatestTradeDate() {
+ try {
+  const res = await apiRequest('/market/health');
+  const payload = res?.data;
+  if (res?.code === 200 && payload?.latest_trade_date) {
+   document.getElementById('trade_date').value = payload.latest_trade_date;
+  }
+ } catch (e) {
+  console.error('Failed to preload trade date', e);
+ }
+}
+
+/* ================================================================
+   Advanced panel toggle
+   ================================================================ */
+function toggleAdvanced() {
+ const panel = document.getElementById('advanced-filters');
+ const icon = document.getElementById('advanced-toggle-icon');
+ if (panel.style.display === 'none') {
+  panel.style.display = 'block';
+  icon.classList.add('open');
  } else {
- throw new Error(response.message || '加载股票列表失败');
+  panel.style.display = 'none';
+  icon.classList.remove('open');
  }
+ updateViewMode();
+}
+
+/* ================================================================
+   Detect whether advanced filters are active
+   ================================================================ */
+function isAdvancedActive() {
+ const panel = document.getElementById('advanced-filters');
+ if (panel.style.display === 'none') return false;
+ // Check if any advanced input has a value
+ const advancedInputIds = [
+  'market', 'trade_date',
+  'pe_min','pe_max','pb_min','pb_max','ps_min','ps_max',
+  'dv_min','dv_max','mv_min','mv_max','circ_mv_min','circ_mv_max',
+  'turnover_min','turnover_max','volume_ratio_min','volume_ratio_max',
+  'rsi6_min','rsi6_max','kdj_k_min','kdj_k_max','macd_min','macd_max',
+  'cci_min','cci_max','net_amount_min','net_amount_max',
+  'lg_buy_rate_min','lg_buy_rate_max','net_d5_amount_min','net_d5_amount_max'
+ ];
+ for (const id of advancedInputIds) {
+  const el = document.getElementById(id);
+  if (el && el.value.trim() !== '') return true;
+ }
+ // Check dynamic conditions
+ if (document.querySelectorAll('.dynamic-condition-row').length > 0) return true;
+ return false;
+}
+
+function updateViewMode() {
+ const mode = isAdvancedActive() ? 'advanced' : 'basic';
+ document.getElementById('hero-view-mode').textContent = mode;
+}
+
+/* ================================================================
+   Load stocks (unified entry point)
+   ================================================================ */
+async function loadStocks(page = 1) {
+ showLoading('stocks-container');
+ currentPage = page;
+ advancedMode = isAdvancedActive();
+ updateViewMode();
+
+ try {
+  let response;
+  if (advancedMode) {
+   response = await loadStocksAdvanced(page);
+  } else {
+   response = await loadStocksBasic(page);
+  }
+
+  if (response.code === 200) {
+   const data = response.data;
+   const stocks = data.stocks || [];
+   const total = data.total || 0;
+   if (advancedMode) {
+    renderStocksAdvanced(stocks, data);
+   } else {
+    renderStocksBasic(stocks);
+   }
+   renderPagination({
+    page: data.page || page,
+    total_pages: data.total_pages || Math.ceil(total / 20),
+   });
+   document.getElementById('total-count').textContent = total;
+   const heroTotal = document.getElementById('hero-total-count');
+   if (heroTotal) heroTotal.textContent = total;
+  } else {
+   throw new Error(response.message || '加载股票列表失败');
+  }
  } catch (error) {
- showError('stocks-container', '加载股票列表失败，请稍后重试。');
- console.error('加载股票列表失败:', error);
+  showError('stocks-container', '加载股票列表失败，请稍后重试。');
+  console.error('加载股票列表失败:', error);
+ }
+}
+
+/* Basic mode: GET /api/stocks */
+async function loadStocksBasic(page) {
+ const industry = document.getElementById('industry-select').value;
+ const area = document.getElementById('area-select').value;
+ const search = document.getElementById('search-input').value.trim();
+ const params = new URLSearchParams({ page: page, page_size: 20 });
+ if (industry) params.set('industry', industry);
+ if (area) params.set('area', area);
+ if (search) params.set('search', search);
+ return await apiRequest(`/stocks?${params}`);
+}
+
+/* Advanced mode: POST /api/analysis/screen */
+async function loadStocksAdvanced(page) {
+ const payload = buildScreenPayload(page);
+ return await apiRequest('/analysis/screen', {
+  method: 'POST',
+  data: payload
+ });
+}
+
+/* ================================================================
+   Build screening payload for POST /api/analysis/screen
+   ================================================================ */
+function buildScreenPayload(page) {
+ const form = document.getElementById('filter-form');
+ const formData = new FormData(form);
+ const payload = { page: page || 1, page_size: 20 };
+
+ for (const [key, value] of formData.entries()) {
+  if (typeof value === 'string' && value.trim() !== '') {
+   payload[key] = value.trim();
+  }
  }
 
+ const dynamicConditions = collectDynamicConditions();
+ if (dynamicConditions.length > 0) {
+  payload.dynamic_conditions = dynamicConditions;
+ }
+
+ return payload;
 }
- function renderStocks(stocks) {
+
+/* ================================================================
+   Render: basic mode table
+   ================================================================ */
+function renderStocksBasic(stocks) {
  const container = document.getElementById('stocks-container');
  if (stocks.length === 0) {
- container.innerHTML = '<div class="text-center py-4"><p class="text-muted mb-0">当前条件下暂无数据</p></div>';
- return;
+  container.innerHTML = '<div class="text-center py-4"><p class="text-muted mb-0">当前条件下暂无数据</p></div>';
+  return;
  }
  const html = `
   <div class="table-responsive">
@@ -304,8 +766,8 @@ let currentFilters = {};
 </thead>
 <tbody> ${stocks.map(stock => `
   <tr>
-<td><code>${stock.symbol}</code></td>
-<td><strong>${stock.name}</strong><div class="small text-muted">${stock.ts_code}</div></td>
+<td><code>${stock.symbol || stock.ts_code}</code></td>
+<td><strong>${stock.name || '--'}</strong><div class="small text-muted">${stock.ts_code}</div></td>
 <td><span class="badge bg-secondary">${stock.industry || '--'}</span></td>
 <td>${stock.area || '--'}</td>
 <td>${stock.list_date || '--'}</td>
@@ -317,14 +779,65 @@ let currentFilters = {};
 </table>
 </div> `;
  container.innerHTML = html;
-
 }
- function renderPagination(data) {
+
+/* ================================================================
+   Render: advanced mode table
+   ================================================================ */
+function renderStocksAdvanced(stocks, data) {
+ const container = document.getElementById('stocks-container');
+ if (stocks.length === 0) {
+  container.innerHTML = '<div class="text-center py-4"><p class="text-muted mb-0">当前条件下暂无数据，请调整筛选条件后重试。</p></div>';
+  return;
+ }
+ const html = `
+  <div class="table-responsive">
+<table class="table table-hover result-table align-middle">
+<thead>
+<tr>
+<th>代码</th>
+<th>名称</th>
+<th>行业</th>
+<th>PE</th>
+<th>PB</th>
+<th>换手率(%)</th>
+<th>总市值(万)</th>
+<th>涨跌幅(%)</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody> ${stocks.map(stock => `
+  <tr>
+<td><code>${stock.ts_code}</code></td>
+<td>
+<div class="fw-bold">${stock.name || stock.stock_name || '--'}</div>
+<div class="text-muted small">${stock.area || '--'}</div>
+</td>
+<td><span class="badge bg-light text-dark border">${stock.industry || '--'}</span></td>
+<td>${formatNumber(stock.pe)}</td>
+<td>${formatNumber(stock.pb)}</td>
+<td>${formatNumber(stock.turnover_rate)}</td>
+<td>${formatNumber(stock.total_mv, 0)}</td>
+<td>${formatNumber(stock.factor_pct_change)}</td>
+<td>
+<a href="/stock/${stock.ts_code}" class="btn btn-sm btn-outline-primary" target="_blank">查看分析</a>
+</td>
+</tr> `).join('')}
+  </tbody>
+</table>
+</div> `;
+ container.innerHTML = html;
+}
+
+/* ================================================================
+   Pagination
+   ================================================================ */
+function renderPagination(data) {
  const pagination = document.getElementById('pagination');
  const { page, total_pages } = data;
  if (total_pages <= 1) {
- pagination.innerHTML = '';
- return;
+  pagination.innerHTML = '';
+  return;
  }
  let html = '';
  html += `
@@ -334,7 +847,7 @@ let currentFilters = {};
  const startPage = Math.max(1, page - 2);
  const endPage = Math.min(total_pages, page + 2);
  for (let i = startPage; i <= endPage; i++) {
- html += `
+  html += `
   <li class="page-item ${i === page ? 'active' : ''}">
 <a class="page-link" href="#" onclick="loadStocks(${i}); return false;">${i}</a>
 </li> `;
@@ -344,28 +857,166 @@ let currentFilters = {};
 <a class="page-link" href="#" onclick="loadStocks(${page + 1}); return false;">下一页</a>
 </li> `;
  pagination.innerHTML = html;
-
 }
- function handleFilter(event) {
+
+/* ================================================================
+   Filter / Reset handlers
+   ================================================================ */
+function handleFilter(event) {
  event.preventDefault();
- currentFilters = {};
- const industry = document.getElementById('industry-select').value;
- const area = document.getElementById('area-select').value;
- const search = document.getElementById('search-input').value.trim();
- if (industry) currentFilters.industry = industry;
- if (area) currentFilters.area = area;
- if (search) currentFilters.search = search;
  loadStocks(1);
-
 }
- function resetFilters() {
+
+function resetFilters() {
+ // Basic filters
  document.getElementById('industry-select').value = '';
  document.getElementById('area-select').value = '';
  document.getElementById('search-input').value = '';
- currentFilters = {};
- loadStocks(1);
 
+ // Advanced filters: clear all inputs
+ const advancedInputIds = [
+  'market', 'trade_date',
+  'pe_min','pe_max','pb_min','pb_max','ps_min','ps_max',
+  'dv_min','dv_max','mv_min','mv_max','circ_mv_min','circ_mv_max',
+  'turnover_min','turnover_max','volume_ratio_min','volume_ratio_max',
+  'rsi6_min','rsi6_max','kdj_k_min','kdj_k_max','macd_min','macd_max',
+  'cci_min','cci_max','net_amount_min','net_amount_max',
+  'lg_buy_rate_min','lg_buy_rate_max','net_d5_amount_min','net_d5_amount_max'
+ ];
+ advancedInputIds.forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.value = '';
+ });
+
+ // Dynamic conditions
+ resetDynamicConditions();
+
+ // Re-preload trade date
+ preloadLatestTradeDate();
+
+ // Reload basic
+ advancedMode = false;
+ updateViewMode();
+ loadStocks(1);
 }
 
-</script> {% endblock %}
+/* ================================================================
+   Dynamic conditions builder
+   ================================================================ */
+function collectDynamicConditions() {
+ const rows = document.querySelectorAll('.dynamic-condition-row');
+ const conditions = [];
+ rows.forEach(row => {
+  const fieldA = row.querySelector('[data-role="field-a"]').value;
+  const operator = row.querySelector('[data-role="operator"]').value;
+  const compareMode = row.querySelector('[data-role="compare-mode"]').value;
+  const fieldB = row.querySelector('[data-role="field-b"]').value;
+  const value = row.querySelector('[data-role="value"]').value.trim();
+  if (!fieldA || !operator) return;
+  if (compareMode === 'field') {
+   if (!fieldB) return;
+   conditions.push({ field_a: fieldA, operator, field_b: fieldB });
+   return;
+  }
+  if (value === '') return;
+  conditions.push({ field_a: fieldA, operator, value });
+ });
+ return conditions;
+}
 
+function addDynamicConditionRow() {
+ const container = document.getElementById('dynamic-conditions-container');
+ const emptyState = document.getElementById('dynamic-empty-state');
+ if (emptyState) emptyState.remove();
+
+ const row = document.createElement('div');
+ row.className = 'dynamic-condition-row';
+ row.innerHTML = `
+  <div class="dynamic-condition-grid">
+<div>
+<label class="form-label">字段 A</label>
+<select class="form-select" data-role="field-a">${buildFieldOptions()}</select>
+</div>
+<div>
+<label class="form-label">运算符</label>
+<select class="form-select" data-role="operator">${buildOperatorOptions()}</select>
+</div>
+<div>
+<label class="form-label">比较方式</label>
+<select class="form-select" data-role="compare-mode">
+<option value="field">字段比较</option>
+<option value="value">固定值</option>
+</select>
+</div>
+<div>
+<label class="form-label" data-role="compare-label">字段 B</label>
+<select class="form-select" data-role="field-b">${buildFieldOptions()}</select>
+<input type="number" step="0.01" class="form-control d-none" data-role="value" placeholder="请输入比较值">
+</div>
+<div class="dynamic-remove-wrap">
+<button type="button" class="btn btn-outline-danger w-100" data-role="remove-row">X</button>
+</div>
+</div> `;
+
+ row.querySelector('[data-role="compare-mode"]').addEventListener('change', () => updateDynamicConditionRow(row));
+ row.querySelector('[data-role="remove-row"]').addEventListener('click', () => {
+  row.remove();
+  ensureDynamicEmptyState();
+ });
+
+ container.appendChild(row);
+ updateDynamicConditionRow(row);
+}
+
+function updateDynamicConditionRow(row) {
+ const compareMode = row.querySelector('[data-role="compare-mode"]').value;
+ const fieldSelect = row.querySelector('[data-role="field-b"]');
+ const valueInput = row.querySelector('[data-role="value"]');
+ const compareLabel = row.querySelector('[data-role="compare-label"]');
+ if (compareMode === 'field') {
+  fieldSelect.classList.remove('d-none');
+  valueInput.classList.add('d-none');
+  valueInput.value = '';
+  compareLabel.textContent = '字段 B';
+ } else {
+  fieldSelect.classList.add('d-none');
+  valueInput.classList.remove('d-none');
+  fieldSelect.value = '';
+  compareLabel.textContent = '固定值';
+ }
+}
+
+function ensureDynamicEmptyState() {
+ const container = document.getElementById('dynamic-conditions-container');
+ const rowCount = container.querySelectorAll('.dynamic-condition-row').length;
+ if (rowCount === 0 && !document.getElementById('dynamic-empty-state')) {
+  container.innerHTML = '<div class="dynamic-empty" id="dynamic-empty-state">暂未添加动态条件，点击右上角"添加条件"开始配置。</div>';
+ }
+}
+
+function resetDynamicConditions() {
+ const container = document.getElementById('dynamic-conditions-container');
+ container.innerHTML = '<div class="dynamic-empty" id="dynamic-empty-state">暂未添加动态条件，点击右上角"添加条件"开始配置。</div>';
+}
+
+function buildFieldOptions() {
+ return ['<option value="">请选择字段</option>']
+  .concat(DYNAMIC_FIELD_OPTIONS.map(item => `<option value="${item.value}">${item.label}</option>`))
+  .join('');
+}
+
+function buildOperatorOptions() {
+ return ['<option value="">选择</option>']
+  .concat(OPERATOR_OPTIONS.map(op => `<option value="${op}">${op}</option>`))
+  .join('');
+}
+
+/* ================================================================
+   Helpers
+   ================================================================ */
+function formatNumber(num, decimals = 2) {
+ if (num === null || num === undefined || Number.isNaN(Number(num))) return '--';
+ return Number(num).toFixed(decimals);
+}
+</script>
+{% endblock %}

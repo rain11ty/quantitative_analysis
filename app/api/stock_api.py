@@ -24,13 +24,56 @@ def get_stocks():
     page = parse_int_param(request.args.get('page'), 1, min_val=1)
     page_size = parse_int_param(request.args.get('page_size'), 20, min_val=1, max_val=100)
 
-    result = StockService.get_stock_list(
-        industry=industry,
-        area=area,
-        search=search,
-        page=page,
-        page_size=page_size,
+    # Screening parameter keys that trigger screen_stocks() when present
+    _SCREEN_KEYS = (
+        'pe_min', 'pe_max', 'pb_min', 'pb_max',
+        'ps_min', 'ps_max', 'dv_min', 'dv_max',
+        'mv_min', 'mv_max', 'circ_mv_min', 'circ_mv_max',
+        'turnover_min', 'turnover_max',
+        'volume_ratio_min', 'volume_ratio_max',
+        'rsi6_min', 'rsi6_max',
+        'kdj_k_min', 'kdj_k_max',
+        'macd_min', 'macd_max',
+        'cci_min', 'cci_max',
+        'net_amount_min', 'net_amount_max',
+        'lg_buy_rate_min', 'lg_buy_rate_max',
+        'net_d5_amount_min', 'net_d5_amount_max',
+        'market', 'trade_date',
     )
+
+    has_screen_params = any(request.args.get(k) is not None for k in _SCREEN_KEYS)
+    dc_raw = request.args.get('dynamic_conditions')
+    has_screen_params = has_screen_params or dc_raw is not None
+
+    if has_screen_params:
+        criteria = {'page': page, 'page_size': page_size}
+        if search:
+            criteria['search'] = search
+        if industry:
+            criteria['industry'] = industry
+        if area:
+            criteria['area'] = area
+        for k in _SCREEN_KEYS:
+            val = request.args.get(k)
+            if val is not None:
+                criteria[k] = val
+        # Parse dynamic_conditions from JSON string
+        dc_raw = request.args.get('dynamic_conditions')
+        if dc_raw:
+            try:
+                import json as _json
+                criteria['dynamic_conditions'] = _json.loads(dc_raw)
+            except (ValueError, TypeError):
+                pass
+        result = StockService.screen_stocks(criteria)
+    else:
+        result = StockService.get_stock_list(
+            industry=industry,
+            area=area,
+            search=search,
+            page=page,
+            page_size=page_size,
+        )
     return jsonify({'code': 200, 'message': 'success', 'data': result})
 
 

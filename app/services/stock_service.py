@@ -157,6 +157,25 @@ class StockService:
         return any(normalized_keyword in candidate for candidate in normalized_candidates)
 
     @staticmethod
+    def _matches_pinyin_search(name, ts_code, symbol, keyword: str) -> bool:
+        """Check whether a stock matches the given keyword via pinyin (full spell or initials)."""
+        normalized_keyword = StockService._normalize_search_keyword(keyword)
+        if not normalized_keyword:
+            return True
+        candidates = [
+            ts_code,
+            symbol,
+            name,
+            *StockService._get_name_pinyin_candidates(name),
+        ]
+        normalized_candidates = [
+            StockService._normalize_search_keyword(c)
+            for c in candidates
+            if c
+        ]
+        return any(normalized_keyword in c for c in normalized_candidates)
+
+    @staticmethod
     def get_stock_info(ts_code: str):
 
         """获取股票基本信息"""
@@ -440,7 +459,30 @@ class StockService:
                 elif market == 'BJ':
                     query = query.filter(StockBusiness.ts_code.like('%.BJ'))
 
-            
+            # 搜索条件（代码、名称、拼音）
+            search_keyword = (criteria.get('search') or '').strip()
+            use_pinyin_filter = False
+            if search_keyword:
+                if StockService._needs_pinyin_match(search_keyword):
+                    # 拼音搜索：先用 symbol 前缀做 SQL 预过滤
+                    from app.utils.sql_utils import escape_like
+                    safe_kw = escape_like(search_keyword)
+                    query = query.filter(
+                        StockBasic.symbol.ilike(f'{safe_kw}%', escape='\\')
+                    )
+                    use_pinyin_filter = True
+                else:
+                    # 中文/英文搜索：直接 SQL 过滤
+                    from app.utils.sql_utils import escape_like
+                    safe_kw = escape_like(search_keyword)
+                    query = query.filter(
+                        or_(
+                            StockBusiness.ts_code.ilike(f'%{safe_kw}%', escape='\\'),
+                            StockBasic.symbol.ilike(f'%{safe_kw}%', escape='\\'),
+                            StockBasic.name.ilike(f'%{safe_kw}%', escape='\\'),
+                        )
+                    )
+
             # 估值指标筛选
             if criteria.get('pe_min'):
                 query = query.filter(StockBusiness.pe >= float(criteria['pe_min']))
@@ -526,7 +568,7 @@ class StockService:
                 field_a = condition.get('field_a')
                 operator = condition.get('operator')
                 field_b = condition.get('field_b')
-                value = condition.get('value')
+                value = condition.get('value') or condition.get('field_b_value')
                 
                 if not field_a or not operator:
                     continue
@@ -585,16 +627,30 @@ class StockService:
             
             # 分页参数
             page = criteria.get('page', 1)
-            page_size = min(criteria.get('page_size', 50), 200)  # 单次最多200条
+            page_size = min(max(criteria.get('page_size', 20), 1), 100)
             
             # 执行查询（先取总数，再分页）
             from sqlalchemy import func
-            count_query = db.session.query(func.count()).select_from(query.subquery())
-            total_count = count_query.scalar()
-            
-            offset_val = max(page - 1, 0) * page_size
-            results = query.offset(offset_val).limit(page_size).all()
-            
+
+            if use_pinyin_filter:
+                # 拼音模式：取较大集合后在 Python 侧做拼音匹配
+                all_results = query.limit(page_size * 5).all()
+                matched = []
+                for stock_business, stock_basic in all_results:
+                    name = stock_basic.name if stock_basic is not None else stock_business.stock_name
+                    ts_code = stock_business.ts_code
+                    symbol = stock_basic.symbol if stock_basic is not None else (ts_code.split('.')[0] if ts_code else '')
+                    if StockService._matches_pinyin_search(name, ts_code, symbol, search_keyword):
+                        matched.append((stock_business, stock_basic))
+                total_count = len(matched)
+                offset_val = max(page - 1, 0) * page_size
+                results = matched[offset_val: offset_val + page_size]
+            else:
+                count_query = db.session.query(func.count()).select_from(query.subquery())
+                total_count = count_query.scalar()
+                offset_val = max(page - 1, 0) * page_size
+                results = query.offset(offset_val).limit(page_size).all()
+
             # 转换为字典列表，合并StockBusiness和StockBasic的数据
             stocks = []
             for stock_business, stock_basic in results:
@@ -615,16 +671,18 @@ class StockService:
                     stock_dict.setdefault('area', None)
                     stock_dict.setdefault('list_date', None)
                 stocks.append(stock_dict)
-            
+
+            total_pages = (total_count + page_size - 1) // page_size if total_count else 0
             logger.info(f"股票筛选完成，共找到 {total_count} 只股票（第{page}页，每页{page_size}条）")
-            
+
             return {
                 'stocks': stocks,
                 'total': total_count,
                 'criteria': criteria,
                 'has_more': (offset_val + page_size) < total_count,
                 'page': page,
-                'page_size': page_size
+                'page_size': page_size,
+                'total_pages': total_pages,
             }
             
         except Exception as e:

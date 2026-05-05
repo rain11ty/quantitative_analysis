@@ -25,8 +25,8 @@ def analysis():
 
 @main_bp.route('/screen')
 def screen():
-    """选股筛选页面"""
-    return render_template('screen.html')
+    """选股筛选页面 — 已合并到股票列表，重定向"""
+    return redirect(url_for('main.stocks'))
 
 @main_bp.route('/backtest')
 def backtest():
