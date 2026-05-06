@@ -100,13 +100,12 @@ def _wants_json_response():
 
 
 def _build_login_response(is_admin_entry=False, message='Please login first.', status_code=401):
-    login_endpoint = 'admin.login' if is_admin_entry else 'auth.login'
-
+    # 统一使用 auth.login 作为登录入口
     if _wants_json_response():
         return jsonify({'code': status_code, 'message': message, 'data': None}), status_code
 
     flash(message, 'warning')
-    return redirect(url_for(login_endpoint, next=request.path))
+    return redirect(url_for('auth.login', next=request.path))
 
 
 def create_app(config_name='default'):

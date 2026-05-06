@@ -122,50 +122,8 @@ def _get_data_overview_stats():
 
 @admin_routes.route('/login', methods=['GET', 'POST'])
 def login():
-    current_user = getattr(g, 'current_user', None)
-    if request.method == 'GET' and current_user and current_user.is_admin:
-        return redirect(url_for('admin.dashboard'))
-
-    if request.method == 'POST':
-        session.clear()
-        if current_user is not None:
-            g.current_user = None
-
-        account = request.form.get('account', '').strip()
-        password = request.form.get('password', '')
-
-        user = User.query.filter(or_(User.username == account, User.email == account.lower())).first()
-        if not user or not user.check_password(password):
-            flash('Invalid admin account or password.', 'danger')
-            return render_template('admin/login.html')
-
-        if not user.is_admin:
-            flash('This account is not an admin account.', 'danger')
-            return render_template('admin/login.html')
-
-        if user.status == User.STATUS_DISABLED:
-            flash('This admin account is disabled.', 'danger')
-            return render_template('admin/login.html')
-
-        if user.status == User.STATUS_BANNED:
-            flash('This admin account is banned.', 'danger')
-            return render_template('admin/login.html')
-
-        session.clear()
-        session.permanent = True
-        session['user_id'] = user.id
-
-        user.last_login_at = db.func.now()
-        user.last_login_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-        db.session.commit()
-
-        try:
-            SystemLogService.write('admin_login', f'Admin login: {user.username}', user=user, status='success')
-        except Exception:
-            db.session.rollback()
-
-        flash(f'Welcome to admin panel, {user.username}.', 'success')
-        return redirect(url_for('admin.dashboard'))
+    # 统一登录入口：管理员登录页面跳转到普通登录页
+    return redirect(url_for('auth.login', next='/admin/'))
 
     return render_template('admin/login.html')
 

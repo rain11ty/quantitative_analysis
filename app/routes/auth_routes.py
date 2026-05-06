@@ -111,6 +111,12 @@ def login():
             logging.getLogger(__name__).exception("Failed to write system log")
 
         flash(MSG_LOGIN_SUCCESS.format(username=user.username), 'success')
+
+        # 管理员自动跳转到管理后台（除非有明确的 next 参数）
+        next_page = (request.args.get('next') or request.form.get('next') or '').strip()
+        if user.is_admin and not next_page:
+            return redirect(url_for('admin.dashboard'))
+
         return redirect(_get_safe_redirect())
 
     return render_template('auth/login.html', next_page=_get_safe_redirect())
