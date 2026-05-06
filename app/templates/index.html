@@ -461,7 +461,7 @@
   font-size: 0.74rem;
 }
 .ranking-table th {
-  padding: 0.28rem 0.45rem;
+  padding: 0.18rem 0.45rem;
   font-weight: 600;
   color: var(--text-muted);
   background: rgba(248,250,252,0.7);
@@ -472,7 +472,7 @@
 .ranking-table th:first-child,
 .ranking-table th:nth-child(2) { text-align: left; }
 .ranking-table td {
-  padding: 0.26rem 0.45rem;
+  padding: 0.16rem 0.45rem;
   border-bottom: 1px solid rgba(226,232,240,0.3);
   text-align: right;
   white-space: nowrap;
@@ -543,7 +543,7 @@
 }
 .bf-panel-body {
   flex: 1;
-  overflow: hidden;
+  overflow-y: auto;
 }
 .bf-table {
   width: 100%;
@@ -587,6 +587,93 @@
 }
 .bf-view-more:hover { background: rgba(0, 82, 255, 0.04); color: var(--brand-blue-hover); }
 
+/* ===== 全球指数滚动行情条 ===== */
+.global-ticker-wrap {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 18px;
+  margin-bottom: 0.4rem;
+  border: 1px solid var(--card-border);
+  box-shadow: var(--shadow-soft);
+}
+.global-ticker-wrap::before,
+.global-ticker-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+  z-index: 2;
+  pointer-events: none;
+}
+.global-ticker-wrap::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 1) 0%, transparent 100%);
+}
+.global-ticker-wrap::after {
+  right: 0;
+  background: linear-gradient(270deg, rgba(255, 255, 255, 1) 0%, transparent 100%);
+}
+.global-ticker-track {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 5px 0;
+  animation: globalTickerScroll 30s linear infinite;
+  will-change: transform;
+}
+.global-ticker-wrap:hover .global-ticker-track {
+  animation-play-state: paused;
+}
+@keyframes globalTickerScroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.global-ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 1rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(226, 232, 240, 0.6);
+  cursor: default;
+  transition: background 0.2s;
+}
+.global-ticker-item:hover { background: rgba(0, 82, 255, 0.045); }
+.global-ticker-item:last-child { border-right: none; }
+.gti-name {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.gti-price {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+}
+.gti-change {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+.gti-change.up {
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.1);
+}
+.gti-change.down {
+  color: #166534;
+  background: rgba(34, 197, 94, 0.1);
+}
+.gti-change.flat {
+  color: #475569;
+  background: rgba(148, 163, 184, 0.12);
+}
+
 /* ===== 响应式 ===== */
 @media (max-width: 1199px) {
   .home-grid {
@@ -621,6 +708,13 @@
 {% endblock %}
 
 {% block content %}
+
+<!-- ===== 全球指数滚动行情条 ===== -->
+<div class="global-ticker-wrap" id="globalTickerWrap">
+  <div class="global-ticker-track" id="globalTickerTrack">
+    <!-- JS动态渲染 -->
+  </div>
+</div>
 
 <!-- ===== 行情快照条（指数+涨跌家数） ===== -->
 <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
@@ -763,6 +857,45 @@ async function cachedApiRequest(url) {
   const data = await apiRequest(url);
   _apiCache[url] = { ts: now, data };
   return data;
+}
+
+// ===== 全球指数滚动行情条 =====
+function getGlobalChangeClass(pctChg) {
+  const num = Number(pctChg);
+  if (!Number.isFinite(num) || num === 0) return 'flat';
+  return num > 0 ? 'up' : 'down';
+}
+
+function renderGlobalTicker(items) {
+  const track = document.getElementById('globalTickerTrack');
+  if (!items || !items.length) {
+    track.innerHTML = '<div style="padding:4px 1rem;color:var(--text-muted);font-size:0.78rem;">数据加载中...</div>';
+    return;
+  }
+  // Duplicate items for seamless scrolling
+  const allItems = [...items, ...items];
+  track.innerHTML = allItems.map(item => {
+    const cls = getGlobalChangeClass(item.pct_chg);
+    const sign = Number(item.pct_chg) >= 0 ? '+' : '';
+    return `
+      <div class="global-ticker-item">
+        <span class="gti-name">${escapeHtmlText(item.name)}</span>
+        <span class="gti-price">${formatNum(item.price)}</span>
+        <span class="gti-change ${cls}">${sign}${formatNum(item.pct_chg)}%</span>
+      </div>`;
+  }).join('');
+}
+
+async function loadGlobalIndices() {
+  try {
+    const res = await apiRequest('/global_indices');
+    const data = res.data;
+    if (data && data.success && data.items) {
+      renderGlobalTicker(data.items);
+    }
+  } catch (err) {
+    console.warn('Failed to load global indices:', err);
+  }
 }
 
 const INDEX_NAMES = {
@@ -1179,8 +1312,7 @@ function renderBoardTable(data) {
       <td class="${rankClass}">${idx + 1}</td>
       <td>${escapeHtmlText(item.name || '')}</td>
       <td class="${pctClass}">${sign}${formatNum(pct)}%</td>
-      <td>${item.up_count != null ? item.up_count : '--'}</td>
-      <td>${item.down_count != null ? item.down_count : '--'}</td>
+      <td>${item.stock_count > 0 ? item.stock_count : '--'}</td>
       <td class="lead-stock">${escapeHtmlText(item.lead_stock || '--')}</td>
       <td class="lead-pct ${leadPctClass}">${Number.isFinite(leadPct) ? leadSign + formatNum(leadPct) + '%' : '--'}</td>
     </tr>`;
@@ -1192,8 +1324,7 @@ function renderBoardTable(data) {
         <th>#</th>
         <th>${boardLabel}板块</th>
         <th>涨跌幅</th>
-        <th>上涨</th>
-        <th>下跌</th>
+        <th>成分股</th>
         <th>领涨股</th>
         <th>领涨幅</th>
       </tr></thead>
@@ -1297,6 +1428,9 @@ document.addEventListener('DOMContentLoaded', async function() {
   loadNews();
   loadBoardRanking('industry');
   loadSectorFundFlow();
+  loadGlobalIndices();
+  // 全球指数每60秒刷新
+  setInterval(loadGlobalIndices, 60000);
 
   // 事件绑定
   document.getElementById('rankingSortBy').addEventListener('change', loadRanking);

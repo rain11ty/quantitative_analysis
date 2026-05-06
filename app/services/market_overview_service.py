@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
+import json as _json
+import re as _re
 from datetime import datetime, timedelta
 
 import pandas as pd
+import requests
 from loguru import logger
 from sqlalchemy import text
 
@@ -662,81 +665,199 @@ class MarketOverviewService:
         result['items'] = result.get('items', [])[:limit]
         return result
 
+    # 新浪板块数据 API 地址
+    _SINA_INDUSTRY_URL = 'https://vip.stock.finance.sina.com.cn/q/view/newSinaHy.php'
+    _SINA_CONCEPT_URL = 'https://money.finance.sina.com.cn/q/view/newFLJK.php?param=class'
+    _SINA_HEADERS = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://finance.sina.com.cn',
+    }
+
     @classmethod
-    def _fetch_board_ranking(cls, board_type: str = 'industry', limit: int = 10) -> dict:
-        """通过 AKShare 获取板块排行数据"""
+    def _fetch_sina_board_data(cls, url: str) -> list:
+        """从新浪财经板块接口获取原始数据
+
+        新浪返回 JS 变量赋值格式：var S_Finance_bankuai_xxx = {"key":"val1,val2,...", ...}
+        每条记录包含 13 个逗号分隔字段：
+          [0] 板块代码  [1] 板块名称  [2] 成分股数量  [3] 均价
+          [4] 涨跌额    [5] 涨跌幅(%)  [6] 成交量(手)  [7] 成交额(元)
+          [8] 领涨股代码 [9] 领涨股涨幅(%) [10] 领涨股现价 [11] 领涨股涨跌额
+          [12] 领涨股名称
+
+        Returns:
+            list[dict]: 解析后的板块列表
+        """
         try:
             from app.services.akshare_service import call_with_no_proxy
 
-            if board_type == 'concept':
-                import akshare as ak
-                df = call_with_no_proxy(ak.stock_board_concept_name_em)
-            else:
-                import akshare as ak
-                df = call_with_no_proxy(ak.stock_board_industry_name_em)
+            def _do_fetch():
+                resp = requests.get(url, headers=cls._SINA_HEADERS, timeout=15)
+                resp.encoding = 'gbk'
+                return resp
 
-            if df is None or df.empty:
+            resp = call_with_no_proxy(_do_fetch)
+            raw_text = resp.text or ''
+            match = _re.search(r'\{.*\}', raw_text, _re.DOTALL)
+            if not match:
+                logger.warning(f'Sina board API returned no JSON data from {url}')
+                return []
+
+            raw = _json.loads(match.group())
+            boards = []
+            for key, val in raw.items():
+                parts = str(val).split(',')
+                if len(parts) < 13:
+                    continue
+                boards.append({
+                    'code': parts[0].strip(),
+                    'name': parts[1].strip(),
+                    'stock_count': cls._to_int(parts[2]),
+                    'price': cls._to_float(parts[3]),       # 板块均价
+                    'change': cls._to_float(parts[4]),       # 涨跌额
+                    'pct_change': cls._to_float(parts[5]),   # 涨跌幅(%)
+                    'volume': cls._to_float(parts[6], 0),    # 成交量
+                    'amount': cls._to_float(parts[7], 0),    # 成交额
+                    'lead_stock_code': parts[8].strip(),
+                    'lead_stock_pct': cls._to_float(parts[9]),
+                    'lead_stock_price': cls._to_float(parts[10]),
+                    'lead_stock_change': cls._to_float(parts[11]),
+                    'lead_stock': parts[12].strip(),
+                })
+            return boards
+        except Exception as exc:
+            logger.error(f'Sina board data fetch failed ({url}): {exc}')
+            return []
+
+    @classmethod
+    def _fetch_eastmoney_board_ranking(cls, board_type: str = 'industry', limit: int = 50) -> list:
+        """直接调用东方财富 HTTP API 获取板块排行（不通过 AKShare）
+
+        作为新浪接口不可用时的降级方案。
+
+        Returns:
+            list[dict]: 解析后的板块列表，格式与新浪接口一致
+        """
+        try:
+            from app.services.akshare_service import call_with_no_proxy
+
+            # fs 参数：m:90+t:2 表示行业板块，m:90+t:3 表示概念板块
+            fs = 'm:90+t:2+f:!50' if board_type == 'industry' else 'm:90+t:3+f:!50'
+            url = 'https://push2.eastmoney.com/api/qt/clist/get'
+            params = {
+                'pn': 1,
+                'pz': limit,
+                'po': 1,
+                'np': 1,
+                'fltt': 2,
+                'invt': 2,
+                'fid': 'f3',
+                'fs': fs,
+                'fields': 'f2,f3,f4,f8,f12,f14,f104,f105,f128,f136,f115,f140,f141',
+                'ut': 'bd1d9ddb04089700cf9c27f6f7426281',
+            }
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Referer': 'https://data.eastmoney.com/',
+                'Accept': '*/*',
+            }
+
+            def _do_fetch():
+                return requests.get(url, params=params, headers=headers, timeout=15)
+
+            resp = call_with_no_proxy(_do_fetch)
+            data = resp.json()
+            diff = (data.get('data') or {}).get('diff') or []
+            if not diff:
+                return []
+
+            boards = []
+            for item in diff:
+                boards.append({
+                    'code': str(item.get('f12', '')),
+                    'name': str(item.get('f14', '')),
+                    'stock_count': cls._to_int(item.get('f104', 0)) + cls._to_int(item.get('f105', 0)),
+                    'price': cls._to_float(item.get('f2')),
+                    'change': cls._to_float(item.get('f4')),
+                    'pct_change': cls._to_float(item.get('f3')),
+                    'volume': None,
+                    'amount': None,
+                    'lead_stock_code': str(item.get('f140', '')),
+                    'lead_stock_pct': cls._to_float(item.get('f136')),
+                    'lead_stock_price': cls._to_float(item.get('f141')),
+                    'lead_stock_change': None,
+                    'lead_stock': str(item.get('f128', '')),
+                    'turnover_rate': cls._to_float(item.get('f8')),
+                    'up_count': cls._to_int(item.get('f104')),
+                    'down_count': cls._to_int(item.get('f105')),
+                    'lead_stock_pct_raw': cls._to_float(item.get('f115')),
+                })
+            return boards
+        except Exception as exc:
+            logger.warning(f'EastMoney board ranking fallback failed ({board_type}): {exc}')
+            return []
+
+    @classmethod
+    def _fetch_board_ranking(cls, board_type: str = 'industry', limit: int = 10) -> dict:
+        """获取板块排行数据（新浪财经为主，东方财富 HTTP API 为降级）
+
+        数据源优先级：
+          1. 新浪财经板块接口（免费、稳定）
+          2. 东方财富 HTTP API（直接调用，不通过 AKShare）
+
+        返回字段与原有接口保持一致，前端无需修改。
+        """
+        try:
+            # ① 优先使用新浪财经接口
+            url = cls._SINA_CONCEPT_URL if board_type == 'concept' else cls._SINA_INDUSTRY_URL
+            boards = cls._fetch_sina_board_data(url)
+            source = 'sina_finance'
+
+            # ② 降级：如果新浪接口无数据，尝试东方财富 HTTP API
+            if not boards:
+                logger.info(f'Sina {board_type} board data empty, fallback to EastMoney HTTP API')
+                boards = cls._fetch_eastmoney_board_ranking(board_type=board_type, limit=50)
+                source = 'eastmoney_http'
+
+            if not boards:
                 return {
                     'success': False,
-                    'message': f'{board_type} 板块数据为空',
+                    'message': f'{board_type} 板块数据为空（新浪和东方财富均无数据）',
                     'board_type': board_type,
                     'items': [],
                     'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 }
 
-            # AKShare 东方财富板块数据的列名 (stock_board_industry_name_em / stock_board_concept_name_em)
-            col_map = {
-                '排名': 'rank',
-                '板块名称': 'name',
-                '板块代码': 'code',
-                '最新价': 'price',
-                '涨跌额': 'change',
-                '涨跌幅': 'pct_change',
-                '总市值': 'total_market_cap',
-                '换手率': 'turnover_rate',
-                '上涨家数': 'up_count',
-                '下跌家数': 'down_count',
-                '领涨股票': 'lead_stock',
-                '领涨股票-涨跌幅': 'lead_stock_pct',
-            }
-            df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
-
-            # 数值转换
-            for col in ['pct_change', 'change', 'price', 'total_market_cap', 'turnover_rate',
-                         'lead_stock_pct', 'up_count', 'down_count']:
-                if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors='coerce')
+            # 过滤掉统计类条目
+            boards = [b for b in boards if b.get('name') not in cls.EXCLUDE_BOARDS]
 
             # 按涨跌幅降序排列
-            if 'pct_change' in df.columns:
-                df = df.sort_values('pct_change', ascending=False, na_position='last')
-
-            # 过滤掉统计类条目（昨日首板、昨日涨停等），这些不是真实板块
-            if 'name' in df.columns:
-                df = df[~df['name'].isin(cls.EXCLUDE_BOARDS)]
+            boards.sort(key=lambda x: x.get('pct_change') if x.get('pct_change') is not None else -9999, reverse=True)
 
             items = []
-            for _, row in df.head(limit).iterrows():
+            for b in boards[:limit]:
                 items.append({
-                    'name': cls._to_float_text(row.get('name', '')),
-                    'code': cls._to_float_text(row.get('code', '')),
-                    'price': cls._to_float(row.get('price')),
-                    'pct_change': cls._to_float(row.get('pct_change')),
-                    'change': cls._to_float(row.get('change')),
-                    'total_market_cap': cls._to_float(row.get('total_market_cap'), 0),
-                    'turnover_rate': cls._to_float(row.get('turnover_rate')),
-                    'up_count': cls._to_int(row.get('up_count')),
-                    'down_count': cls._to_int(row.get('down_count')),
-                    'lead_stock': cls._to_float_text(row.get('lead_stock', '')),
-                    'lead_stock_pct': cls._to_float(row.get('lead_stock_pct')),
+                    'name': cls._to_float_text(b.get('name', '')),
+                    'code': cls._to_float_text(b.get('code', '')),
+                    'price': cls._to_float(b.get('price')),
+                    'pct_change': cls._to_float(b.get('pct_change')),
+                    'change': cls._to_float(b.get('change')),
+                    'total_market_cap': cls._to_float(b.get('total_market_cap'), 0),
+                    'turnover_rate': cls._to_float(b.get('turnover_rate')),
+                    'up_count': cls._to_int(b.get('up_count')),
+                    'down_count': cls._to_int(b.get('down_count')),
+                    'stock_count': cls._to_int(b.get('stock_count')),  # 新浪接口提供成分股数量
+                    'lead_stock': cls._to_float_text(b.get('lead_stock', '')),
+                    'lead_stock_pct': cls._to_float(b.get('lead_stock_pct')),
                 })
 
+            board_label = '行业' if board_type == 'industry' else '概念'
             return {
                 'success': True,
-                'message': f'热门{("行业" if board_type == "industry" else "概念")}板块已加载。',
+                'message': f'热门{board_label}板块已加载（数据源: {source}）。',
                 'board_type': board_type,
+                'source': source,
                 'items': items,
-                'total': len(df),
+                'total': len(boards),
                 'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             }
         except Exception as exc:
@@ -790,95 +911,301 @@ class MarketOverviewService:
             }
 
         result = cls._fetch_sector_fund_flow_rank()
-        _cache.set(cache_key, result, ttl=cls.CACHE_TTL_SECTOR_FLOW)
+        # 只缓存成功的结果，避免缓存错误信息
+        if result.get('success'):
+            _cache.set(cache_key, result, ttl=cls.CACHE_TTL_SECTOR_FLOW)
         result['items'] = result.get('items', [])[:limit]
         return result
 
+    # ======================== 全球主要指数 ========================
+
+    # 新浪全球指数代码列表
+    GLOBAL_INDEX_CODES = [
+        's_sh000001',   # 上证指数
+        's_sz399001',   # 深证成指
+        's_sz399006',   # 创业板指
+        'int_hangseng',  # 恒生指数
+        'int_nasdaq',    # 纳斯达克
+        'int_dji',       # 道琼斯
+        'int_sp500',     # 标普500
+        'int_nikkei',    # 日经225
+        'int_ftse',      # 富时100
+        'int_dax',       # 德国DAX
+    ]
+
+    GLOBAL_INDEX_CACHE_TTL = 60  # 秒
+
+    @classmethod
+    def get_global_indices(cls, cache_only: bool = False) -> dict:
+        """获取全球主要指数数据（新浪接口），带60秒缓存"""
+        cache_key = 'global_indices'
+        cached = _cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        if cache_only:
+            return {
+                'success': False,
+                'message': '全球指数数据暂未就绪。',
+                'items': [],
+                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            }
+
+        result = cls._fetch_global_indices_from_sina()
+        if result.get('success'):
+            _cache.set(cache_key, result, ttl=cls.GLOBAL_INDEX_CACHE_TTL)
+        return result
+
+    @classmethod
+    def _fetch_global_indices_from_sina(cls) -> dict:
+        """通过新浪 hq.sinajs.cn 接口获取全球主要指数实时数据"""
+        from app.services.akshare_service import call_with_no_proxy
+
+        codes_str = ','.join(cls.GLOBAL_INDEX_CODES)
+        url = f'https://hq.sinajs.cn/list={codes_str}'
+        headers = {
+            'Referer': 'https://finance.sina.com.cn',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        }
+
+        try:
+            def _do_fetch():
+                resp = requests.get(url, headers=headers, timeout=8)
+                resp.encoding = 'gbk'
+                return resp
+
+            resp = call_with_no_proxy(_do_fetch)
+            raw_text = resp.text
+        except Exception as exc:
+            logger.error(f'获取新浪全球指数失败: {exc}')
+            return {
+                'success': False,
+                'message': f'获取全球指数数据失败: {exc}',
+                'items': [],
+                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            }
+
+        items = []
+        for line in raw_text.strip().split('\n'):
+            line = line.strip()
+            if not line or '=' not in line:
+                continue
+            # 解析 var hq_str_s_sh000001="上证指数,3261.5561,28.933,0.89,3936465,39778432";
+            try:
+                var_part, data_part = line.split('=', 1)
+                # 提取代码
+                code = var_part.split('hq_str_')[-1].strip()
+                # 提取引号内的数据
+                data_str = data_part.strip().rstrip(';').strip('"').strip()
+                if not data_str:
+                    continue
+
+                fields = data_str.split(',')
+                if len(fields) < 4:
+                    continue
+
+                name = fields[0].strip()
+                price = cls._to_float(fields[1])
+                change = cls._to_float(fields[2])
+                pct_chg = cls._to_float(fields[3])
+
+                if price is None:
+                    continue
+
+                items.append({
+                    'code': code,
+                    'name': name,
+                    'price': price,
+                    'change': change,
+                    'pct_chg': pct_chg,
+                })
+            except Exception as exc:
+                logger.warning(f'解析新浪指数行失败: {line}, 错误: {exc}')
+                continue
+
+        return {
+            'success': True,
+            'message': '全球指数数据已加载。',
+            'items': items,
+            'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        }
+
+    # 东方财富板块资金流向 API（直接 HTTP 调用，不通过 AKShare）
+    _EM_FUND_FLOW_URL = 'https://push2.eastmoney.com/api/qt/clist/get'
+    _EM_FUND_FLOW_HEADERS = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://data.eastmoney.com/',
+        'Accept': '*/*',
+    }
+
     @classmethod
     def _fetch_sector_fund_flow_rank(cls, limit: int = 0) -> dict:
-        """通过 AKShare 获取板块资金流向排名数据
+        """获取板块资金流向排名数据
 
-        AKShare stock_sector_fund_flow_rank 返回 DataFrame:
-          列: 序号, 名称, 今日涨跌幅, 今日主力净流入-净额, 今日主力净流入-净占比,
-              今日超大单净流入-净额, 今日超大单净流入-净占比, 今日大单净流入-净额, 今日大单净流入-净占比,
-              今日中单净流入-净额, 今日中单净流入-净占比, 今日小单净流入-净额, 今日小单净流入-净占比,
-              今日主力净流入最大股
+        数据源优先级：
+          1. Tushare moneyflow_ind_dc 接口（盘后更新，稳定可靠）
+          2. 东方财富 HTTP API（直接调用，实时数据）
 
         Args:
             limit: 返回条数，0 表示返回全部（默认返回全部，由 API 层按需分页裁剪）
         """
         try:
             from app.services.akshare_service import call_with_no_proxy
-            import akshare as ak
 
-            df = call_with_no_proxy(
-                ak.stock_sector_fund_flow_rank,
-                indicator='今日',
-                sector_type='行业资金流',
-            )
+            # ① 优先使用 Tushare moneyflow_ind_dc 接口
+            source = 'tushare'
+            items = cls._fetch_fund_flow_from_tushare(limit)
 
-            if df is None or df.empty:
+            # ② 降级：如果 Tushare 无数据，尝试东方财富 HTTP API
+            if not items:
+                logger.info('Tushare fund flow data empty, fallback to EastMoney HTTP API')
+                items = cls._fetch_fund_flow_from_eastmoney(limit)
+                source = 'eastmoney_http'
+
+            if not items:
                 return {
                     'success': False,
-                    'message': '板块资金流向数据为空',
+                    'message': '板块资金流向数据暂不可用（数据源维护中）',
                     'items': [],
                     'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 }
 
-            # 按主力净流入降序排列（确保缓存数据包含全部板块，
-            # API 层可按 main_net_inflow 正确排序后分页）
-            main_inflow_col = '今日主力净流入-净额'
-            if main_inflow_col in df.columns:
-                df[main_inflow_col] = pd.to_numeric(df[main_inflow_col], errors='coerce')
-                df = df.sort_values(main_inflow_col, ascending=False, na_position='last')
-            elif '今日涨跌幅' in df.columns:
-                df['今日涨跌幅'] = pd.to_numeric(df['今日涨跌幅'], errors='coerce')
-                df = df.sort_values('今日涨跌幅', ascending=False, na_position='last')
-
-            rows_iter = df.head(limit).iterrows() if limit > 0 else df.iterrows()
-            items = []
-            for _, row in rows_iter:
-                pct_chg = cls._to_float(row.get('今日涨跌幅'))
-                main_net = cls._to_float(row.get('今日主力净流入-净额'), 0)
-                main_pct = cls._to_float(row.get('今日主力净流入-净占比'))
-                super_large_net = cls._to_float(row.get('今日超大单净流入-净额'), 0)
-                super_large_pct = cls._to_float(row.get('今日超大单净流入-净占比'))
-                large_net = cls._to_float(row.get('今日大单净流入-净额'), 0)
-                large_pct = cls._to_float(row.get('今日大单净流入-净占比'))
-                mid_net = cls._to_float(row.get('今日中单净流入-净额'), 0)
-                mid_pct = cls._to_float(row.get('今日中单净流入-净占比'))
-                small_net = cls._to_float(row.get('今日小单净流入-净额'), 0)
-                small_pct = cls._to_float(row.get('今日小单净流入-净占比'))
-                lead_stock = cls._to_float_text(row.get('今日主力净流入最大股', ''))
-
-                items.append({
-                    'name': cls._to_float_text(row.get('名称', '')),
-                    'pct_change': pct_chg,
-                    'main_net_inflow': main_net,
-                    'main_net_pct': main_pct,
-                    'super_large_net_inflow': super_large_net,
-                    'super_large_net_pct': super_large_pct,
-                    'large_net_inflow': large_net,
-                    'large_net_pct': large_pct,
-                    'mid_net_inflow': mid_net,
-                    'mid_net_pct': mid_pct,
-                    'small_net_inflow': small_net,
-                    'small_net_pct': small_pct,
-                    'lead_stock': lead_stock,
-                })
-
             return {
                 'success': True,
-                'message': '板块资金流向排名已加载。',
+                'message': f'板块资金流向排名已加载（数据源: {source}）。',
+                'source': source,
                 'items': items,
-                'total': len(df),
+                'total': len(items),
                 'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             }
         except Exception as exc:
             logger.error(f'获取板块资金流向排名失败: {exc}')
             return {
                 'success': False,
-                'message': f'板块资金流向数据获取失败: {exc}',
+                'message': '板块资金流向数据暂不可用（数据源维护中，请稍后再试）',
                 'items': [],
                 'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             }
+
+    @classmethod
+    def _fetch_fund_flow_from_tushare(cls, limit: int = 0) -> list:
+        """通过 Tushare moneyflow_ind_dc 获取板块资金流向"""
+        try:
+            import threading
+
+            def _do_fetch():
+                pro = DatabaseUtils.init_tushare_api()
+                trade_date = datetime.now().strftime('%Y%m%d')
+                df = pro.moneyflow_ind_dc(trade_date=trade_date, content_type='行业')
+                if df is None or df.empty:
+                    yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y%m%d')
+                    df = pro.moneyflow_ind_dc(trade_date=yesterday, content_type='行业')
+                return df
+
+            # 在独立线程中执行，绕过 eventlet 的阻塞检测
+            result_box = [None]
+            err_box = [None]
+            def _thread_target():
+                try:
+                    result_box[0] = _do_fetch()
+                except Exception as e:
+                    err_box[0] = e
+            t = threading.Thread(target=_thread_target, daemon=True)
+            t.start()
+            t.join(timeout=30)
+            if err_box[0]:
+                raise err_box[0]
+            df = result_box[0]
+
+            if df is None or df.empty:
+                return []
+
+            # 按主力净流入降序排列
+            df = df.sort_values('net_amount', ascending=False, na_position='last')
+
+            rows = df.head(limit).iterrows() if limit > 0 else df.iterrows()
+            items = []
+            for _, row in rows:
+                items.append({
+                    'name': cls._to_float_text(row.get('name', '')),
+                    'pct_change': cls._to_float(row.get('pct_change')),
+                    'main_net_inflow': cls._to_float(row.get('net_amount'), 0),
+                    'main_net_pct': cls._to_float(row.get('net_amount_rate')),
+                    'super_large_net_inflow': cls._to_float(row.get('buy_elg_amount'), 0),
+                    'super_large_net_pct': cls._to_float(row.get('buy_elg_amount_rate')),
+                    'large_net_inflow': cls._to_float(row.get('buy_lg_amount'), 0),
+                    'large_net_pct': cls._to_float(row.get('buy_lg_amount_rate')),
+                    'mid_net_inflow': cls._to_float(row.get('buy_md_amount'), 0),
+                    'mid_net_pct': cls._to_float(row.get('buy_md_amount_rate')),
+                    'small_net_inflow': cls._to_float(row.get('buy_sm_amount'), 0),
+                    'small_net_pct': cls._to_float(row.get('buy_sm_amount_rate')),
+                    'lead_stock': cls._to_float_text(row.get('buy_sm_amount_stock', '')),
+                })
+            return items
+        except Exception as exc:
+            logger.warning(f'Tushare fund flow fetch failed: {exc}')
+            return []
+
+    @classmethod
+    def _fetch_fund_flow_from_eastmoney(cls, limit: int = 0) -> list:
+        """通过东方财富 HTTP API 获取板块资金流向（备用方案）"""
+        try:
+            import threading
+
+            params = {
+                'pn': 1, 'pz': 500, 'po': 1, 'np': 1, 'fltt': 2, 'invt': 2,
+                'fid': 'f62', 'fs': 'm:90+t:2+f:!50',
+                'fields': 'f2,f3,f4,f12,f14,f62,f184,f66,f69,f72,f75,f78,f81,f84,f87,f124,f128,f115',
+                'ut': 'bd1d9ddb04089700cf9c27f6f7426281',
+            }
+
+            def _do_fetch():
+                resp = requests.get(cls._EM_FUND_FLOW_URL, params=params, headers=cls._EM_FUND_FLOW_HEADERS, timeout=15)
+                if resp.status_code != 200:
+                    return None
+                return resp.json()
+
+            result_box = [None]
+            err_box = [None]
+            def _thread_target():
+                try:
+                    result_box[0] = _do_fetch()
+                except Exception as e:
+                    err_box[0] = e
+            t = threading.Thread(target=_thread_target, daemon=True)
+            t.start()
+            t.join(timeout=20)
+            if err_box[0]:
+                raise err_box[0]
+            data = result_box[0]
+
+            if not data:
+                return []
+            diff = (data.get('data') or {}).get('diff') or []
+            if not diff:
+                return []
+
+            diff.sort(key=lambda x: x.get('f62') if x.get('f62') is not None else -float('inf'), reverse=True)
+
+            rows = diff[:limit] if limit > 0 else diff
+            items = []
+            for item in rows:
+                items.append({
+                    'name': cls._to_float_text(item.get('f14', '')),
+                    'pct_change': cls._to_float(item.get('f3')),
+                    'main_net_inflow': cls._to_float(item.get('f62'), 0),
+                    'main_net_pct': cls._to_float(item.get('f184')),
+                    'super_large_net_inflow': cls._to_float(item.get('f66'), 0),
+                    'super_large_net_pct': cls._to_float(item.get('f69')),
+                    'large_net_inflow': cls._to_float(item.get('f72'), 0),
+                    'large_net_pct': cls._to_float(item.get('f75')),
+                    'mid_net_inflow': cls._to_float(item.get('f78'), 0),
+                    'mid_net_pct': cls._to_float(item.get('f81')),
+                    'small_net_inflow': cls._to_float(item.get('f84'), 0),
+                    'small_net_pct': cls._to_float(item.get('f87')),
+                    'lead_stock': cls._to_float_text(item.get('f128', '')),
+                })
+            return items
+        except Exception as exc:
+            logger.warning(f'EastMoney fund flow fetch failed: {exc}')
+            return []

@@ -98,7 +98,7 @@ def detect_proxy_mode() -> Dict[str, Any]:
             capture_output=True, text=True, timeout=5,
             encoding='utf-8', errors='ignore',
         )
-        output = (result.stdout or '' + result.stderr or '').lower()
+        output = ((result.stdout or '') + (result.stderr or '')).lower()
         detected = [name for name in tun_names if name in output]
         if detected:
             info['tun_adapters'] = detected
@@ -158,11 +158,12 @@ class _NoProxyContext:
 def call_with_no_proxy(func, *args, **kwargs):
     """在无代理环境下调用指定函数（自动重试一次）
 
-    当 Akshare 因 ProxyError 失败时，先清除代理重试。
+    适用于任何网络请求函数（AKShare、requests.get 等）。
+    当调用因 ProxyError / ConnectionError 失败时，先清除代理环境变量后重试。
     注意：TUN 模式下清除环境变量无效，会记录诊断信息。
 
     Args:
-        func: 要调用的函数（如 ak.stock_zh_index_spot_em）
+        func: 要调用的函数（如 ak.stock_zh_index_spot_em、requests.get 等）
         *args, **kwargs: 传给 func 的参数
 
     Returns:
@@ -178,16 +179,17 @@ def call_with_no_proxy(func, *args, **kwargs):
             raise  # 非代理相关错误，直接抛出
 
         # 检测代理模式并给出针对性提示
+        func_name = getattr(func, '__name__', str(func))
         proxy_info = detect_proxy_mode()
         if proxy_info['mode'] == 'tun':
             logger.warning(
-                f'Akshare call failed (TUN模式检测到!). '
+                f'{func_name} call failed (TUN模式检测到!). '
                 f'TUN网卡: {proxy_info.get("tun_adapters", [])}. '
-                f'清除环境变量对TUN无效! 建议在Clash规则中添加 eastmoney.com DIRECT. '
+                f'清除环境变量对TUN无效! 建议在Clash规则中添加 eastmoney.com / finance.sina.com.cn DIRECT. '
                 f'原始错误: {first_exc}'
             )
         else:
-            logger.warning(f'Akshare call failed with proxy error, retrying without env proxies: {first_exc}')
+            logger.warning(f'{func_name} call failed with proxy error, retrying without env proxies: {first_exc}')
 
         # 第二次：清除环境变量后重试（对 TUN 无效，但对 system_proxy 有效）
         try:
@@ -196,12 +198,12 @@ def call_with_no_proxy(func, *args, **kwargs):
         except Exception as second_exc:
             if proxy_info['mode'] == 'tun':
                 logger.error(
-                    f'Akshare still failed under TUN (env-clear ineffective). '
+                    f'{func_name} still failed under TUN (env-clear ineffective). '
                     f'Fix: Add DOMAIN-SUFFIX,eastmoney.com,DIRECT to Clash rules. '
                     f'Error: {second_exc}'
                 )
             else:
-                logger.error(f'Akshare also failed without proxy: {second_exc}')
+                logger.error(f'{func_name} also failed without proxy: {second_exc}')
             raise second_exc from first_exc
 
 

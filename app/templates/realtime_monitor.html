@@ -1927,7 +1927,7 @@ function renderHotBoards(data) {
     container.innerHTML = `
         <div class="scrollable-table-wrap">
             <table class="ranking-table">
-                <thead><tr><th>#</th><th>${escapeHtml(boardLabel)}板块</th><th>涨跌幅</th><th>上涨</th><th>下跌</th><th>领涨股</th><th>领涨幅</th></tr></thead>
+                <thead><tr><th>#</th><th>${escapeHtml(boardLabel)}板块</th><th>涨跌幅</th><th>成分股</th><th>领涨股</th><th>领涨幅</th></tr></thead>
                 <tbody>${items.map((item, idx) => renderHotBoardRow(item, idx)).join('')}</tbody>
             </table>
         </div>`;
@@ -1948,8 +1948,7 @@ function renderHotBoardRow(item, idx) {
             <td class="${rankClass}">${idx + 1}</td>
             <td title="${escapeHtml(item.code || '')}">${escapeHtml(item.name || '')}</td>
             <td class="${pctClass}">${sign}${formatNumber(pct)}%</td>
-            <td>${item.up_count != null ? item.up_count : '--'}</td>
-            <td>${item.down_count != null ? item.down_count : '--'}</td>
+            <td>${item.stock_count > 0 ? item.stock_count : '--'}</td>
             <td>${escapeHtml(item.lead_stock || '--')}</td>
             <td class="${leadPctClass}">${Number.isFinite(leadPct) ? leadSign + formatNumber(leadPct) + '%' : '--'}</td>
         </tr>`;

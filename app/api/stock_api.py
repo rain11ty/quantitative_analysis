@@ -407,6 +407,17 @@ def get_sector_fund_flow():
         })
 
 
+# ========== 全球主要指数 ==========
+
+@api_bp.route('/global_indices', methods=['GET'])
+@api_error_handler(default_message='获取全球指数数据失败')
+def get_global_indices():
+    """获取全球主要指数实时数据（新浪接口）"""
+    result = MarketOverviewService.get_global_indices()
+    status_code = 200 if result.get('success') else 503
+    return jsonify({'code': status_code, 'message': result.get('message'), 'data': result}), status_code
+
+
 # ========== 自选股相关接口 ==========
 
 @api_bp.route('/market/index/<path:ts_code>/kline', methods=['GET'])

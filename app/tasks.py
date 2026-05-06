@@ -76,6 +76,78 @@ def _try_acquire_lock(lock_key: str, ttl: int) -> bool:
         return True
 
 
+def _is_in_trading_hours() -> bool:
+    """Check if current time is within A-share trading hours (Mon-Fri 9:15-11:30, 13:00-15:15)."""
+    now = datetime.now()
+    # Weekday: Monday=0 ... Sunday=6
+    if now.weekday() > 4:
+        return False
+    t = now.hour * 60 + now.minute
+    # 9:15 = 555, 11:30 = 690, 13:00 = 780, 15:15 = 915
+    if 555 <= t <= 690 or 780 <= t <= 915:
+        return True
+    return False
+
+
+_BACKOFF_TTL = 3600  # 1 hour TTL for backoff keys
+
+
+def _check_should_skip_task(task_name: str) -> Optional[dict]:
+    """Check trading hours and apply exponential backoff.
+
+    Returns None if task should proceed, or a result dict to return early.
+    Backoff pattern: consecutive outside-hours skips grow as 1, 2, 4, 8 rounds.
+    """
+    if _is_in_trading_hours():
+        # Inside trading hours — reset failure counter and proceed
+        try:
+            from app.extensions import redis_client
+            if redis_client is not None:
+                redis_client.delete(f'backoff:{task_name}:fail_count')
+        except Exception:
+            pass
+        return None
+
+    # Outside trading hours
+    try:
+        from app.extensions import redis_client
+        if redis_client is None:
+            return {'status': 'skipped', 'reason': 'outside_trading_hours'}
+
+        # Check if we still have rounds to skip
+        skip_key = f'backoff:{task_name}:skip_remaining'
+        remaining = redis_client.get(skip_key)
+        if remaining is not None:
+            remaining = int(remaining)
+            if remaining > 0:
+                redis_client.set(skip_key, remaining - 1, ex=_BACKOFF_TTL)
+                logger.info(f'[Celery] {task_name} 跳过（退避中，剩余 {remaining - 1} 轮）')
+                return {'status': 'skipped', 'reason': 'backoff', 'remaining': remaining - 1}
+
+        # No remaining skips — apply exponential backoff
+        fail_key = f'backoff:{task_name}:fail_count'
+        fail_count = redis_client.get(fail_key)
+        fail_count = int(fail_count) + 1 if fail_count is not None else 1
+
+        # Skip rounds: 1, 2, 4, 8 (cap at 8)
+        skip_rounds = min(2 ** (fail_count - 1), 8)
+
+        redis_client.set(fail_key, fail_count, ex=_BACKOFF_TTL)
+        # skip_rounds includes the current round; store remaining for future invocations
+        if skip_rounds > 1:
+            redis_client.set(skip_key, skip_rounds - 1, ex=_BACKOFF_TTL)
+
+        logger.info(
+            f'[Celery] {task_name} 跳过（交易时间外，连续第{fail_count}次，'
+            f'跳过{skip_rounds}轮）'
+        )
+        return {'status': 'skipped', 'reason': 'outside_trading_hours', 'skip_rounds': skip_rounds}
+
+    except Exception as exc:
+        logger.warning(f'[Celery] {task_name} 退避检查异常，放行: {exc}')
+        return None
+
+
 def _run_with_timeout(func, timeout_seconds: int):
     """Run func() with a timeout using eventlet. Raises TimeoutError if exceeded."""
     import eventlet
@@ -599,7 +671,7 @@ def refresh_ranking_cache():
 
 @celery_app.task(name='app.tasks.refresh_market_overview_cache')
 def refresh_market_overview_cache():
-    """每 30 秒预热市场概览和指数 K 线，写入 Redis（TTL 120s）。"""
+    """每 120 秒预热市场概览和指数 K 线，写入 Redis（TTL 120s）。"""
     try:
         from app.services.market_overview_service import MarketOverviewService
         from app.utils.cache_utils import get_cache
@@ -640,7 +712,11 @@ def refresh_market_overview_cache():
 
 @celery_app.task(name='app.tasks.refresh_board_ranking_cache')
 def refresh_board_ranking_cache():
-    """每 60 秒爬取热门板块排行，写入 Redis（hot_boards_industry / hot_boards_concept，TTL 180s）。"""
+    """每 300 秒爬取热门板块排行，写入 Redis（hot_boards_industry / hot_boards_concept，TTL 180s）。"""
+    skip_result = _check_should_skip_task('refresh_board_ranking_cache')
+    if skip_result is not None:
+        return skip_result
+
     if not _try_acquire_lock('lock:refresh_board_ranking_cache', ttl=60):
         logger.info('[Celery] 板块排行缓存刷新跳过（另一个实例正在运行）')
         return {'status': 'skipped', 'reason': 'locked'}
@@ -676,7 +752,11 @@ def refresh_board_ranking_cache():
 
 @celery_app.task(name='app.tasks.refresh_sector_fund_flow_cache')
 def refresh_sector_fund_flow_cache():
-    """每 120 秒爬取板块资金流向排名，写入 Redis（sector_fund_flow_rank，TTL 300s）。"""
+    """每 600 秒爬取板块资金流向排名，写入 Redis（sector_fund_flow_rank，TTL 300s）。"""
+    skip_result = _check_should_skip_task('refresh_sector_fund_flow_cache')
+    if skip_result is not None:
+        return skip_result
+
     if not _try_acquire_lock('lock:refresh_sector_fund_flow_cache', ttl=120):
         logger.info('[Celery] 板块资金流向缓存刷新跳过（另一个实例正在运行）')
         return {'status': 'skipped', 'reason': 'locked'}

@@ -270,7 +270,7 @@
             <th>板块名称</th>
             <th>涨跌幅</th>
             <th>换手率</th>
-            <th>上涨/下跌</th>
+            <th>成分股</th>
             <th>领涨股</th>
           </tr>
         </thead>
@@ -533,7 +533,7 @@ async function loadBoards() {
         <td style="font-weight:600;">${escapeHtml(b.name || '-')}</td>
         <td>${fmtPct(b.pct_change)}</td>
         <td>${fmtNum(b.turnover_rate)}%</td>
-        <td><span class="num-up">${b.up_count || 0}</span> / <span class="num-down">${b.down_count || 0}</span></td>
+        <td>${b.stock_count > 0 ? b.stock_count : '--'}</td>
         <td>${escapeHtml(b.lead_stock || '-')} ${b.lead_stock_pct != null ? fmtPct(b.lead_stock_pct) : ''}</td>
       </tr>
     `).join('');

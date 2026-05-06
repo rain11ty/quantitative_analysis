@@ -75,25 +75,25 @@ def _build_beat_schedule() -> dict:
             'schedule': timedelta(seconds=30),
         }
 
-    # 8. 市场概览定时预热（每 30 秒）
+    # 8. 市场概览定时预热（每 120 秒）
     if os.getenv('MARKET_OVERVIEW_CACHE_REFRESH_ENABLED', 'true').lower() == 'true':
         schedule['refresh-market-overview-cache'] = {
             'task': 'app.tasks.refresh_market_overview_cache',
-            'schedule': timedelta(seconds=30),
+            'schedule': timedelta(seconds=120),
         }
 
-    # 9. 热门板块排行定时爬取（每 60 秒）
+    # 9. 热门板块排行定时爬取（每 300 秒）
     if os.getenv('BOARD_RANKING_CACHE_REFRESH_ENABLED', 'true').lower() == 'true':
         schedule['refresh-board-ranking-cache'] = {
             'task': 'app.tasks.refresh_board_ranking_cache',
-            'schedule': timedelta(seconds=60),
+            'schedule': timedelta(seconds=300),
         }
 
-    # 10. 板块资金流向排名定时爬取（每 120 秒）
+    # 10. 板块资金流向排名定时爬取（每 600 秒）
     if os.getenv('SECTOR_FUND_FLOW_CACHE_REFRESH_ENABLED', 'true').lower() == 'true':
         schedule['refresh-sector-fund-flow-cache'] = {
             'task': 'app.tasks.refresh_sector_fund_flow_cache',
-            'schedule': timedelta(seconds=120),
+            'schedule': timedelta(seconds=600),
         }
 
     # 12. 每周六补算资金流向和因子缺失数据（从2021年起）
