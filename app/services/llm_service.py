@@ -307,6 +307,34 @@ class LLMService:
                                timeout=stream_timeout, stream=True) as response:
                 if response.status_code != 200:
                     raise RuntimeError(f'百炼 API 错误: {response.status_code} - {response.text}')
+
+                # 读取完整响应内容
+                full_content = response.text.strip()
+
+                # 检查是否是 JSON 对象或数组格式（百炼 App API 可能返回非标准格式）
+                if full_content.startswith('{') or full_content.startswith('['):
+                    try:
+                        result = json.loads(full_content)
+                        # 处理 JSON 数组格式
+                        if isinstance(result, list):
+                            for item in result:
+                                output = item.get('output', {})
+                                text = output.get('text', '')
+                                if text:
+                                    has_content = True
+                                    yield text
+                        # 处理 JSON 对象格式
+                        elif isinstance(result, dict):
+                            output = result.get('output', {})
+                            text = output.get('text', '')
+                            if text:
+                                has_content = True
+                                yield text
+                        return
+                    except json.JSONDecodeError:
+                        pass
+
+                # 标准 SSE 格式处理
                 for raw_line in response.iter_lines(decode_unicode=True):
                     if not raw_line:
                         continue
