@@ -118,7 +118,7 @@
             <span class="workspace-kicker">管理员工作台</span>
             <h1 class="workspace-title">管理后台总览</h1>
             <p class="workspace-subtitle">
-                在这里集中查看用户活跃度、日志运行情况、股票数据规模与分钟数据覆盖情况，快速切换到各个后台管理模块。
+                在这里集中查看用户活跃度、日志运行情况、股票数据规模，快速切换到各个后台管理模块。
             </p>
             <div class="workspace-actions">
                 <a class="btn btn-light" href="{{ url_for('admin.users') }}">用户管理</a>
@@ -144,11 +144,6 @@
                     <div class="workspace-stat-value text-primary">{{ stats.total_logs }}</div>
                     <div class="workspace-stat-help">可用于排查链路问题</div>
                 </div>
-                <div class="workspace-stat-card">
-                    <div class="workspace-stat-label">分钟数据行数</div>
-                    <div class="workspace-stat-value text-warning">{{ stats.total_minute_rows }}</div>
-                    <div class="workspace-stat-help">衡量盘中数据覆盖程度</div>
-                </div>
             </div>
         </section>
 
@@ -165,8 +160,8 @@
             </a>
             <a class="admin-shortcut" href="{{ url_for('admin.data_center') }}">
                 <span class="workspace-chip warning">数据中心</span>
-                <span class="admin-shortcut-title">检查数据规模与同步入口</span>
-                <span class="admin-shortcut-desc">查看股票基础表、分钟表规模，并手动尝试同步指定股票分钟数据。</span>
+                <span class="admin-shortcut-title">数据管理与同步</span>
+                <span class="admin-shortcut-desc">查看股票数据规模，执行数据同步、重建和健康检查。</span>
             </a>
             <a class="admin-shortcut" href="{{ url_for('admin.system_check') }}">
                 <span class="workspace-chip" style="background:#667eea;">系统自检</span>

@@ -131,6 +131,36 @@ class MarketOverviewService:
         return local_result
 
     @classmethod
+    def fetch_fresh_overview(cls):
+        """直接从数据源获取最新市场概览（绕过缓存），供 Celery 定时任务使用。
+
+        与 get_market_overview() 的区别：本方法始终从外部 API 获取最新数据，
+        不读取 Redis 缓存，确保每次调用都能拿到实时行情。
+        """
+        # ① 优先尝试 Akshare（新浪快照）
+        ak_result = cls._fetch_from_akshare()
+        if ak_result.get('success'):
+            cls._attach_market_totals(ak_result)
+            _cache.set('market_overview', ak_result, ttl=cls.CACHE_TTL_OVERVIEW)
+            return ak_result
+
+        # ② 降级到 Tushare
+        logger.warning('[Celery] Akshare fresh fetch failed, fallback to Tushare')
+        ts_result = cls._fetch_from_tushare()
+        if ts_result.get('success'):
+            cls._attach_market_totals(ts_result)
+            _cache.set('market_overview', ts_result, ttl=cls.CACHE_TTL_OVERVIEW)
+            return ts_result
+
+        # ③ 最终降级：本地数据库
+        logger.error('[Celery] Both Akshare and Tushare failed, fallback to local cache')
+        local_result = cls._fetch_from_local_cache()
+        cls._attach_market_totals(local_result)
+        if local_result.get('success') or local_result.get('items'):
+            _cache.set('market_overview', local_result, ttl=cls.CACHE_TTL_OVERVIEW)
+        return local_result
+
+    @classmethod
     def _attach_market_totals(cls, result: dict):
         """从数据库查询全市场总成交额(千元)和总成交量(手)，附加到 result 中"""
         conn = None
@@ -281,6 +311,26 @@ class MarketOverviewService:
             index_data = AkshareService.get_index_spot()
             if not index_data.get('success') or not index_data.get('items'):
                 return {'success': False, 'message': index_data.get('message', '新浪指数数据为空')}
+
+            # 验证数据是否为今天（交易时间内）或最近交易日
+            today = datetime.now().strftime('%Y%m%d')
+            valid_items_check = [it for it in index_data['items'] if it.get('trade_date')]
+            if valid_items_check:
+                latest_trade_date_check = max(it['trade_date'] for it in valid_items_check)
+                # 标准化日期格式（可能是 2026-05-08 或 20260508）
+                normalized_date = latest_trade_date_check.replace('-', '')
+                if normalized_date < today:
+                    # 数据不是今天的，检查是否是最近交易日（可能周末/节假日）
+                    # 允许最多 3 天的差距（覆盖周末 + 节假日）
+                    try:
+                        data_date = datetime.strptime(normalized_date, '%Y%m%d')
+                        today_date = datetime.strptime(today, '%Y%m%d')
+                        days_diff = (today_date - data_date).days
+                        if days_diff > 3:
+                            logger.warning(f'[Akshare] 数据过旧: {latest_trade_date_check} (今天: {today}), 差{days_diff}天，降级到Tushare')
+                            return {'success': False, 'message': f'数据过旧: {latest_trade_date_check}'}
+                    except ValueError:
+                        pass
 
             stats_data = AkshareService.get_market_stats()
 

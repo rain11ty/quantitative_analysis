@@ -81,13 +81,27 @@
 }
 
 .btn-check-run {
-    background: linear-gradient(135deg, var(--color-primary-dim, #1d4ed8), var(--color-primary, #3b82f6));
-    color: #fff; border: none; padding: .6rem 1.5rem;
-    border-radius: 10px; font-weight: 600; cursor: pointer;
-    transition: opacity .2s, box-shadow .2s;
+    background: rgba(29,103,242,0.08);
+    color: #1d67f2;
+    border: 1px solid rgba(29,103,242,0.2);
+    padding: .6rem 1.5rem;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: all .2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
 }
-.btn-check-run:hover { box-shadow: 0 4px 16px rgba(59,130,246,0.3); }
-.btn-check-run:disabled { opacity: .5; cursor: not-allowed; }
+.btn-check-run:hover {
+    background: rgba(29,103,242,0.15);
+    border-color: rgba(29,103,242,0.35);
+}
+.btn-check-run:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
 </style>
 {% endblock %}
 
@@ -107,7 +121,7 @@
 
         <div class="d-flex align-items-center gap-3 mb-3">
             <button id="btnRunCheck" class="btn-check-run" onclick="runCheck()">
-                &#9889; 立即检查
+                立即检查
             </button>
             <span id="checkTime" class="text-muted" style="font-size:.875rem;"></span>
         </div>

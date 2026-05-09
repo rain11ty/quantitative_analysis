@@ -107,17 +107,90 @@ def _get_data_overview_stats():
         },
     }
 
+    # 缓存同步状态（从 Redis 读取）
+    cache_status = {}
+    try:
+        from app.utils.cache_utils import get_cache
+        cache = get_cache()
+
+        # 市场概览缓存
+        market_overview = cache.get('market_overview')
+        if market_overview:
+            cache_status['market_overview'] = {
+                'trade_date': market_overview.get('trade_date', ''),
+                'update_time': market_overview.get('update_time', ''),
+                'source': market_overview.get('source', ''),
+                'success': market_overview.get('success', False),
+            }
+        else:
+            cache_status['market_overview'] = {'trade_date': '', 'update_time': '', 'source': '', 'success': False}
+
+        # 涨跌排行缓存
+        ranking_pct = cache.get('realtime_ranking_pct_change')
+        if ranking_pct:
+            cache_status['ranking'] = {
+                'update_time': ranking_pct.get('update_time', ''),
+                'count': len(ranking_pct.get('items', [])),
+            }
+        else:
+            cache_status['ranking'] = {'update_time': '', 'count': 0}
+
+        # 新闻缓存
+        news = cache.get('news_aggregate:all')
+        if news:
+            cache_status['news'] = {
+                'update_time': news.get('update_time', ''),
+                'count': news.get('count', 0),
+            }
+        else:
+            cache_status['news'] = {'update_time': '', 'count': 0}
+
+        # 板块排行缓存
+        boards_industry = cache.get('hot_boards_industry')
+        if boards_industry:
+            cache_status['boards'] = {
+                'update_time': boards_industry.get('update_time', ''),
+                'count': len(boards_industry.get('items', [])),
+            }
+        else:
+            cache_status['boards'] = {'update_time': '', 'count': 0}
+
+        # 资金流向缓存
+        sector_flow = cache.get('sector_fund_flow')
+        if sector_flow:
+            cache_status['sector_flow'] = {
+                'update_time': sector_flow.get('update_time', ''),
+                'count': len(sector_flow.get('items', [])),
+            }
+        else:
+            cache_status['sector_flow'] = {'update_time': '', 'count': 0}
+    except Exception as exc:
+        from loguru import logger
+        logger.warning(f'读取缓存状态失败: {exc}')
+        cache_status = {
+            'market_overview': {'trade_date': '', 'update_time': '', 'source': '', 'success': False},
+            'ranking': {'update_time': '', 'count': 0},
+            'news': {'update_time': '', 'count': 0},
+            'boards': {'update_time': '', 'count': 0},
+            'sector_flow': {'update_time': '', 'count': 0},
+        }
+
     # 最近同步日志
     sync_action_types = [
         'sync_stock_business', 'admin_sync_stock_data',
         'daily_incremental_update', 'data_health_check',
         'admin_sync_wide_table',
+        'admin_refresh_market_overview',
+        'admin_refresh_ranking',
+        'admin_refresh_news',
+        'admin_refresh_boards',
+        'admin_refresh_sector_flow',
     ]
     sync_logs = SystemLog.query.filter(
         SystemLog.action_type.in_(sync_action_types)
     ).order_by(SystemLog.created_at.desc()).limit(20).all()
 
-    return data_stats, sync_status, sync_logs
+    return data_stats, sync_status, sync_logs, cache_status
 
 
 @admin_routes.route('/login', methods=['GET', 'POST'])
@@ -344,11 +417,12 @@ def logs():
 @admin_routes.route('/data')
 @admin_required
 def data_center():
-    data_stats, sync_status, sync_logs = _get_data_overview_stats()
+    data_stats, sync_status, sync_logs, cache_status = _get_data_overview_stats()
     return render_template('admin/data.html',
                            data_stats=data_stats,
                            sync_logs=sync_logs,
-                           sync_status=sync_status)
+                           sync_status=sync_status,
+                           cache_status=cache_status)
 
 
 @admin_routes.route('/data/sync-wide', methods=['POST'])
@@ -414,11 +488,12 @@ def api_data_overview():
     if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
         return jsonify({'success': False, 'message': '非法请求'}), 400
 
-    data_stats, sync_status, sync_logs = _get_data_overview_stats()
+    data_stats, sync_status, sync_logs, cache_status = _get_data_overview_stats()
     return jsonify({
         'data_stats': data_stats,
         'sync_status': sync_status,
         'sync_logs': [log.to_dict() for log in sync_logs],
+        'cache_status': cache_status,
     })
 
 
@@ -467,6 +542,158 @@ def api_health_check():
             'success': True,
             'message': f'健康检查任务已提交（任务ID: {task.id}），请稍后刷新查看结果。',
             'task_id': task.id,
+        })
+    except Exception as exc:
+        return jsonify({'success': False, 'message': f'任务提交失败: {exc}'}), 500
+
+
+# ======================== 缓存手动刷新 API ========================
+
+@admin_routes.route('/data/api/refresh-market-overview', methods=['POST'])
+@admin_required
+def api_refresh_market_overview():
+    """API: 手动刷新市场概览缓存"""
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return jsonify({'success': False, 'message': '非法请求'}), 400
+
+    try:
+        from app.tasks import refresh_market_overview_cache
+        task = refresh_market_overview_cache.delay()
+        _write_admin_log(
+            'admin_refresh_market_overview',
+            f'Admin {g.current_user.username} triggered market overview refresh',
+        )
+        return jsonify({
+            'success': True,
+            'message': '市场概览缓存刷新任务已提交',
+            'task_id': task.id,
+        })
+    except Exception as exc:
+        return jsonify({'success': False, 'message': f'任务提交失败: {exc}'}), 500
+
+
+@admin_routes.route('/data/api/refresh-ranking', methods=['POST'])
+@admin_required
+def api_refresh_ranking():
+    """API: 手动刷新涨跌排行缓存"""
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return jsonify({'success': False, 'message': '非法请求'}), 400
+
+    try:
+        from app.tasks import refresh_ranking_cache
+        task = refresh_ranking_cache.delay()
+        _write_admin_log(
+            'admin_refresh_ranking',
+            f'Admin {g.current_user.username} triggered ranking refresh',
+        )
+        return jsonify({
+            'success': True,
+            'message': '涨跌排行缓存刷新任务已提交',
+            'task_id': task.id,
+        })
+    except Exception as exc:
+        return jsonify({'success': False, 'message': f'任务提交失败: {exc}'}), 500
+
+
+@admin_routes.route('/data/api/refresh-news', methods=['POST'])
+@admin_required
+def api_refresh_news():
+    """API: 手动刷新新闻缓存"""
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return jsonify({'success': False, 'message': '非法请求'}), 400
+
+    try:
+        from app.tasks import refresh_news_cache
+        task = refresh_news_cache.delay()
+        _write_admin_log(
+            'admin_refresh_news',
+            f'Admin {g.current_user.username} triggered news refresh',
+        )
+        return jsonify({
+            'success': True,
+            'message': '新闻缓存刷新任务已提交',
+            'task_id': task.id,
+        })
+    except Exception as exc:
+        return jsonify({'success': False, 'message': f'任务提交失败: {exc}'}), 500
+
+
+@admin_routes.route('/data/api/refresh-boards', methods=['POST'])
+@admin_required
+def api_refresh_boards():
+    """API: 手动刷新板块排行缓存"""
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return jsonify({'success': False, 'message': '非法请求'}), 400
+
+    try:
+        from app.tasks import refresh_board_ranking_cache
+        task = refresh_board_ranking_cache.delay()
+        _write_admin_log(
+            'admin_refresh_boards',
+            f'Admin {g.current_user.username} triggered boards ranking refresh',
+        )
+        return jsonify({
+            'success': True,
+            'message': '板块排行缓存刷新任务已提交',
+            'task_id': task.id,
+        })
+    except Exception as exc:
+        return jsonify({'success': False, 'message': f'任务提交失败: {exc}'}), 500
+
+
+@admin_routes.route('/data/api/refresh-sector-flow', methods=['POST'])
+@admin_required
+def api_refresh_sector_flow():
+    """API: 手动刷新资金流向缓存"""
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return jsonify({'success': False, 'message': '非法请求'}), 400
+
+    try:
+        from app.tasks import refresh_sector_fund_flow_cache
+        task = refresh_sector_fund_flow_cache.delay()
+        _write_admin_log(
+            'admin_refresh_sector_flow',
+            f'Admin {g.current_user.username} triggered sector fund flow refresh',
+        )
+        return jsonify({
+            'success': True,
+            'message': '资金流向缓存刷新任务已提交',
+            'task_id': task.id,
+        })
+    except Exception as exc:
+        return jsonify({'success': False, 'message': f'任务提交失败: {exc}'}), 500
+
+
+@admin_routes.route('/data/api/refresh-all-cache', methods=['POST'])
+@admin_required
+def api_refresh_all_cache():
+    """API: 一键刷新所有缓存"""
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return jsonify({'success': False, 'message': '非法请求'}), 400
+
+    try:
+        from app.tasks import (
+            refresh_market_overview_cache,
+            refresh_ranking_cache,
+            refresh_news_cache,
+            refresh_board_ranking_cache,
+            refresh_sector_fund_flow_cache,
+        )
+        tasks = []
+        tasks.append(refresh_market_overview_cache.delay())
+        tasks.append(refresh_ranking_cache.delay())
+        tasks.append(refresh_news_cache.delay())
+        tasks.append(refresh_board_ranking_cache.delay())
+        tasks.append(refresh_sector_fund_flow_cache.delay())
+
+        _write_admin_log(
+            'admin_refresh_all_cache',
+            f'Admin {g.current_user.username} triggered all cache refresh',
+        )
+        return jsonify({
+            'success': True,
+            'message': f'所有缓存刷新任务已提交（{len(tasks)} 个任务）',
+            'task_ids': [t.id for t in tasks],
         })
     except Exception as exc:
         return jsonify({'success': False, 'message': f'任务提交失败: {exc}'}), 500

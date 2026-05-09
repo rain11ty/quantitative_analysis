@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}股票列表 - 股票量化分析系统{% endblock %}
+{% block title %}股票查询 - 股票量化分析系统{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -15,7 +15,7 @@
 
 .stocks-hero-grid {
  display: grid;
- grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.9fr);
+ grid-template-columns: minmax(0, 2fr) minmax(180px, 0.5fr);
  gap: 1rem;
  align-items: end;
 }
@@ -26,27 +26,28 @@
 
 .stocks-hero-stats {
  display: grid;
- grid-template-columns: repeat(2, minmax(0, 1fr));
+ grid-template-columns: repeat(1, minmax(0, 1fr));
  gap: 0.8rem;
 }
 
 .stocks-stat {
  border-radius: 12px;
  padding: 0.6rem 0.8rem;
- background: rgba(255, 255, 255, 0.08);
- border: 1px solid rgba(255, 255, 255, 0.12);
+ background: rgba(255, 255, 255, 0.98);
+ border: 1px solid var(--card-border);
+ box-shadow: var(--shadow-soft);
 }
 
 .stocks-stat-label {
  display: block;
- color: rgba(255, 255, 255, 0.72);
+ color: var(--text-muted);
  font-size: 0.78rem;
  font-weight: 700;
  margin-bottom: 0.35rem;
 }
 
 .stocks-stat-value {
- color: #ffffff;
+ color: var(--text-main);
  font-family: var(--font-display);
  font-size: 1.65rem;
  line-height: 1;
@@ -115,6 +116,43 @@
  padding: 0.5rem 1rem;
  font-size: 0.84rem;
 }
+
+/* 结果表格样式 */
+#stocks-container table {
+ font-size: 0.88rem;
+}
+
+#stocks-container table th {
+ background-color: #f8fafc;
+ color: #475569;
+ font-weight: 600;
+ font-size: 0.82rem;
+ white-space: nowrap;
+ border-bottom: 2px solid #e2e8f0;
+}
+
+#stocks-container table td {
+ color: var(--text-main);
+ font-weight: 500;
+ vertical-align: middle;
+}
+
+#stocks-container table tr:hover {
+ background-color: rgba(0, 82, 255, 0.04);
+}
+
+/* 股票代码样式 */
+.stock-code {
+ font-family: var(--font-mono);
+ font-weight: 600;
+ color: var(--brand-blue);
+ font-size: 0.84rem;
+}
+
+/* 涨跌幅颜色 */
+.pct-up { color: #b91c1c; font-weight: 600; }
+.pct-down { color: #166534; font-weight: 600; }
+.pct-flat { color: #64748b; }
 
 /* === Advanced filters toggle === */
 .advanced-toggle {
@@ -257,6 +295,9 @@
  .stocks-hero-grid {
   grid-template-columns: 1fr;
  }
+ .stocks-hero-stats {
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+ }
  .dynamic-condition-grid {
   grid-template-columns: 1fr 1fr;
  }
@@ -303,15 +344,10 @@
 <section class="page-hero stocks-hero">
 <div class="stocks-hero-grid">
 <div class="stocks-hero-copy">
-<span class="hero-eyebrow">market browser</span>
-<h1 class="hero-title">股票列表</h1>
+<h1 class="hero-title">股票查询</h1>
 <p class="hero-text">浏览全市场股票，支持按代码、简称、拼音、行业与地域进行筛选；展开高级条件可使用估值、技术指标和资金流向等维度精确定位标的。</p>
 </div>
 <div class="stocks-hero-stats">
-<div class="stocks-stat">
-<span class="stocks-stat-label">view mode</span>
-<span class="stocks-stat-value" id="hero-view-mode">basic</span>
-</div>
 <div class="stocks-stat">
 <span class="stocks-stat-label">当前结果</span>
 <span class="stocks-stat-value" id="hero-total-count">0</span>
@@ -498,7 +534,7 @@
 </div>
 <div class="card-body">
 <div id="stocks-container"></div>
-<nav aria-label="股票列表分页" class="mt-4">
+<nav aria-label="股票查询分页" class="mt-4">
 <ul class="pagination justify-content-center" id="pagination"></ul>
 </nav>
 </div>
@@ -624,7 +660,6 @@ function toggleAdvanced() {
   panel.style.display = 'none';
   icon.classList.remove('open');
  }
- updateViewMode();
 }
 
 /* ================================================================
@@ -652,11 +687,6 @@ function isAdvancedActive() {
  return false;
 }
 
-function updateViewMode() {
- const mode = isAdvancedActive() ? 'advanced' : 'basic';
- document.getElementById('hero-view-mode').textContent = mode;
-}
-
 /* ================================================================
    Load stocks (unified entry point)
    ================================================================ */
@@ -664,7 +694,6 @@ async function loadStocks(page = 1) {
  showLoading('stocks-container');
  currentPage = page;
  advancedMode = isAdvancedActive();
- updateViewMode();
 
  try {
   let response;
@@ -896,7 +925,6 @@ function resetFilters() {
 
  // Reload basic
  advancedMode = false;
- updateViewMode();
  loadStocks(1);
 }
 

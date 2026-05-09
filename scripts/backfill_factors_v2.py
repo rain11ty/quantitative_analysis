@@ -80,8 +80,14 @@ def calculate_all_indicators(df):
     def calc_rsi(period):
         avg_gain = gain.rolling(window=period).mean()
         avg_loss = loss.rolling(window=period).mean()
+        # 当 avg_loss=0 时（连续上涨），RSI 应为 100
         rs = avg_gain / avg_loss.replace(0, np.nan)
-        return 100 - (100 / (1 + rs))
+        rsi = 100 - (100 / (1 + rs))
+        # 修复：avg_loss=0 时 RSI=100，avg_gain=0 时 RSI=0
+        rsi = rsi.fillna(0)  # 先填充 NaN
+        rsi = rsi.where(avg_loss > 0, 100.0)  # avg_loss=0 时设为 100
+        rsi = rsi.where(avg_gain > 0, 0.0)  # avg_gain=0 时设为 0
+        return rsi
 
     rsi_6 = calc_rsi(6)
     rsi_12 = calc_rsi(12)

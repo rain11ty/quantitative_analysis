@@ -77,14 +77,17 @@ def _try_acquire_lock(lock_key: str, ttl: int) -> bool:
 
 
 def _is_in_trading_hours() -> bool:
-    """Check if current time is within A-share trading hours (Mon-Fri 9:15-11:30, 13:00-15:15)."""
+    """Check if current time is within A-share trading hours (Mon-Fri 9:15-11:30, 13:00-16:30).
+
+    Extended to 16:30 to allow post-close data refresh for market overview and indices.
+    """
     now = datetime.now()
     # Weekday: Monday=0 ... Sunday=6
     if now.weekday() > 4:
         return False
     t = now.hour * 60 + now.minute
-    # 9:15 = 555, 11:30 = 690, 13:00 = 780, 15:15 = 915
-    if 555 <= t <= 690 or 780 <= t <= 915:
+    # 9:15 = 555, 11:30 = 690, 13:00 = 780, 16:30 = 990
+    if 555 <= t <= 690 or 780 <= t <= 990:
         return True
     return False
 
@@ -671,18 +674,26 @@ def refresh_ranking_cache():
 
 @celery_app.task(name='app.tasks.refresh_market_overview_cache')
 def refresh_market_overview_cache():
-    """每 120 秒预热市场概览和指数 K 线，写入 Redis（TTL 120s）。"""
-    try:
-        from app.services.market_overview_service import MarketOverviewService
-        from app.utils.cache_utils import get_cache
+    """每 120 秒预热市场概览和指数 K 线，写入 Redis（TTL 120s）。
 
-        cache = get_cache()
+    交易时间内从外部 API 获取实时数据；非交易时间跳过网络请求，
+    保留缓存中最后一条有效数据供用户查看。
+    """
+    try:
+        skip_result = _check_should_skip_task('refresh_market_overview_cache')
+        if skip_result is not None:
+            return skip_result
+
+        if not _try_acquire_lock('lock:refresh_market_overview_cache', ttl=90):
+            logger.info('[Celery] 市场概览缓存刷新跳过（另一个实例正在运行）')
+            return {'status': 'skipped', 'reason': 'locked'}
+
+        from app.services.market_overview_service import MarketOverviewService
 
         def _do_refresh():
             overview = None
             try:
-                overview = MarketOverviewService.get_market_overview()
-                cache.set('market_overview', overview, ttl=120)
+                overview = MarketOverviewService.fetch_fresh_overview()
             except Exception as exc:
                 logger.warning(f'[Celery] 市场概览缓存刷新失败: {exc}')
 
@@ -692,8 +703,7 @@ def refresh_market_overview_cache():
             for idx in all_indices:
                 for period in all_periods:
                     try:
-                        kline = MarketOverviewService.get_index_kline(idx, period)
-                        cache.set(f'index_kline_{idx}_{period}', kline, ttl=120)
+                        MarketOverviewService.get_index_kline(idx, period)
                     except Exception as exc:
                         logger.warning(f'[Celery] K线缓存刷新失败 {idx} {period}: {exc}')
 
@@ -701,11 +711,11 @@ def refresh_market_overview_cache():
             return overview
 
         try:
-            result = _run_with_timeout(_do_refresh, timeout_seconds=25)
+            result = _run_with_timeout(_do_refresh, timeout_seconds=60)
             if result:
                 _emit_socketio('market_overview', result)
         except TimeoutError:
-            logger.error('[Celery] 市场概览缓存刷新超时（25s），跳过本轮')
+            logger.error('[Celery] 市场概览缓存刷新超时（60s），跳过本轮')
     except Exception as exc:
         logger.error(f'[Celery] 市场概览缓存刷新失败: {exc}')
 

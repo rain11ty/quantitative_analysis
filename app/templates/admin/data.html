@@ -464,6 +464,119 @@
             </div>
         </section>
 
+        {# ── 缓存同步状态面板 ── #}
+        <section class="workspace-panel">
+            <div class="workspace-panel-header">
+                <div>
+                    <h2 class="workspace-panel-title">实时缓存状态</h2>
+                    <p class="workspace-panel-desc">Redis 缓存中的实时数据状态，包括市场概览、涨跌排行、新闻等。</p>
+                </div>
+                <button class="action-btn btn-refresh" onclick="refreshOverview()" id="btnRefreshCacheStatus">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+                    刷新状态
+                </button>
+            </div>
+
+            <div class="sync-status-grid" id="cacheStatusGrid">
+                {# 市场概览 #}
+                <div class="sync-status-item" id="status-market-overview">
+                    <div class="sync-status-icon {% if cache_status.market_overview.success %}ok{% else %}failed{% endif %}">MO</div>
+                    <div class="sync-status-body">
+                        <div class="sync-status-title">市场概览</div>
+                        <div class="sync-status-time">
+                            {% if cache_status.market_overview.update_time %}
+                                {{ cache_status.market_overview.update_time }}
+                            {% else %}
+                                缓存未就绪
+                            {% endif %}
+                        </div>
+                        <span class="sync-status-badge {% if cache_status.market_overview.success %}ok{% else %}failed{% endif %}">
+                            {% if cache_status.market_overview.trade_date %}
+                                {{ cache_status.market_overview.trade_date }}
+                            {% else %}
+                                无数据
+                            {% endif %}
+                        </span>
+                        {% if cache_status.market_overview.source %}
+                            <span class="sync-status-badge unknown" style="margin-left: 4px;">{{ cache_status.market_overview.source }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {# 涨跌排行 #}
+                <div class="sync-status-item" id="status-ranking">
+                    <div class="sync-status-icon {% if cache_status.ranking.update_time %}ok{% else %}unknown{% endif %}">RK</div>
+                    <div class="sync-status-body">
+                        <div class="sync-status-title">涨跌排行</div>
+                        <div class="sync-status-time">
+                            {% if cache_status.ranking.update_time %}
+                                {{ cache_status.ranking.update_time }}
+                            {% else %}
+                                缓存未就绪
+                            {% endif %}
+                        </div>
+                        <span class="sync-status-badge {% if cache_status.ranking.count > 0 %}ok{% else %}unknown{% endif %}">
+                            {{ cache_status.ranking.count }} 条
+                        </span>
+                    </div>
+                </div>
+
+                {# 新闻快讯 #}
+                <div class="sync-status-item" id="status-news">
+                    <div class="sync-status-icon {% if cache_status.news.update_time %}ok{% else %}unknown{% endif %}">NW</div>
+                    <div class="sync-status-body">
+                        <div class="sync-status-title">新闻快讯</div>
+                        <div class="sync-status-time">
+                            {% if cache_status.news.update_time %}
+                                {{ cache_status.news.update_time }}
+                            {% else %}
+                                缓存未就绪
+                            {% endif %}
+                        </div>
+                        <span class="sync-status-badge {% if cache_status.news.count > 0 %}ok{% else %}unknown{% endif %}">
+                            {{ cache_status.news.count }} 条
+                        </span>
+                    </div>
+                </div>
+
+                {# 板块排行 #}
+                <div class="sync-status-item" id="status-boards">
+                    <div class="sync-status-icon {% if cache_status.boards.update_time %}ok{% else %}unknown{% endif %}">BD</div>
+                    <div class="sync-status-body">
+                        <div class="sync-status-title">板块排行</div>
+                        <div class="sync-status-time">
+                            {% if cache_status.boards.update_time %}
+                                {{ cache_status.boards.update_time }}
+                            {% else %}
+                                缓存未就绪
+                            {% endif %}
+                        </div>
+                        <span class="sync-status-badge {% if cache_status.boards.count > 0 %}ok{% else %}unknown{% endif %}">
+                            {{ cache_status.boards.count }} 条
+                        </span>
+                    </div>
+                </div>
+
+                {# 资金流向 #}
+                <div class="sync-status-item" id="status-sector-flow">
+                    <div class="sync-status-icon {% if cache_status.sector_flow.update_time %}ok{% else %}unknown{% endif %}">SF</div>
+                    <div class="sync-status-body">
+                        <div class="sync-status-title">资金流向</div>
+                        <div class="sync-status-time">
+                            {% if cache_status.sector_flow.update_time %}
+                                {{ cache_status.sector_flow.update_time }}
+                            {% else %}
+                                缓存未就绪
+                            {% endif %}
+                        </div>
+                        <span class="sync-status-badge {% if cache_status.sector_flow.count > 0 %}ok{% else %}unknown{% endif %}">
+                            {{ cache_status.sector_flow.count }} 条
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         {# ── 操作按钮区 ── #}
         <section class="workspace-panel workspace-form">
             <div class="workspace-panel-header">
@@ -493,31 +606,55 @@
                 </button>
             </div>
 
-            <hr class="my-4">
+        </section>
 
-            {# 手动同步单只股票 #}
-            <h3 class="h6 mb-3">手动同步单只股票分钟数据</h3>
-            <form method="post" action="{{ url_for('admin.sync_one_stock') }}">
-                <div class="row g-3 align-items-end">
-                    <div class="col-md-5">
-                        <label class="form-label">股票代码</label>
-                        <input class="form-control" name="ts_code" placeholder="例如 000001.SZ" required>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">周期</label>
-                        <select name="period_type" class="form-select">
-                            <option value="1min">1min</option>
-                            <option value="5min">5min</option>
-                            <option value="15min">15min</option>
-                            <option value="30min">30min</option>
-                            <option value="60min">60min</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4 d-grid">
-                        <button class="btn btn-outline-primary" type="submit">立即同步</button>
-                    </div>
+        {# ── 缓存刷新按钮区 ── #}
+        <section class="workspace-panel workspace-form">
+            <div class="workspace-panel-header">
+                <div>
+                    <h2 class="workspace-panel-title">缓存刷新</h2>
+                    <p class="workspace-panel-desc">手动触发实时数据缓存刷新，用于首页行情、排行、新闻等数据更新。</p>
                 </div>
-            </form>
+            </div>
+
+            <div class="action-btn-group mb-4">
+                <button class="action-btn btn-refresh" id="btnRefreshMarketOverview"
+                        onclick="confirmAction('刷新市场概览', '确认手动刷新市场概览缓存？将立即获取最新指数行情数据。', doRefreshMarketOverview)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+                    市场概览
+                </button>
+
+                <button class="action-btn btn-refresh" id="btnRefreshRanking"
+                        onclick="confirmAction('刷新涨跌排行', '确认手动刷新涨跌排行缓存？', doRefreshRanking)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+                    涨跌排行
+                </button>
+
+                <button class="action-btn btn-refresh" id="btnRefreshNews"
+                        onclick="confirmAction('刷新新闻', '确认手动刷新新闻快讯缓存？', doRefreshNews)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+                    新闻快讯
+                </button>
+
+                <button class="action-btn btn-refresh" id="btnRefreshBoards"
+                        onclick="confirmAction('刷新板块排行', '确认手动刷新板块排行缓存？', doRefreshBoards)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+                    板块排行
+                </button>
+
+                <button class="action-btn btn-refresh" id="btnRefreshSectorFlow"
+                        onclick="confirmAction('刷新资金流向', '确认手动刷新资金流向缓存？', doRefreshSectorFlow)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+                    资金流向
+                </button>
+
+                <button class="action-btn btn-sync" id="btnRefreshAllCache"
+                        onclick="confirmAction('一键刷新所有缓存', '确认一键刷新所有实时数据缓存？包括市场概览、涨跌排行、新闻、板块排行、资金流向。', doRefreshAllCache)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+                    一键刷新全部
+                </button>
+            </div>
+
         </section>
 
         {# ── 同步历史表格 ── #}
@@ -708,6 +845,75 @@ function doHealthCheck() {
     );
 }
 
+/* ===== 缓存刷新函数 ===== */
+function doRefreshMarketOverview() {
+    postAction(
+        '{{ url_for("admin.api_refresh_market_overview") }}',
+        'btnRefreshMarketOverview',
+        '市场概览缓存刷新任务已提交'
+    );
+}
+
+function doRefreshRanking() {
+    postAction(
+        '{{ url_for("admin.api_refresh_ranking") }}',
+        'btnRefreshRanking',
+        '涨跌排行缓存刷新任务已提交'
+    );
+}
+
+function doRefreshNews() {
+    postAction(
+        '{{ url_for("admin.api_refresh_news") }}',
+        'btnRefreshNews',
+        '新闻缓存刷新任务已提交'
+    );
+}
+
+function doRefreshBoards() {
+    postAction(
+        '{{ url_for("admin.api_refresh_boards") }}',
+        'btnRefreshBoards',
+        '板块排行缓存刷新任务已提交'
+    );
+}
+
+function doRefreshSectorFlow() {
+    postAction(
+        '{{ url_for("admin.api_refresh_sector_flow") }}',
+        'btnRefreshSectorFlow',
+        '资金流向缓存刷新任务已提交'
+    );
+}
+
+function doRefreshAllCache() {
+    setBtnLoading('btnRefreshAllCache', true);
+    fetch('{{ url_for("admin.api_refresh_all_cache") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(data) {
+        if (data.success) {
+            showToast(data.message || '所有缓存刷新任务已提交', 'success');
+            // 3秒后自动刷新页面状态
+            setTimeout(function() { refreshOverview(); }, 3000);
+        } else {
+            showToast(data.message || '操作失败', 'danger');
+        }
+    })
+    .catch(function(err) {
+        showToast('请求失败: ' + err.message, 'danger');
+    })
+    .finally(function() {
+        setBtnLoading('btnRefreshAllCache', false);
+    });
+}
+
 /* ===== 刷新数据概览 ===== */
 function refreshOverview() {
     var btn = document.getElementById('btnRefreshOverview');
@@ -764,6 +970,66 @@ function refreshOverview() {
                 var badge = el.querySelector('.sync-status-badge');
                 badge.className = 'sync-status-badge ' + badgeClass;
                 badge.textContent = badgeText;
+            }
+        }
+
+        // 更新缓存状态
+        if (data.cache_status) {
+            var cs = data.cache_status;
+
+            // 市场概览
+            var mo = document.getElementById('status-market-overview');
+            if (mo && cs.market_overview) {
+                mo.querySelector('.sync-status-icon').className = 'sync-status-icon ' + (cs.market_overview.success ? 'ok' : 'failed');
+                mo.querySelector('.sync-status-time').textContent = cs.market_overview.update_time || '缓存未就绪';
+                var badges = mo.querySelectorAll('.sync-status-badge');
+                if (badges[0]) {
+                    badges[0].className = 'sync-status-badge ' + (cs.market_overview.trade_date ? 'ok' : 'unknown');
+                    badges[0].textContent = cs.market_overview.trade_date || '无数据';
+                }
+                if (badges[1]) {
+                    badges[1].textContent = cs.market_overview.source || '';
+                }
+            }
+
+            // 涨跌排行
+            var rk = document.getElementById('status-ranking');
+            if (rk && cs.ranking) {
+                rk.querySelector('.sync-status-icon').className = 'sync-status-icon ' + (cs.ranking.update_time ? 'ok' : 'unknown');
+                rk.querySelector('.sync-status-time').textContent = cs.ranking.update_time || '缓存未就绪';
+                var badge = rk.querySelector('.sync-status-badge');
+                badge.className = 'sync-status-badge ' + (cs.ranking.count > 0 ? 'ok' : 'unknown');
+                badge.textContent = cs.ranking.count + ' 条';
+            }
+
+            // 新闻
+            var nw = document.getElementById('status-news');
+            if (nw && cs.news) {
+                nw.querySelector('.sync-status-icon').className = 'sync-status-icon ' + (cs.news.update_time ? 'ok' : 'unknown');
+                nw.querySelector('.sync-status-time').textContent = cs.news.update_time || '缓存未就绪';
+                var badge = nw.querySelector('.sync-status-badge');
+                badge.className = 'sync-status-badge ' + (cs.news.count > 0 ? 'ok' : 'unknown');
+                badge.textContent = cs.news.count + ' 条';
+            }
+
+            // 板块排行
+            var bd = document.getElementById('status-boards');
+            if (bd && cs.boards) {
+                bd.querySelector('.sync-status-icon').className = 'sync-status-icon ' + (cs.boards.update_time ? 'ok' : 'unknown');
+                bd.querySelector('.sync-status-time').textContent = cs.boards.update_time || '缓存未就绪';
+                var badge = bd.querySelector('.sync-status-badge');
+                badge.className = 'sync-status-badge ' + (cs.boards.count > 0 ? 'ok' : 'unknown');
+                badge.textContent = cs.boards.count + ' 条';
+            }
+
+            // 资金流向
+            var sf = document.getElementById('status-sector-flow');
+            if (sf && cs.sector_flow) {
+                sf.querySelector('.sync-status-icon').className = 'sync-status-icon ' + (cs.sector_flow.update_time ? 'ok' : 'unknown');
+                sf.querySelector('.sync-status-time').textContent = cs.sector_flow.update_time || '缓存未就绪';
+                var badge = sf.querySelector('.sync-status-badge');
+                badge.className = 'sync-status-badge ' + (cs.sector_flow.count > 0 ? 'ok' : 'unknown');
+                badge.textContent = cs.sector_flow.count + ' 条';
             }
         }
 
