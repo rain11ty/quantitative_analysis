@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 import tushare as ts
@@ -19,6 +19,14 @@ from app.services.market_overview_service import MarketOverviewService
 from app.services.stock_service import StockService
 from app.utils.cache_utils import cache as _cache
 from app.utils.db_utils import DatabaseUtils
+
+# 北京时区
+BJT = timezone(timedelta(hours=8))
+
+
+def _now_bjt():
+    """获取北京时间"""
+    return datetime.now(BJT)
 
 
 class RealtimeMonitorService:
@@ -279,7 +287,7 @@ class RealtimeMonitorService:
 
         try:
             pro = cls._create_tushare_client()
-            end_date = datetime.now().strftime('%Y%m%d')
+            end_date = _now_bjt().strftime('%Y%m%d')
             start_date = (datetime.now() - timedelta(days=20)).strftime('%Y%m%d')
 
             # 区分指数和个股
@@ -576,7 +584,7 @@ class RealtimeMonitorService:
         """从 Tushare 获取日线历史数据（用于补全本地数据的缺口）"""
         try:
             pro = cls._create_tushare_client()
-            end_date = datetime.now().strftime('%Y%m%d')
+            end_date = _now_bjt().strftime('%Y%m%d')
             start_date = (datetime.now() - timedelta(days=limit * 2)).strftime('%Y%m%d')
             df = pro.daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
             if df is None or df.empty:
@@ -647,7 +655,7 @@ class RealtimeMonitorService:
         if need_tushare_fallback:
             try:
                 pro = cls._create_tushare_client()
-                end_date = datetime.now().strftime('%Y%m%d')
+                end_date = _now_bjt().strftime('%Y%m%d')
                 start_date = (datetime.now() - timedelta(days=limit * 2)).strftime('%Y%m%d')
                 df = pro.index_daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
                 if df is not None and not df.empty:
@@ -888,7 +896,7 @@ class RealtimeMonitorService:
             'market_overview': {},  # 前端单独请求 /api/market/overview
             'watchlist_items': watchlist_items,
             'watchlist_count': len(watchlist_items),
-            'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'updated_at': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
         }
 
         # 可选：直接包含选中股票的详情，避免前端二次请求
@@ -1212,7 +1220,7 @@ class RealtimeMonitorService:
             'stock_info': stock_info,
             'is_watchlist': normalized_code in watch_codes,
             'is_index': is_index,
-            'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'updated_at': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
         }
 
     @classmethod
@@ -1245,7 +1253,7 @@ class RealtimeMonitorService:
                 'src': src,
                 'top_gainers': [],
                 'top_losers': [],
-                'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'updated_at': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
             }
 
         result = None
@@ -1269,7 +1277,7 @@ class RealtimeMonitorService:
                 'src': src,
                 'top_gainers': [],
                 'top_losers': [],
-                'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'updated_at': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
             }
 
         # 仅缓存成功结果；失败结果使用短 TTL 避免长时间返回空数据
@@ -1335,7 +1343,7 @@ class RealtimeMonitorService:
                 'total_count': len(data_up),
                 'top_gainers': top_gainers,
                 'top_losers': top_losers,
-                'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'updated_at': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
             }
         except Exception as exc:
             logger.warning(f'Sina direct ranking failed: {exc}')
@@ -1431,7 +1439,7 @@ class RealtimeMonitorService:
                 'total_count': len(df),
                 'top_gainers': top_gainers,
                 'top_losers': top_losers,
-                'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'updated_at': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
             }
         except Exception as exc:
             logger.warning(f'Tushare ranking failed: {exc}')
@@ -1492,7 +1500,7 @@ class RealtimeMonitorService:
                 'total_count': len(df),
                 'top_gainers': top_gainers,
                 'top_losers': top_losers,
-                'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'updated_at': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
             }
         except Exception as exc:
             logger.warning(f'Akshare ranking failed: {exc}')

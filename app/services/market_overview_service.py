@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import json as _json
 import re as _re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import requests
@@ -12,6 +12,14 @@ from app.extensions import db
 from app.services.akshare_service import AkshareService
 from app.utils.cache_utils import cache as _cache
 from app.utils.db_utils import DatabaseUtils
+
+# 北京时区
+BJT = timezone(timedelta(hours=8))
+
+
+def _now_bjt():
+    """获取北京时间"""
+    return datetime.now(BJT)
 
 
 class MarketOverviewService:
@@ -68,7 +76,7 @@ class MarketOverviewService:
             return {
                 'success': True,
                 'message': 'Tushare Pro connection is healthy.',
-                'checked_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'checked_at': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
                 'proxy_url': DatabaseUtils.get_tushare_proxy_url(),
                 'latest_trade_date': latest_trade_date,
             }
@@ -77,7 +85,7 @@ class MarketOverviewService:
             return {
                 'success': False,
                 'message': f'Tushare Pro connection failed: {exc}',
-                'checked_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'checked_at': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
                 'proxy_url': DatabaseUtils.get_tushare_proxy_url(),
                 'latest_trade_date': None,
             }
@@ -100,7 +108,7 @@ class MarketOverviewService:
                 'message': '数据暂未就绪，请等待后台任务预热缓存。',
                 'source': 'none',
                 'trade_date': None,
-                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'update_time': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
                 'items': [],
                 'advancing': 0,
                 'declining': 0,
@@ -363,7 +371,7 @@ class MarketOverviewService:
                 'message': 'Market overview loaded (Sina snapshot).',
                 'source': index_data.get('source', 'sina_index'),
                 'trade_date': latest_trade_date,
-                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'update_time': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
                 'proxy_url': None,
                 'items': items,
                 'advancing': stats_data.get('advancing', 0),
@@ -516,7 +524,7 @@ class MarketOverviewService:
                 'message': 'Market overview loaded (Tushare fallback).',
                 'source': 'tushare_pro',
                 'trade_date': latest_trade_date,
-                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'update_time': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
                 'proxy_url': DatabaseUtils.get_tushare_proxy_url(),
                 'items': items,
                 'advancing': advancing,
@@ -530,7 +538,7 @@ class MarketOverviewService:
                 'message': f'Get market overview failed: {exc}',
                 'source': 'tushare_pro',
                 'trade_date': None,
-                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'update_time': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
                 'proxy_url': DatabaseUtils.get_tushare_proxy_url(),
                 'items': [],
                 'advancing': 0,
@@ -655,7 +663,7 @@ class MarketOverviewService:
                            f'数据源暂时不可用，当前展示为本地缓存的历史数据。',
                 'source': 'local_cache',
                 'trade_date': latest_trade_date,
-                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'update_time': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
                 'proxy_url': None,
                 'items': items,
                 'advancing': 0,
@@ -670,7 +678,7 @@ class MarketOverviewService:
                 'message': f'所有数据源均不可用(Akshare/Tushare/本地数据库)，请检查网络或联系管理员。错误: {exc}',
                 'source': 'none',
                 'trade_date': None,
-                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'update_time': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
                 'proxy_url': None,
                 'items': [],
                 'advancing': 0,
@@ -706,7 +714,7 @@ class MarketOverviewService:
                 'message': '板块数据暂未就绪，请等待后台任务预热缓存。',
                 'board_type': board_type,
                 'items': [],
-                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'update_time': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
             }
 
         # 缓存时取 50 条，API 层按需裁剪（支持分页）
@@ -874,7 +882,7 @@ class MarketOverviewService:
                     'message': f'{board_type} 板块数据为空（新浪和东方财富均无数据）',
                     'board_type': board_type,
                     'items': [],
-                    'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'update_time': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
                 }
 
             # 过滤掉统计类条目
@@ -908,7 +916,7 @@ class MarketOverviewService:
                 'source': source,
                 'items': items,
                 'total': len(boards),
-                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'update_time': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
             }
         except Exception as exc:
             logger.error(f'获取{board_type}板块排行失败: {exc}')
@@ -917,7 +925,7 @@ class MarketOverviewService:
                 'message': f'板块数据获取失败: {exc}',
                 'board_type': board_type,
                 'items': [],
-                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'update_time': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
             }
 
     @staticmethod
@@ -957,7 +965,7 @@ class MarketOverviewService:
                 'success': False,
                 'message': '板块资金流向数据暂未就绪，请等待后台任务预热缓存。',
                 'items': [],
-                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'update_time': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
             }
 
         result = cls._fetch_sector_fund_flow_rank()
@@ -998,7 +1006,7 @@ class MarketOverviewService:
                 'success': False,
                 'message': '全球指数数据暂未就绪。',
                 'items': [],
-                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'update_time': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
             }
 
         result = cls._fetch_global_indices_from_sina()
@@ -1032,7 +1040,7 @@ class MarketOverviewService:
                 'success': False,
                 'message': f'获取全球指数数据失败: {exc}',
                 'items': [],
-                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'update_time': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
             }
 
         items = []
@@ -1077,7 +1085,7 @@ class MarketOverviewService:
             'success': True,
             'message': '全球指数数据已加载。',
             'items': items,
-            'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'update_time': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
         }
 
     # 东方财富板块资金流向 API（直接 HTTP 调用，不通过 AKShare）
@@ -1117,7 +1125,7 @@ class MarketOverviewService:
                     'success': False,
                     'message': '板块资金流向数据暂不可用（数据源维护中）',
                     'items': [],
-                    'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'update_time': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
                 }
 
             return {
@@ -1126,7 +1134,7 @@ class MarketOverviewService:
                 'source': source,
                 'items': items,
                 'total': len(items),
-                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'update_time': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
             }
         except Exception as exc:
             logger.error(f'获取板块资金流向排名失败: {exc}')
@@ -1134,7 +1142,7 @@ class MarketOverviewService:
                 'success': False,
                 'message': '板块资金流向数据暂不可用（数据源维护中，请稍后再试）',
                 'items': [],
-                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'update_time': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
             }
 
     @classmethod

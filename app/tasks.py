@@ -651,6 +651,10 @@ def refresh_ranking_cache():
                 ('amount', ['realtime_ranking_amount', 'realtime_ranking_volume']),
             ]:
                 try:
+                    # 先清除旧缓存，确保获取新数据
+                    for key in cache_keys:
+                        cache.delete(key)
+                    # 获取新数据（不使用缓存）
                     result = RealtimeMonitorService.get_realtime_ranking(sort_by=sort_by, limit=50)
                     for key in cache_keys:
                         cache.set(key, result, ttl=90)
@@ -696,6 +700,13 @@ def refresh_market_overview_cache():
                 overview = MarketOverviewService.fetch_fresh_overview()
             except Exception as exc:
                 logger.warning(f'[Celery] 市场概览缓存刷新失败: {exc}')
+
+            # 预热全球指数缓存
+            try:
+                MarketOverviewService.get_global_indices()
+                logger.info('[Celery] 全球指数缓存已刷新')
+            except Exception as exc:
+                logger.warning(f'[Celery] 全球指数缓存刷新失败: {exc}')
 
             # 预热所有指数的所有周期
             all_indices = ('000001.SH', '399001.SZ', '399006.SZ', '000016.SH', '000300.SH', '000905.SH', '000688.SH')
