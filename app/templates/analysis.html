@@ -1103,7 +1103,7 @@
 
 <div>
 
-<div class="realtime-card-title">实时监控</div>
+<div class="realtime-card-title">市场动态监控</div>
 
 <div class="realtime-card-subtitle">用于快速观察量能、波动与技术信号状态</div>
 
@@ -1740,7 +1740,7 @@ async function handleAnalysis(event) {
 
  } else {
 
- renderIndicatorPlaceholder(factorsResponse.message || '技术指标数据暂不可用，已先展示实时分析与实时监控。');
+ renderIndicatorPlaceholder(factorsResponse.message || '技术指标数据暂不可用，已先展示实时分析与市场动态监控。');
 
  }
 
@@ -1844,7 +1844,7 @@ function showAnalysisError() {
 
  document.getElementById('realtime-analysis-content').innerHTML = '<div class="alert alert-warning mb-0">实时分析暂未生成，请先确认股票代码和历史行情数据是否可用。</div>';
 
- document.getElementById('realtime-monitor-content').innerHTML = '<div class="alert alert-warning mb-0">实时监控暂未生成，待行情数据成功加载后会自动更新。</div>';
+ document.getElementById('realtime-monitor-content').innerHTML = '<div class="alert alert-warning mb-0">市场动态监控暂未生成，待行情数据成功加载后会自动更新。</div>';
 
  if (mainChart) {
 

@@ -51,7 +51,7 @@ def news():
 
 @main_bp.route('/monitor')
 def monitor():
-    """实时监控页面"""
+    """市场动态监控页面"""
     return render_template('realtime_monitor.html')
 
 
