@@ -764,7 +764,7 @@
         </div>
     </section>
 
-    <!-- 异常波动 -->
+    <!-- 异常波动 (已隐藏 - 功能未完成)
     <section class="monitor-section" style="margin-top:1rem;">
         <div class="section-header">
             <div class="section-title">异常波动</div>
@@ -778,6 +778,7 @@
             <div class="text-muted small">加载中...</div>
         </div>
     </section>
+    -->
 </div>
 
 <!-- 调试面板 (Ctrl+D 切换显示) -->
@@ -2034,11 +2035,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await loadDashboard('');
     syncMonitoredCodes();
-    // 并行加载排名、板块资金流向、热门板块和异常波动数据
+    // 并行加载排名、板块资金流向、热门板块数据
     loadRanking();
     loadSectorFundFlow();
     loadHotBoards('industry');
-    loadShockData();
+    // loadShockData();  // 已隐藏 - 功能未完成
 });
 </script>
 {% endblock %}
