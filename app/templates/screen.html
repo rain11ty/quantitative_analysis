@@ -352,7 +352,6 @@ document.addEventListener('DOMContentLoaded', async function() {
  });
  document.getElementById('screen-form').addEventListener('reset', function() {
  window.setTimeout(() => {
- resetDynamicConditions();
  document.getElementById('result-count').textContent = '共找到 0 只股票';
  document.getElementById('result-tip').textContent = '支持多条件组合筛选，结果默认按命中数量返回，最多展示前 200 条。';
  document.getElementById('results-container').innerHTML = `
