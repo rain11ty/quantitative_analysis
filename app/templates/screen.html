@@ -73,31 +73,6 @@
  grid-column: 1 / -1;
  margin-bottom: 0;
  }
-.dynamic-condition-row {
- border: 1px dashed var(--card-border);
- border-radius: 18px;
- padding: 1rem;
- background: rgba(0, 82, 255, 0.025);
- margin-bottom: 0.875rem;
-}
- .dynamic-condition-grid {
- display: grid;
- grid-template-columns: 1.4fr 0.8fr 1fr 1.4fr auto;
- gap: 0.75rem;
- align-items: end;
- }
- .dynamic-condition-row .form-label {
- margin-bottom: 0.4rem;
- font-size: 0.85rem;
- color: #64748b;
- }
-.dynamic-empty {
- border: 1px dashed var(--card-border);
- border-radius: 18px;
- padding: 1rem;
- color: #64748b;
- background: rgba(238, 240, 243, 0.35);
-}
  .screen-summary {
  font-size: 0.92rem;
  color: #64748b;
@@ -119,21 +94,11 @@
  .screen-action-bar .btn-modern {
  flex: 1 1 220px;
  }
- .dynamic-condition-grid {
- grid-template-columns: 1fr 1fr;
- }
- .dynamic-condition-grid .dynamic-remove-wrap {
- grid-column: 1 / -1;
- }
  }
  @media (max-width: 768px) {
  .filter-grid,
- .range-grid,
- .dynamic-condition-grid {
+ .range-grid {
  grid-template-columns: 1fr;
- }
- .dynamic-condition-grid .dynamic-remove-wrap {
- grid-column: auto;
  }
  }
 
@@ -333,16 +298,6 @@
 <input type="number" step="1" class="form-control" id="net_d5_amount_max" name="net_d5_amount_max" placeholder="最大值">
 </div>
 </div>
-<div class=”filter-group filter-group-wide shadow-sm”>
-<div class=”d-flex justify-content-between align-items-center gap-2 mb-2”>
-<h5 class=”filter-title mb-0”>动态查询条件</h5>
-<button type=”button” class=”btn btn-sm btn-outline-primary” id=”add-dynamic-condition”>添加条件</button>
-</div>
-<p class=”text-muted small mb-2”>支持字段与字段比较或字段与固定值比较，例如 <code>MA5 &gt; MA10</code>、<code>PE &lt; PB</code>。</p>
-<div id=”dynamic-conditions-container”>
-<div class=”dynamic-empty” id=”dynamic-empty-state”>暂未添加动态条件，点击右上角”添加条件”开始配置。</div>
-</div>
-</div>
 </div>
 </div>
 </form>
@@ -366,37 +321,9 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>const DYNAMIC_FIELD_OPTIONS = [
- { value: 'pe', label: 'PE' },
- { value: 'pb', label: 'PB' },
- { value: 'ps', label: 'PS' },
- { value: 'dv_ratio', label: '股息率' },
- { value: 'total_mv', label: '总市值' },
- { value: 'circ_mv', label: '流通市值' },
- { value: 'turnover_rate', label: '换手率' },
- { value: 'volume_ratio', label: '量比' },
- { value: 'factor_rsi_6', label: 'RSI(6日)' },
- { value: 'factor_kdj_k', label: 'KDJ-K' },
- { value: 'factor_macd', label: 'MACD' },
- { value: 'factor_cci', label: 'CCI' },
- { value: 'moneyflow_net_amount', label: '净流入额' },
- { value: 'moneyflow_buy_lg_amount_rate', label: '大单买入占比' },
- { value: 'moneyflow_net_d5_amount', label: '5日净流入额' },
- { value: 'daily_close', label: '收盘价' },
- { value: 'factor_pct_change', label: '涨跌幅' },
- { value: 'ma5', label: 'MA5' },
- { value: 'ma10', label: 'MA10' },
- { value: 'ma20', label: 'MA20' },
- { value: 'ma30', label: 'MA30' },
- { value: 'ma60', label: 'MA60' },
- { value: 'ma120', label: 'MA120' }
-];
-
-const OPERATOR_OPTIONS = ['>', '>=', '<', '<=', '=', '!='];
-
+<script>
 document.addEventListener('DOMContentLoaded', async function() {
  await Promise.all([loadIndustries(), loadAreas(), preloadLatestTradeDate()]);
- document.getElementById('add-dynamic-condition').addEventListener('click', addDynamicConditionRow);
  document.getElementById('screen-form').addEventListener('submit', async function(e) {
  e.preventDefault();
  const btn = document.getElementById('screen-btn');
@@ -445,124 +372,7 @@ function buildScreenPayload(form) {
  payload[key] = value.trim();
  }
  }
- const dynamicConditions = collectDynamicConditions();
- if (dynamicConditions.length > 0) {
- payload.dynamic_conditions = dynamicConditions;
- }
  return payload;
-}
-
-function collectDynamicConditions() {
- const rows = document.querySelectorAll('.dynamic-condition-row');
- const conditions = [];
- rows.forEach(row => {
- const fieldA = row.querySelector('[data-role="field-a"]').value;
- const operator = row.querySelector('[data-role="operator"]').value;
- const compareMode = row.querySelector('[data-role="compare-mode"]').value;
- const fieldB = row.querySelector('[data-role="field-b"]').value;
- const value = row.querySelector('[data-role="value"]').value.trim();
- if (!fieldA || !operator) {
- return;
- }
- if (compareMode === 'field') {
- if (!fieldB) {
- return;
- }
- conditions.push({ field_a: fieldA, operator, field_b: fieldB });
- return;
- }
- if (value === '') {
- return;
- }
- conditions.push({ field_a: fieldA, operator, value });
- });
- return conditions;
-}
-
-function addDynamicConditionRow() {
- const container = document.getElementById('dynamic-conditions-container');
- const emptyState = document.getElementById('dynamic-empty-state');
- if (emptyState) {
- emptyState.remove();
- }
- const row = document.createElement('div');
- row.className = 'dynamic-condition-row';
- row.innerHTML = `
-  <div class="dynamic-condition-grid">
-<div>
-<label class="form-label">字段 A</label>
-<select class="form-select" data-role="field-a">${buildFieldOptions()}</select>
-</div>
-<div>
-<label class="form-label">运算符</label>
-<select class="form-select" data-role="operator">${buildOperatorOptions()}</select>
-</div>
-<div>
-<label class="form-label">比较方式</label>
-<select class="form-select" data-role="compare-mode">
-<option value="field">字段比较</option>
-<option value="value">固定值</option>
-</select>
-</div>
-<div>
-<label class="form-label" data-role="compare-label">字段 B</label>
-<select class="form-select" data-role="field-b">${buildFieldOptions()}</select>
-<input type="number" step="0.01" class="form-control d-none" data-role="value" placeholder="请输入比较值">
-</div>
-<div class="dynamic-remove-wrap">
-<button type="button" class="btn btn-outline-danger w-100" data-role="remove-row">X</button>
-</div>
-</div> `;
- row.querySelector('[data-role="compare-mode"]').addEventListener('change', () => updateDynamicConditionRow(row));
- row.querySelector('[data-role="remove-row"]').addEventListener('click', () => {
- row.remove();
- ensureDynamicEmptyState();
- });
- container.appendChild(row);
- updateDynamicConditionRow(row);
-}
-
-function updateDynamicConditionRow(row) {
- const compareMode = row.querySelector('[data-role="compare-mode"]').value;
- const fieldSelect = row.querySelector('[data-role="field-b"]');
- const valueInput = row.querySelector('[data-role="value"]');
- const compareLabel = row.querySelector('[data-role="compare-label"]');
- if (compareMode === 'field') {
- fieldSelect.classList.remove('d-none');
- valueInput.classList.add('d-none');
- valueInput.value = '';
- compareLabel.textContent = '字段 B';
- } else {
- fieldSelect.classList.add('d-none');
- valueInput.classList.remove('d-none');
- fieldSelect.value = '';
- compareLabel.textContent = '固定值';
- }
-}
-
-function ensureDynamicEmptyState() {
- const container = document.getElementById('dynamic-conditions-container');
- const rowCount = container.querySelectorAll('.dynamic-condition-row').length;
- if (rowCount === 0 && !document.getElementById('dynamic-empty-state')) {
- container.innerHTML = '<div class="dynamic-empty" id="dynamic-empty-state">暂未添加动态条件，点击右上角“添加条件”开始配置。</div>';
- }
-}
-
-function resetDynamicConditions() {
- const container = document.getElementById('dynamic-conditions-container');
- container.innerHTML = '<div class="dynamic-empty" id="dynamic-empty-state">暂未添加动态条件，点击右上角“添加条件”开始配置。</div>';
-}
-
-function buildFieldOptions() {
- return ['<option value="">请选择字段</option>']
- .concat(DYNAMIC_FIELD_OPTIONS.map(item => `<option value="${item.value}">${item.label}</option>`))
- .join('');
-}
-
-function buildOperatorOptions() {
- return ['<option value="">选择</option>']
- .concat(OPERATOR_OPTIONS.map(op => `<option value="${op}">${op}</option>`))
- .join('');
 }
 
 async function loadIndustries() {
