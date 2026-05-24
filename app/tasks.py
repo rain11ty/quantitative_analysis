@@ -809,6 +809,55 @@ def refresh_sector_fund_flow_cache():
         logger.error(f'[Celery] 板块资金流向缓存刷新失败: {exc}')
 
 
+@celery_app.task(name='app.tasks.refresh_watchlist_intraday')
+def refresh_watchlist_intraday():
+    """每 60 秒预热自选股的分时走势数据（1分钟线），让用户查看自选股时能直接命中缓存。"""
+    try:
+        if not _is_in_trading_hours():
+            return {'status': 'skipped', 'reason': 'outside_trading_hours'}
+
+        if not _try_acquire_lock('lock:refresh_watchlist_intraday', ttl=50):
+            return {'status': 'skipped', 'reason': 'locked'}
+
+        from app.models.user_activity import UserWatchlist
+        from app.services.realtime_monitor_service import RealtimeMonitorService
+
+        def _do_refresh():
+            # 获取所有用户的自选股（去重）
+            watchlist_codes = (
+                db.session.query(UserWatchlist.ts_code)
+                .distinct()
+                .all()
+            )
+            codes = [row[0] for row in watchlist_codes]
+
+            if not codes:
+                logger.info('[Celery] 无自选股，跳过分时预热')
+                return {'status': 'skipped', 'reason': 'no_watchlist'}
+
+            success_count = 0
+            fail_count = 0
+            for code in codes:
+                try:
+                    RealtimeMonitorService.get_intraday_series(ts_code=code, period='1')
+                    success_count += 1
+                except Exception as exc:
+                    logger.warning(f'[Celery] 自选股分时预热失败 {code}: {exc}')
+                    fail_count += 1
+
+            logger.info(f'[Celery] 自选股分时预热完成: 成功 {success_count}, 失败 {fail_count}')
+            return {'status': 'success', 'success': success_count, 'fail': fail_count}
+
+        try:
+            result = _run_with_timeout(_do_refresh, timeout_seconds=50)
+            return result
+        except TimeoutError:
+            logger.error('[Celery] 自选股分时预热超时（50s），跳过本轮')
+
+    except Exception as exc:
+        logger.error(f'[Celery] 自选股分时预热失败: {exc}')
+
+
 @celery_app.task(name='app.tasks.health_check')
 def health_check():
     """Celery Worker 健康检查。"""

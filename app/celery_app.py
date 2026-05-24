@@ -96,6 +96,13 @@ def _build_beat_schedule() -> dict:
             'schedule': timedelta(seconds=600),
         }
 
+    # 11. 自选股分时走势预热（每 60 秒）
+    if os.getenv('WATCHLIST_INTRADAY_REFRESH_ENABLED', 'true').lower() == 'true':
+        schedule['refresh-watchlist-intraday'] = {
+            'task': 'app.tasks.refresh_watchlist_intraday',
+            'schedule': timedelta(seconds=60),
+        }
+
     # 12. 每周六补算资金流向和因子缺失数据（从2021年起）
     if os.getenv('WEEKLY_BACKFILL_ENABLED', 'true').lower() == 'true':
         schedule['weekly-backfill-moneyflow'] = {
