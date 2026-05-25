@@ -1269,6 +1269,10 @@ class RealtimeMonitorService:
         if not result or not result.get('success'):
             result = cls._fetch_ranking_from_akshare(sort_by=sort_by, limit=limit)
 
+        # ========== ④ 非交易时间降级：从数据库获取最近交易日数据 ==========
+        if not result or not result.get('success'):
+            result = cls._fetch_ranking_from_db(sort_by=sort_by, limit=limit)
+
         if result is None:
             result = {
                 'success': False,
@@ -1504,6 +1508,99 @@ class RealtimeMonitorService:
             }
         except Exception as exc:
             logger.warning(f'Akshare ranking failed: {exc}')
+            return None
+
+    @classmethod
+    def _fetch_ranking_from_db(cls, sort_by: str = 'pct_change', limit: int = 20) -> Optional[Dict[str, Any]]:
+        """从数据库获取最近交易日的排名数据（非交易时间兜底）"""
+        try:
+            from app.models.stock import StockDailyHistory, StockBasic
+
+            # 获取最近交易日
+            latest_date = db.session.query(
+                db.func.max(StockDailyHistory.trade_date)
+            ).scalar()
+
+            if not latest_date:
+                return None
+
+            # 排序字段映射
+            sort_field_map = {
+                'pct_change': StockDailyHistory.pct_chg,
+                'turnover_rate': StockDailyHistory.pct_chg,  # 日线表没有换手率，用涨跌幅代替
+                'amount': StockDailyHistory.amount,
+            }
+            sort_field = sort_field_map.get(sort_by, StockDailyHistory.pct_chg)
+
+            # 查询涨幅前 N
+            gainers_query = (
+                db.session.query(
+                    StockDailyHistory.ts_code,
+                    StockBasic.name,
+                    StockDailyHistory.close,
+                    StockDailyHistory.pct_chg,
+                    StockDailyHistory.change_c,
+                    StockDailyHistory.open,
+                    StockDailyHistory.high,
+                    StockDailyHistory.low,
+                    StockDailyHistory.vol,
+                    StockDailyHistory.amount,
+                )
+                .outerjoin(StockBasic, StockDailyHistory.ts_code == StockBasic.ts_code)
+                .filter(StockDailyHistory.trade_date == latest_date)
+                .order_by(sort_field.desc())
+                .limit(limit)
+            )
+            gainers_rows = gainers_query.all()
+
+            # 查询跌幅前 N
+            losers_query = (
+                db.session.query(
+                    StockDailyHistory.ts_code,
+                    StockBasic.name,
+                    StockDailyHistory.close,
+                    StockDailyHistory.pct_chg,
+                    StockDailyHistory.change_c,
+                    StockDailyHistory.open,
+                    StockDailyHistory.high,
+                    StockDailyHistory.low,
+                    StockDailyHistory.vol,
+                    StockDailyHistory.amount,
+                )
+                .outerjoin(StockBasic, StockDailyHistory.ts_code == StockBasic.ts_code)
+                .filter(StockDailyHistory.trade_date == latest_date)
+                .order_by(sort_field.asc())
+                .limit(limit)
+            )
+            losers_rows = losers_query.all()
+
+            def format_row(row):
+                return {
+                    'ts_code': row[0] or '',
+                    'name': row[1] or row[0] or '',
+                    'price': float(row[2]) if row[2] else None,
+                    'pct_change': float(row[3]) if row[3] else None,
+                    'change': float(row[4]) if row[4] else None,
+                    'open': float(row[5]) if row[5] else None,
+                    'high': float(row[6]) if row[6] else None,
+                    'low': float(row[7]) if row[7] else None,
+                    'volume': float(row[8]) if row[8] else 0,
+                    'amount': float(row[9]) if row[9] else 0,
+                    'turnover_rate': None,
+                }
+
+            return {
+                'success': True,
+                'message': f'涨跌幅排名已加载（{latest_date} 收盘数据）。',
+                'sort_by': sort_by,
+                'src': 'local_db',
+                'total_count': len(gainers_rows),
+                'top_gainers': [format_row(r) for r in gainers_rows],
+                'top_losers': [format_row(r) for r in losers_rows],
+                'updated_at': _now_bjt().strftime('%Y-%m-%d %H:%M:%S'),
+            }
+        except Exception as exc:
+            logger.warning(f'DB ranking fallback failed: {exc}')
             return None
 
     @classmethod
