@@ -819,34 +819,37 @@ def refresh_watchlist_intraday():
         if not _try_acquire_lock('lock:refresh_watchlist_intraday', ttl=50):
             return {'status': 'skipped', 'reason': 'locked'}
 
+        from app.extensions import db
         from app.models.user_activity import UserWatchlist
         from app.services.realtime_monitor_service import RealtimeMonitorService
 
         def _do_refresh():
-            # 获取所有用户的自选股（去重）
-            watchlist_codes = (
-                db.session.query(UserWatchlist.ts_code)
-                .distinct()
-                .all()
-            )
-            codes = [row[0] for row in watchlist_codes]
+            app = _get_app()
+            with app.app_context():
+                # 获取所有用户的自选股（去重）
+                watchlist_codes = (
+                    db.session.query(UserWatchlist.ts_code)
+                    .distinct()
+                    .all()
+                )
+                codes = [row[0] for row in watchlist_codes]
 
-            if not codes:
-                logger.info('[Celery] 无自选股，跳过分时预热')
-                return {'status': 'skipped', 'reason': 'no_watchlist'}
+                if not codes:
+                    logger.info('[Celery] 无自选股，跳过分时预热')
+                    return {'status': 'skipped', 'reason': 'no_watchlist'}
 
-            success_count = 0
-            fail_count = 0
-            for code in codes:
-                try:
-                    RealtimeMonitorService.get_intraday_series(ts_code=code, period='1')
-                    success_count += 1
-                except Exception as exc:
-                    logger.warning(f'[Celery] 自选股分时预热失败 {code}: {exc}')
-                    fail_count += 1
+                success_count = 0
+                fail_count = 0
+                for code in codes:
+                    try:
+                        RealtimeMonitorService.get_intraday_series(ts_code=code, period='1')
+                        success_count += 1
+                    except Exception as exc:
+                        logger.warning(f'[Celery] 自选股分时预热失败 {code}: {exc}')
+                        fail_count += 1
 
-            logger.info(f'[Celery] 自选股分时预热完成: 成功 {success_count}, 失败 {fail_count}')
-            return {'status': 'success', 'success': success_count, 'fail': fail_count}
+                logger.info(f'[Celery] 自选股分时预热完成: 成功 {success_count}, 失败 {fail_count}')
+                return {'status': 'success', 'success': success_count, 'fail': fail_count}
 
         try:
             result = _run_with_timeout(_do_refresh, timeout_seconds=50)

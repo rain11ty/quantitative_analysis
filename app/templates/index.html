@@ -991,14 +991,8 @@ function updateSummaryPanel(data) {
     if (total > 0) {
       const ratio = adv / total; // 0~1
       marker.style.left = (ratio * 100).toFixed(1) + '%';
-      let label, color;
-      if (ratio < 0.3)      { label = '极度恐慌'; color = '#16a34a'; }
-      else if (ratio < 0.4) { label = '恐慌';     color = '#22c55e'; }
-      else if (ratio < 0.6) { label = '中性';     color = '#eab308'; }
-      else if (ratio < 0.7) { label = '乐观';     color = '#ef4444'; }
-      else                  { label = '极度乐观'; color = '#dc2626'; }
-      textEl.textContent = `${label}  涨${adv}/跌${dec}/平${flt}`;
-      textEl.style.color = color;
+      textEl.textContent = `涨${adv}家 / 跌${dec}家 / 平${flt}家`;
+      textEl.style.color = 'var(--text-main)';
     } else {
       marker.style.left = '50%';
       textEl.textContent = '暂无数据';
